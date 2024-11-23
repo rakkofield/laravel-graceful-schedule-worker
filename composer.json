@@ -1,0 +1,22 @@
+{
+    "name": "rakko-inc/laravel-graceful-schedule-worker",
+    "description": "",
+    "license": "MIT",
+    "authors": [],
+    "require": {
+        "php": "^7.2.5 || ~8.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^8.5.40 || ^9.6.21"
+    },
+    "autoload": {
+        "psr-4": {
+            "RakkoInc\\LaravelGracefulScheduleWorker\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "RakkoInc\\LaravelGracefulScheduleWorker\\": ["tests"]
+        }
+    }
+}
