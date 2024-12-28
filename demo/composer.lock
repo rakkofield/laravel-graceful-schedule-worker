@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6e4a9dd2476552506dba12be3b05aeec",
+    "content-hash": "da7ba80efca4a40b644332eea57ec877",
     "packages": [
         {
             "name": "carbonphp/carbon-doctrine-types",
@@ -1625,6 +1625,46 @@
                 "source": "https://github.com/bobthecow/psysh/tree/v0.11.22"
             },
             "time": "2023-10-14T21:56:36+00:00"
+        },
+        {
+            "name": "rakko-inc/laravel-graceful-worker",
+            "version": "1.x-dev",
+            "dist": {
+                "type": "path",
+                "url": "..",
+                "reference": "fbc7a06dbde1a1fa86ee6687404eb46c56a04bdf"
+            },
+            "require": {
+                "ext-pcntl": "*",
+                "illuminate/console": "^6.0 || ^7.0",
+                "illuminate/support": "^6.0 || ^7.0",
+                "php": "^7.2.5 || ~8.0",
+                "symfony/console": "^4.4 || ^5.4",
+                "symfony/process": "^4.4 || ^5.4"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^8.5.40 || ^9.6.21"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "RakkoInc\\LaravelGracefulWorker\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "RakkoInc\\LaravelGracefulWorker\\": [
+                        "tests"
+                    ]
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "transport-options": {
+                "symlink": false,
+                "relative": true
+            }
         },
         {
             "name": "ramsey/uuid",
@@ -6104,7 +6144,9 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {},
+    "stability-flags": {
+        "rakko-inc/laravel-graceful-worker": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
