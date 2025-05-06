@@ -2,8 +2,10 @@
 
 namespace App\Console;
 
+use App\Console\Commands\Hello;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Illuminate\Support\Facades\Log;
 
 class Kernel extends ConsoleKernel
 {
@@ -13,7 +15,7 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-        //
+        Hello::class,
     ];
 
     /**
@@ -24,8 +26,20 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')
-        //          ->hourly();
+        $schedule->command('hello')->everyMinute()
+            ->appendOutputTo(storage_path('logs/scheduler.log'))
+            ->before(function () {
+                Log::info('hello start from Scheduler.');
+            })
+            ->onSuccess(function () {
+                Log::info('hello successful.');
+            })
+            ->onFailure(function () {
+                Log::error('hello failed.');
+            })
+            ->after(function () {
+                Log::info('hello finished.');
+            });
     }
 
     /**

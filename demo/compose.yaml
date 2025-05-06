@@ -1,0 +1,6 @@
+services:
+  php:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    command: php artisan schedule:graceful-work
