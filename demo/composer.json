@@ -65,7 +65,10 @@
             "url": "../",
             "options": {
                 "symlink": false,
-                "reference": "config"
+                "reference": "config",
+                "versions": {
+                    "rakko-inc/laravel-graceful-schedule-worker": "1.x-dev"
+                }
             }
         }
     ]

@@ -1,13 +1,18 @@
-FROM php:7.2-cli
+FROM php:7.4-cli
 
-RUN docker-php-ext-configure pcntl --enable-pcntl \
-  && docker-php-ext-install pcntl
+RUN apt-get update \
+  && apt-get install -y libzip-dev \
+  && docker-php-ext-configure pcntl --enable-pcntl \
+  && docker-php-ext-install pcntl zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
-COPY . ./
+COPY . ./demo
+COPY --from=package . .
+
+WORKDIR /app/demo
 
 RUN composer install \
     && composer run-script post-root-package-install \
