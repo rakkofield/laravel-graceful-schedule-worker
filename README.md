@@ -28,7 +28,17 @@ php artisan schedule:graceful-work --run-output-file=/path/to/schedule.log
 
 A ready-to-run sample application is located in the `demo/` directory.
 
-### Start server with Docker
+### Start a server without Docker
+
+```shell
+$ cd demo
+$ composer install
+$ cp .env.example .env
+$ php artisan key:generate
+$ php artisan schedule:graceful-work
+```
+
+### Start a server with Docker
 
 ```shell
 $ cd demo
