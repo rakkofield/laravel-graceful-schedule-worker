@@ -3,4 +3,6 @@ services:
     build:
       dockerfile: Dockerfile
       context: .
+      additional_contexts:
+        package: ../
     command: php artisan schedule:graceful-work
