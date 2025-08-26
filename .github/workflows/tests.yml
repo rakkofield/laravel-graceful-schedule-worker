@@ -1,0 +1,59 @@
+name: tests
+
+on:
+    push:
+        branches:
+            - '*.x'
+    pull_request:
+
+jobs:
+    linux_tests:
+        runs-on: ubuntu-24.04
+        strategy:
+            fail-fast: false
+            matrix:
+                php: [7.2, 7.3, 7.4, 8.0]
+                laravel: [6.18.7, 7.6.0]
+                phpunit: [8.5, 9.6]
+                stability: [prefer-lowest, prefer-stable]
+                exclude:
+                    - php: 7.2
+                      phpunit: 9.6
+        name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - PHPUnit ${{ matrix.phpunit }} - ${{ matrix.stability }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ matrix.php }}
+                  extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, gd, igbinary, msgpack, lzf, zstd, lz4, gmp, :php-psr
+                  ini-values: error_reporting=E_ALL
+                  tools: composer:v2
+                  coverage: none
+
+            - name: Get composer cache directory
+              id: composer-cache
+              run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+            - name: Cache dependencies
+              uses: actions/cache@v4
+              with:
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  key: ${{ runner.os }}-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.phpunit }}-${{ matrix.stability }}-composer-${{ hashFiles('**/composer.lock') }}
+                  restore-keys: ${{ runner.os }}-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.phpunit }}-${{ matrix.stability }}-composer-
+
+            - name: Set skeleton laravel
+              working-directory: skeleton
+              run: composer require laravel/framework:^${{ matrix.laravel }} --no-interaction --no-update
+
+            - name: Install dependencies for skeleton
+              working-directory: skeleton
+              run: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
+
+            - name: Install dependencies for test
+              run: composer install --prefer-dist --no-interaction
+
+            - name: Execute tests
+              run: vendor/bin/phpunit
