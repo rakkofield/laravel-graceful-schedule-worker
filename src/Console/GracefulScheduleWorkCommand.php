@@ -53,9 +53,11 @@ class GracefulScheduleWorkCommand extends Command
 
             if (Carbon::now()->second === 0 &&
                 ! Carbon::now()->startOfMinute()->equalTo($lastExecutionStartedAt)) {
-                $executions[] = $execution = Process::fromShellCommandline($command);
+                $execution = Process::fromShellCommandline($command);
+                $execution->setTimeout(null); // Disable timeout for cron-like behavior
 
                 $execution->start();
+                $executions[] = $execution;
 
                 $lastExecutionStartedAt = Carbon::now()->startOfMinute();
             }
