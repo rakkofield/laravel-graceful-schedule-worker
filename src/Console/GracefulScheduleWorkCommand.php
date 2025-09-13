@@ -65,6 +65,8 @@ class GracefulScheduleWorkCommand extends Command
                 }
             }
 
+            // Process management with improved array cleanup
+            $completedKeys = [];
             foreach ($executions as $key => $execution) {
                 $output = $execution->getIncrementalOutput().
                     $execution->getIncrementalErrorOutput();
@@ -72,8 +74,17 @@ class GracefulScheduleWorkCommand extends Command
                 $this->output->write(ltrim($output, "\n"));
 
                 if (! $execution->isRunning()) {
-                    unset($executions[$key]);
+                    $completedKeys[] = $key;
                 }
+            }
+
+            // Remove completed processes and rebuild array to prevent memory leaks
+            foreach ($completedKeys as $key) {
+                unset($executions[$key]);
+            }
+
+            if (count($completedKeys) > 0) {
+                $executions = array_values($executions); // Rebuild array indices
             }
         }
 
