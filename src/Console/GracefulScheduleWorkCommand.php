@@ -56,10 +56,13 @@ class GracefulScheduleWorkCommand extends Command
                 $execution = Process::fromShellCommandline($command);
                 $execution->setTimeout(null); // Disable timeout for cron-like behavior
 
-                $execution->start();
-                $executions[] = $execution;
-
-                $lastExecutionStartedAt = Carbon::now()->startOfMinute();
+                try {
+                    $execution->start();
+                    $executions[] = $execution;
+                    $lastExecutionStartedAt = Carbon::now()->startOfMinute();
+                } catch (\Exception $e) {
+                    $this->error('Failed to start scheduled task: ' . $e->getMessage());
+                }
             }
 
             foreach ($executions as $key => $execution) {
