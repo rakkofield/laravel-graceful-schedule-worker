@@ -41,11 +41,9 @@ class GracefulScheduleWorkCommand extends Command
         $executions = [];
 
         $command = Application::formatCommandString('schedule:run');
-        $useFileOutput = false;
 
         if ($this->option('run-output-file')) {
             $command .= ' >> ' . ProcessUtils::escapeArgument($this->option('run-output-file')) . ' 2>&1';
-            $useFileOutput = true;
         }
 
         $this->listenForSignal();
@@ -59,13 +57,9 @@ class GracefulScheduleWorkCommand extends Command
                 $execution->setTimeout(null); // Disable timeout for cron-like behavior
 
                 try {
-                    if ($useFileOutput) {
-                        $execution->start(); // Output already redirected to file
-                    } else {
-                        $execution->start(function ($type, $buffer) {
-                            $this->output->write($buffer); // Real-time streaming
-                        });
-                    }
+                    $execution->start(function ($type, $buffer) {
+                        $this->output->write($buffer);
+                    });
                     $executions[] = $execution;
                     $lastExecutionStartedAt = Carbon::now()->startOfMinute();
                 } catch (\Exception $e) {
@@ -86,7 +80,7 @@ class GracefulScheduleWorkCommand extends Command
                 unset($executions[$key]);
             }
 
-            if (count($completedKeys) > 0) {
+            if ($completedKeys !== []) {
                 $executions = array_values($executions); // Rebuild array indices
             }
         }
