@@ -53,22 +53,35 @@ class GracefulScheduleWorkCommand extends Command
 
             if (Carbon::now()->second === 0 &&
                 ! Carbon::now()->startOfMinute()->equalTo($lastExecutionStartedAt)) {
-                $executions[] = $execution = Process::fromShellCommandline($command);
+                $execution = Process::fromShellCommandline($command);
+                $execution->setTimeout(null); // Disable timeout for cron-like behavior
 
-                $execution->start();
-
-                $lastExecutionStartedAt = Carbon::now()->startOfMinute();
+                try {
+                    $execution->start(function ($type, $buffer) {
+                        $this->output->write($buffer);
+                    });
+                    $executions[] = $execution;
+                    $lastExecutionStartedAt = Carbon::now()->startOfMinute();
+                } catch (\Exception $e) {
+                    $this->error('Failed to start scheduled task: ' . $e->getMessage());
+                }
             }
 
+            // Process management with improved array cleanup
+            $completedKeys = [];
             foreach ($executions as $key => $execution) {
-                $output = $execution->getIncrementalOutput().
-                    $execution->getIncrementalErrorOutput();
-
-                $this->output->write(ltrim($output, "\n"));
-
                 if (! $execution->isRunning()) {
-                    unset($executions[$key]);
+                    $completedKeys[] = $key;
                 }
+            }
+
+            // Remove completed processes and rebuild array to prevent memory leaks
+            foreach ($completedKeys as $key) {
+                unset($executions[$key]);
+            }
+
+            if ($completedKeys !== []) {
+                $executions = array_values($executions); // Rebuild array indices
             }
         }
 
