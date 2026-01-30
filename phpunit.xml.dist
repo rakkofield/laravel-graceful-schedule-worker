@@ -8,7 +8,12 @@
   <php>
     <ini name="error_reporting" value="-1"/>
   </php>
-  <testsuite name="Integration">
-    <directory suffix="Test.php">./tests/Integration</directory>
-  </testsuite>
+  <testsuites>
+    <testsuite name="Unit">
+      <directory suffix="Test.php">./tests/Unit</directory>
+    </testsuite>
+    <testsuite name="Integration">
+      <directory suffix="Test.php">./tests/Integration</directory>
+    </testsuite>
+  </testsuites>
 </phpunit>
