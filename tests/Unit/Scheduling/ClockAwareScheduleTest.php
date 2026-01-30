@@ -88,4 +88,34 @@ class ClockAwareScheduleTest extends TestCase
         $this->assertEquals($fixedTime, $event2->getCurrentTime());
         $this->assertEquals($fixedTime, $event3->getCurrentTime());
     }
+
+    /**
+     * exec() はパラメータを正しく処理する
+     *
+     * @test
+     */
+    public function exec_handles_parameters_correctly()
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->exec('command', ['--foo' => 'bar', '--baz']);
+
+        $this->assertInstanceOf(ClockAwareEvent::class, $event);
+    }
+
+    /**
+     * command() はパラメータを正しく処理する
+     *
+     * @test
+     */
+    public function command_handles_parameters_correctly()
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->command('php artisan test', ['--option' => 'value']);
+
+        $this->assertInstanceOf(ClockAwareEvent::class, $event);
+    }
 }

@@ -182,4 +182,47 @@ class ClockAwareEventTest extends TestCase
         $this->assertTrue($event->isRecoverable());
         $this->assertNull($event->getGracePeriod());
     }
+
+    /**
+     * dispatchVia() returns self for method chaining
+     *
+     * @test
+     */
+    public function dispatchVia_returns_self_for_method_chaining()
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+
+        $result = $event->dispatchVia('local');
+
+        $this->assertSame($event, $result);
+    }
+
+    /**
+     * getDispatcherType() returns null by default
+     *
+     * @test
+     */
+    public function getDispatcherType_returns_null_by_default()
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+
+        $this->assertNull($event->getDispatcherType());
+    }
+
+    /**
+     * dispatchVia() sets dispatcher type
+     *
+     * @test
+     */
+    public function dispatchVia_sets_dispatcher_type()
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+
+        $event->dispatchVia('stepfunctions');
+
+        $this->assertEquals('stepfunctions', $event->getDispatcherType());
+    }
 }

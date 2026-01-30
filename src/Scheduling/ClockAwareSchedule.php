@@ -23,24 +23,6 @@ class ClockAwareSchedule extends Schedule
     }
 
     /**
-     * Add a new command event to the schedule.
-     *
-     * @param string $command
-     * @param array $parameters
-     * @return ClockAwareEvent
-     */
-    public function command($command, array $parameters = [])
-    {
-        if (class_exists($command)) {
-            $command = \Illuminate\Container\Container::getInstance()->make($command)->getName();
-        }
-
-        return $this->exec(
-            \Illuminate\Console\Application::formatCommandString($command), $parameters
-        );
-    }
-
-    /**
      * Add a new Artisan command event to the schedule.
      *
      * @param string $command
