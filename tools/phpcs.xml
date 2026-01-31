@@ -10,10 +10,34 @@
 
     <rule ref="PSR12"/>
 
-    <!-- Detect unused use statements -->
+    <!-- Target PHP version -->
+    <config name="php_version" value="70205"/>
+
+    <!-- Slevomat Coding Standard (selected rules) -->
+    <!-- Namespaces -->
     <rule ref="SlevomatCodingStandard.Namespaces.UnusedUses">
         <properties>
             <property name="searchAnnotations" value="true"/>
         </properties>
     </rule>
+    <rule ref="SlevomatCodingStandard.Namespaces.AlphabeticallySortedUses"/>
+    <rule ref="SlevomatCodingStandard.Namespaces.UselessAlias"/>
+    <rule ref="SlevomatCodingStandard.Namespaces.UseFromSameNamespace"/>
+
+    <!-- Classes -->
+    <rule ref="SlevomatCodingStandard.Classes.ClassConstantVisibility"/>
+
+    <!-- Variables -->
+    <rule ref="SlevomatCodingStandard.Variables.UnusedVariable">
+        <properties>
+            <property name="ignoreUnusedValuesWhenOnlyKeysAreUsedInForeach" value="true"/>
+        </properties>
+    </rule>
+    <rule ref="SlevomatCodingStandard.Variables.UselessVariable"/>
+
+    <!-- Exceptions -->
+    <rule ref="SlevomatCodingStandard.Exceptions.DeadCatch"/>
+
+    <!-- Arrays -->
+    <rule ref="SlevomatCodingStandard.Arrays.TrailingArrayComma"/>
 </ruleset>

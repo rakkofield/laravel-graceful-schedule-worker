@@ -9,7 +9,6 @@ use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 class ClockAwareEventTest extends TestCase
 {

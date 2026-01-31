@@ -63,7 +63,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
-                GracefulScheduleWorkCommand::class
+                GracefulScheduleWorkCommand::class,
             ]);
 
             // 設定ファイルのパブリッシュ

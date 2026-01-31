@@ -16,7 +16,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterfac
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableGracefulScheduleWorkerProvider;
-use RakkoInc\LaravelGracefulScheduleWorker\Providers\GracefulScheduleWorkerProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class GracefulScheduleWorkerProviderTest extends TestCase

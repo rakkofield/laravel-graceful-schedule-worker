@@ -8,9 +8,6 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 
 class LocalDispatcherTest extends TestCase

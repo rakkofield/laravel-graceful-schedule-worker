@@ -6,8 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatchResult;
 use Symfony\Component\Process\Process;
 
 class LocalDispatchResultTest extends TestCase

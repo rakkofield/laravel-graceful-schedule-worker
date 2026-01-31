@@ -9,8 +9,6 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;

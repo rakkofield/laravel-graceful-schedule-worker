@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 
 class SystemClockTest extends TestCase
 {
