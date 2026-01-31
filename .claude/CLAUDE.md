@@ -61,3 +61,12 @@ skeleton/            # テスト用 Laravel アプリケーション
 - ライブラリなので `Log::` などの Laravel ファサードに直接依存しない
 - `base_path()` などの Laravel ヘルパーも使用しない
 - ServiceProvider で Schedule を extend しない（利用側が ClockAwareSchedule を選択可能）
+
+## テストスタイル
+
+- メソッド命名: `test` prefix + camelCase（例: `testReturnsCurrentTime`）
+- テストID: `@testdox T1.1` 形式で PHPDoc に記述
+- `declare(strict_types=1)` 必須（src/ と tests/ 両方）
+- tearDown で `Container::setInstance(null)` を呼ぶ（Container を使用するテスト）
+- Mock 禁止: Interface には Fake、実クラスには Stub/Spy を使用
+- Fake クラスは `tests/Helper/` に配置
