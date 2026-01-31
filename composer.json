@@ -36,6 +36,7 @@
     "scripts": {
         "test": "phpunit --testdox",
         "test:coverage": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-text",
-        "test:coverage-html": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-html coverage"
+        "test:coverage-html": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-html coverage",
+        "skeleton:update": "cd skeleton && rm -rf vendor/rakko-inc && composer install --no-interaction"
     }
 }
