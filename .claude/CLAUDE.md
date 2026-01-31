@@ -96,3 +96,4 @@ skeleton/            # テスト用 Laravel アプリケーション
 
 - 複数タスクがある場合は TaskCreate でタスクリストを作成して管理
 - 独立した作業は並列実行する（複数の Write/Edit を同時に実行など）
+- プラン作成時は、実装タスクを TaskCreate で登録してから ExitPlanMode を呼ぶ
