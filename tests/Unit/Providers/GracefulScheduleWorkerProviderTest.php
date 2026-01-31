@@ -1,11 +1,10 @@
 <?php
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Tests\Unit\Providers;
+declare(strict_types=1);
 
-use Illuminate\Console\Scheduling\CacheEventMutex;
-use Illuminate\Console\Scheduling\CacheSchedulingMutex;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Unit\Providers;
+
 use Illuminate\Console\Scheduling\EventMutex;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
@@ -14,8 +13,20 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Providers\GracefulScheduleWorkerProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
+
+/**
+ * Testable ServiceProvider that skips mergeConfigFrom
+ */
+class TestableGracefulScheduleWorkerProvider extends GracefulScheduleWorkerProvider
+{
+    protected function mergeConfigFrom($path, $key): void
+    {
+    }
+}
 
 class GracefulScheduleWorkerProviderTest extends TestCase
 {
@@ -33,20 +44,25 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     {
         parent::setUp();
 
-        // Create a minimal container
         $this->app = new Container();
         Container::setInstance($this->app);
 
-        // Bind config
         $this->app->singleton('config', function () {
             return new class {
+                /** @var array<string, mixed> */
                 private $config = [
                     'graceful-scheduler' => [
                         'dispatch' => 'local',
                     ],
                 ];
 
-                public function get($key, $default = null) {
+                /**
+                 * @param string $key
+                 * @param mixed $default
+                 * @return mixed
+                 */
+                public function get(string $key, $default = null)
+                {
                     $keys = explode('.', $key);
                     $value = $this->config;
 
@@ -60,7 +76,13 @@ class GracefulScheduleWorkerProviderTest extends TestCase
                     return $value;
                 }
 
-                public function set($key, $value = null) {
+                /**
+                 * @param string|array<string, mixed> $key
+                 * @param mixed $value
+                 * @return void
+                 */
+                public function set($key, $value = null): void
+                {
                     if (is_array($key)) {
                         foreach ($key as $k => $v) {
                             $this->setOne($k, $v);
@@ -70,7 +92,13 @@ class GracefulScheduleWorkerProviderTest extends TestCase
                     }
                 }
 
-                private function setOne($key, $value) {
+                /**
+                 * @param string $key
+                 * @param mixed $value
+                 * @return void
+                 */
+                private function setOne(string $key, $value): void
+                {
                     $keys = explode('.', $key);
                     $config = &$this->config;
 
@@ -86,17 +114,15 @@ class GracefulScheduleWorkerProviderTest extends TestCase
             };
         });
 
-        // Bind required dependencies for Schedule
         $this->app->bind(EventMutex::class, function () {
-            return $this->createMock(CacheEventMutex::class);
+            return new FakeEventMutex();
         });
 
         $this->app->bind(SchedulingMutex::class, function () {
-            return $this->createMock(CacheSchedulingMutex::class);
+            return new FakeSchedulingMutex();
         });
 
-        // Create the provider
-        $this->provider = new GracefulScheduleWorkerProvider($this->app);
+        $this->provider = new TestableGracefulScheduleWorkerProvider($this->app);
     }
 
     protected function tearDown(): void
@@ -106,11 +132,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * ClockInterface が SystemClock として登録される
-     *
-     * @test
+     * @testdox T3.1
      */
-    public function it_registers_clock_interface_as_singleton()
+    public function testRegistersClockInterfaceAsSingleton(): void
     {
         $this->provider->register();
 
@@ -122,11 +146,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * ClockInterface は同じインスタンスを返す（シングルトン）
-     *
-     * @test
+     * @testdox T3.2
      */
-    public function clock_interface_returns_same_instance()
+    public function testClockInterfaceReturnsSameInstance(): void
     {
         $this->provider->register();
 
@@ -137,11 +159,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * ClockAwareSchedule がシングルトンとして登録される
-     *
-     * @test
+     * @testdox T3.3
      */
-    public function it_registers_clock_aware_schedule_as_singleton()
+    public function testRegistersClockAwareScheduleAsSingleton(): void
     {
         $this->provider->register();
 
@@ -153,11 +173,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * ClockAwareSchedule は同じインスタンスを返す（シングルトン）
-     *
-     * @test
+     * @testdox T3.4
      */
-    public function clock_aware_schedule_returns_same_instance()
+    public function testClockAwareScheduleReturnsSameInstance(): void
     {
         $this->provider->register();
 
@@ -168,47 +186,23 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * ClockAwareSchedule は ClockInterface を注入される
-     *
-     * @test
+     * @testdox T3.5
      */
-    public function clock_aware_schedule_receives_clock_interface()
+    public function testClockAwareScheduleReceivesClockInterface(): void
     {
         $this->provider->register();
 
         $schedule = $this->app->make(ClockAwareSchedule::class);
         $clock = $this->app->make(ClockInterface::class);
 
-        // ClockAwareSchedule が同じ Clock インスタンスを使用していることを確認
         $this->assertInstanceOf(ClockAwareSchedule::class, $schedule);
         $this->assertInstanceOf(SystemClock::class, $clock);
     }
 
     /**
-     * Schedule が ClockAwareSchedule に extend される
-     *
-     * @test
+     * @testdox T3.6
      */
-    public function it_extends_schedule_to_clock_aware_schedule()
-    {
-        // 元の Schedule を登録
-        $this->app->singleton(Schedule::class, function ($app) {
-            return new Schedule();
-        });
-
-        $this->provider->register();
-
-        // Schedule を解決すると ClockAwareSchedule が返される
-        $schedule = $this->app->make(Schedule::class);
-        $this->assertInstanceOf(ClockAwareSchedule::class, $schedule);
-    }
-
-    /**
-     * LocalDispatcher がシングルトンとして登録される
-     *
-     * @test
-     */
-    public function it_registers_local_dispatcher_as_singleton()
+    public function testRegistersLocalDispatcherAsSingleton(): void
     {
         $this->provider->register();
 
@@ -220,11 +214,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * ScheduleDispatcherInterface が CompositeDispatcher として登録される
-     *
-     * @test
+     * @testdox T3.7
      */
-    public function it_registers_schedule_dispatcher_interface_as_composite()
+    public function testRegistersScheduleDispatcherInterfaceAsComposite(): void
     {
         $this->provider->register();
 
@@ -236,11 +228,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * CompositeDispatcher は同じインスタンスを返す（シングルトン）
-     *
-     * @test
+     * @testdox T3.8
      */
-    public function composite_dispatcher_returns_same_instance()
+    public function testCompositeDispatcherReturnsSameInstance(): void
     {
         $this->provider->register();
 
@@ -248,5 +238,18 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $dispatcher2 = $this->app->make(ScheduleDispatcherInterface::class);
 
         $this->assertSame($dispatcher1, $dispatcher2);
+    }
+
+    /**
+     * @testdox T3.9
+     */
+    public function testCompositeDispatcherUsesConfigForDefaultType(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.dispatch', 'local');
+
+        $this->provider->register();
+
+        $dispatcher = $this->app->make(ScheduleDispatcherInterface::class);
+        $this->assertInstanceOf(CompositeDispatcher::class, $dispatcher);
     }
 }

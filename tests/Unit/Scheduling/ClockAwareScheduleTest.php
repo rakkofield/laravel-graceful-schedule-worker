@@ -1,14 +1,16 @@
 <?php
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Tests\Unit\Scheduling;
+declare(strict_types=1);
+
+namespace RakkoInc\LaravelGracefulScheduleWorker\Unit\Scheduling;
 
 use DateTimeImmutable;
-use Illuminate\Console\Scheduling\CacheEventMutex;
-use Illuminate\Console\Scheduling\CacheSchedulingMutex;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
@@ -19,17 +21,15 @@ class ClockAwareScheduleTest extends TestCase
     {
         parent::setUp();
 
-        // Setup Container for Schedule to work
         $container = new Container();
         Container::setInstance($container);
 
-        // Bind EventMutex and SchedulingMutex
         $container->bind(EventMutex::class, function () {
-            return $this->createMock(CacheEventMutex::class);
+            return new FakeEventMutex();
         });
 
         $container->bind(SchedulingMutex::class, function () {
-            return $this->createMock(CacheSchedulingMutex::class);
+            return new FakeSchedulingMutex();
         });
     }
 
@@ -38,12 +38,11 @@ class ClockAwareScheduleTest extends TestCase
         Container::setInstance(null);
         parent::tearDown();
     }
+
     /**
-     * T1.8: command() は ClockAwareEvent を返す
-     *
-     * @test
+     * @testdox T1.12
      */
-    public function it_returns_clock_aware_event_from_command()
+    public function testReturnsClockAwareEventFromCommand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $schedule = new ClockAwareSchedule($clock);
@@ -54,11 +53,9 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * T1.9: exec() は ClockAwareEvent を返す
-     *
-     * @test
+     * @testdox T1.13
      */
-    public function it_returns_clock_aware_event_from_exec()
+    public function testReturnsClockAwareEventFromExec(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $schedule = new ClockAwareSchedule($clock);
@@ -69,11 +66,9 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * T1.10: 全イベントが同じ Clock を持つ
-     *
-     * @test
+     * @testdox T1.14
      */
-    public function it_injects_same_clock_to_all_events()
+    public function testInjectsSameClockToAllEvents(): void
     {
         $fixedTime = new DateTimeImmutable('2024-01-01 12:00:00');
         $clock = new FixedClock($fixedTime);
@@ -83,18 +78,15 @@ class ClockAwareScheduleTest extends TestCase
         $event2 = $schedule->command('php artisan test2');
         $event3 = $schedule->exec('ls -la');
 
-        // すべてのイベントが同じClockから同じ時刻を取得する
         $this->assertEquals($fixedTime, $event1->getCurrentTime());
         $this->assertEquals($fixedTime, $event2->getCurrentTime());
         $this->assertEquals($fixedTime, $event3->getCurrentTime());
     }
 
     /**
-     * exec() はパラメータを正しく処理する
-     *
-     * @test
+     * @testdox T1.15
      */
-    public function exec_handles_parameters_correctly()
+    public function testExecHandlesParametersCorrectly(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $schedule = new ClockAwareSchedule($clock);
@@ -105,11 +97,9 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * command() はパラメータを正しく処理する
-     *
-     * @test
+     * @testdox T1.16
      */
-    public function command_handles_parameters_correctly()
+    public function testCommandHandlesParametersCorrectly(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $schedule = new ClockAwareSchedule($clock);

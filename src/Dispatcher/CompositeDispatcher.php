@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use Illuminate\Console\Scheduling\Event;
@@ -20,9 +22,21 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /**
      * @param array<string, ScheduleDispatcherInterface> $dispatchers
      * @param string $defaultType
+     * @throws \InvalidArgumentException dispatchers が空または defaultType が存在しない場合
      */
     public function __construct(array $dispatchers, string $defaultType)
     {
+        if (empty($dispatchers)) {
+            throw new \InvalidArgumentException('Dispatchers array cannot be empty');
+        }
+
+        if (!isset($dispatchers[$defaultType])) {
+            $availableTypes = implode(', ', array_keys($dispatchers));
+            throw new \InvalidArgumentException(
+                "Default dispatcher type '{$defaultType}' not found in dispatchers. Available types: {$availableTypes}"
+            );
+        }
+
         $this->dispatchers = $dispatchers;
         $this->defaultType = $defaultType;
     }
@@ -32,14 +46,17 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
      *
      * @param Event $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
-     * @return bool 実行が成功したかどうか
+     * @return DispatchResultInterface ディスパッチ結果
      */
-    public function dispatchEvent(Event $event, Container $container): bool
+    public function dispatchEvent(Event $event, Container $container): DispatchResultInterface
     {
         $type = $this->resolveDispatcherType($event);
 
         if (!isset($this->dispatchers[$type])) {
-            throw new \InvalidArgumentException("Unknown dispatcher type: {$type}");
+            $availableTypes = implode(', ', array_keys($this->dispatchers));
+            throw new \InvalidArgumentException(
+                "Unknown dispatcher type: {$type}. Available types: {$availableTypes}"
+            );
         }
 
         return $this->dispatchers[$type]->dispatchEvent($event, $container);

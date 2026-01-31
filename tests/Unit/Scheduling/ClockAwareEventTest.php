@@ -1,34 +1,33 @@
 <?php
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Tests\Unit\Scheduling;
+declare(strict_types=1);
+
+namespace RakkoInc\LaravelGracefulScheduleWorker\Unit\Scheduling;
 
 use DateInterval;
 use DateTimeImmutable;
-use Illuminate\Console\Scheduling\EventMutex;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 class ClockAwareEventTest extends TestCase
 {
     /**
-     * @var EventMutex
+     * @var FakeEventMutex
      */
     private $mutex;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mutex = $this->createMock(EventMutex::class);
+        $this->mutex = new FakeEventMutex();
     }
 
     /**
-     * T1.4: ClockAwareEvent は Clock を注入できる
-     *
-     * @test
+     * @testdox T1.4
      */
-    public function it_can_inject_clock()
+    public function testCanInjectClock(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -37,11 +36,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * T1.5: withGracePeriod() で猶予期間を設定できる
-     *
-     * @test
+     * @testdox T1.5
      */
-    public function it_can_set_grace_period()
+    public function testCanSetGracePeriod(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -52,11 +49,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * T1.6: enableRecovery() でリカバリを有効化できる
-     *
-     * @test
+     * @testdox T1.6
      */
-    public function it_can_enable_recovery()
+    public function testCanEnableRecovery(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -67,11 +62,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * T1.7: getCurrentTime() は Clock.now() を返す
-     *
-     * @test
+     * @testdox T1.7
      */
-    public function it_returns_current_time_from_clock()
+    public function testReturnsCurrentTimeFromClock(): void
     {
         $fixedTime = new DateTimeImmutable('2024-01-01 12:00:00');
         $clock = new FixedClock($fixedTime);
@@ -83,11 +76,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * getCurrentTime() を複数回呼んでも同じ時刻を返す（FixedClock使用時）
-     *
-     * @test
+     * @testdox T1.7.1
      */
-    public function it_returns_same_time_on_multiple_calls_with_fixed_clock()
+    public function testReturnsSameTimeOnMultipleCallsWithFixedClock(): void
     {
         $fixedTime = new DateTimeImmutable('2024-01-01 12:00:00');
         $clock = new FixedClock($fixedTime);
@@ -100,11 +91,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * デフォルトではリカバリが無効
-     *
-     * @test
+     * @testdox T1.8
      */
-    public function recoverable_is_false_by_default()
+    public function testRecoverableIsFalseByDefault(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -114,11 +103,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * T1.5拡張: withGracePeriod() で recoverable が true になる
-     *
-     * @test
+     * @testdox T1.5.1
      */
-    public function withGracePeriod_sets_recoverable_to_true()
+    public function testWithGracePeriodSetsRecoverableToTrue(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -129,11 +116,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * T1.6拡張: withGracePeriod() で正しい猶予期間が設定される
-     *
-     * @test
+     * @testdox T1.5.2
      */
-    public function withGracePeriod_sets_correct_interval()
+    public function testWithGracePeriodSetsCorrectInterval(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -152,11 +137,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * withGracePeriod(null) で無制限猶予期間になる
-     *
-     * @test
+     * @testdox T1.5.3
      */
-    public function withGracePeriod_with_null_sets_unlimited()
+    public function testWithGracePeriodWithNullSetsUnlimited(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -168,11 +151,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * T1.7拡張: enableRecovery() で recoverable が true、猶予期間が無制限になる
-     *
-     * @test
+     * @testdox T1.6.1
      */
-    public function enableRecovery_sets_recoverable_with_unlimited_grace()
+    public function testEnableRecoverySetsRecoverableWithUnlimitedGrace(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -184,11 +165,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * dispatchVia() returns self for method chaining
-     *
-     * @test
+     * @testdox T1.9
      */
-    public function dispatchVia_returns_self_for_method_chaining()
+    public function testDispatchViaReturnsSelfForMethodChaining(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -199,11 +178,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * getDispatcherType() returns null by default
-     *
-     * @test
+     * @testdox T1.10
      */
-    public function getDispatcherType_returns_null_by_default()
+    public function testGetDispatcherTypeReturnsNullByDefault(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -212,11 +189,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * dispatchVia() sets dispatcher type
-     *
-     * @test
+     * @testdox T1.11
      */
-    public function dispatchVia_sets_dispatcher_type()
+    public function testDispatchViaSetsDispatcherType(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);

@@ -1,6 +1,8 @@
 <?php
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Tests\Unit\Clock;
+declare(strict_types=1);
+
+namespace RakkoInc\LaravelGracefulScheduleWorker\Unit\Clock;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -9,11 +11,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 class SystemClockTest extends TestCase
 {
     /**
-     * T1.1: SystemClock::now() は現在時刻を返す
-     *
-     * @test
+     * @testdox T1.1
      */
-    public function it_returns_current_time()
+    public function testReturnsCurrentTime(): void
     {
         $clock = new SystemClock();
         $before = new DateTimeImmutable();
@@ -26,11 +26,9 @@ class SystemClockTest extends TestCase
     }
 
     /**
-     * T1.2: 連続呼び出しで時刻が進む
-     *
-     * @test
+     * @testdox T1.2
      */
-    public function it_advances_time_on_consecutive_calls()
+    public function testAdvancesTimeOnConsecutiveCalls(): void
     {
         $clock = new SystemClock();
         $first = $clock->now();

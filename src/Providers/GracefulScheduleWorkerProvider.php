@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Providers;
 
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
@@ -18,16 +17,18 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
 {
     public function register()
     {
+        // 設定ファイルをマージ（register時に設定が必要なため）
+        $this->mergeConfigFrom(
+            __DIR__ . '/../../config/graceful-scheduler.php',
+            'graceful-scheduler'
+        );
+
         // ClockInterface をシングルトンとして登録
         $this->app->singleton(ClockInterface::class, SystemClock::class);
 
         // ClockAwareSchedule をシングルトンとして登録
+        // 利用側が必要に応じて Schedule の代わりに使用可能
         $this->app->singleton(ClockAwareSchedule::class);
-
-        // Schedule のエイリアスとして ClockAwareSchedule を登録（オプション）
-        $this->app->extend(Schedule::class, function ($schedule, $app) {
-            return $app->make(ClockAwareSchedule::class);
-        });
 
         // LocalDispatcher を登録
         $this->app->singleton(LocalDispatcher::class);
@@ -57,13 +58,10 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
                 GracefulScheduleWorkCommand::class
             ]);
 
-            // 設定ファイルのパブリッシュとマージ
-            $configPath = __DIR__ . '/../../config/graceful-scheduler.php';
+            // 設定ファイルのパブリッシュ
             $this->publishes([
-                $configPath => config_path('graceful-scheduler.php'),
+                __DIR__ . '/../../config/graceful-scheduler.php' => config_path('graceful-scheduler.php'),
             ], 'config');
-
-            $this->mergeConfigFrom($configPath, 'graceful-scheduler');
         }
     }
 }

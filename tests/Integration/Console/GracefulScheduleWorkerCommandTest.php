@@ -73,7 +73,10 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
         ));
     }
 
-    public function testCommand(): void
+    /**
+     * @testdox T4.1
+     */
+    public function testRunsScheduledTasks(): void
     {
         $command = Application::formatCommandString('schedule:graceful-work');
         $process = Process::fromShellCommandline($command, self::SKELETON_PATH);
@@ -88,7 +91,10 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
         $this->assertStringContainsString('hello finished.', $stdout);
     }
 
-    public function testCommandWithRunOutputFile(): void
+    /**
+     * @testdox T4.2
+     */
+    public function testRedirectsOutputToFile(): void
     {
         $command = Application::formatCommandString('schedule:graceful-work') . ' --run-output-file=' . escapeshellarg(self::RUN_OUTPUT_FILE);
         $process = Process::fromShellCommandline($command, self::SKELETON_PATH);
