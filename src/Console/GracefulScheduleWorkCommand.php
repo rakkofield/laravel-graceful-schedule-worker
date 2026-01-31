@@ -32,10 +32,35 @@ class GracefulScheduleWorkCommand extends Command
     /**
      * Execute the console command.
      *
-     * @return void
+     * @return int|void
      */
     public function handle()
     {
+        $runOutputFile = $this->option('run-output-file');
+        if ($runOutputFile !== null) {
+            if (! is_string($runOutputFile)) {
+                $this->error('The --run-output-file option must be a string.');
+                return 1;
+            }
+
+            if (file_exists($runOutputFile)) {
+                if (! is_writable($runOutputFile)) {
+                    $this->error('The output file is not writable: ' . $runOutputFile);
+                    return 1;
+                }
+            } else {
+                $dir = dirname($runOutputFile);
+                if (! is_dir($dir)) {
+                    $this->error('The directory does not exist: ' . $dir);
+                    return 1;
+                }
+                if (! is_writable($dir)) {
+                    $this->error('The directory is not writable: ' . $dir);
+                    return 1;
+                }
+            }
+        }
+
         $this->info('Running scheduled tasks.');
 
         $lastExecutionStartedAt = Carbon::now()->subMinutes(10);
@@ -44,8 +69,6 @@ class GracefulScheduleWorkCommand extends Command
 
         $command = Application::formatCommandString('schedule:run');
 
-        /** @var string|null $runOutputFile */
-        $runOutputFile = $this->option('run-output-file');
         if ($runOutputFile) {
             $command .= ' >> ' . ProcessUtils::escapeArgument($runOutputFile) . ' 2>&1';
         }
