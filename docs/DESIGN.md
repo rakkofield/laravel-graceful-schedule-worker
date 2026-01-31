@@ -24,7 +24,7 @@
 
 ### プロジェクトの目的
 
-**Laravel Graceful Schedule Worker** は、Laravelのスケジュールタスクを安全かつ信頼性高く実行するためのパッケージです。DispatcherパターンによりスケジュールイベントをバックグラウンドプロセスまたはAWS Step Functionsで実行し、グレースフルシャットダウンやシグナルハンドリングを可能にすることで、コンテナ環境やクラウドプラットフォームにおける運用の安全性を向上させます。
+**Laravel Graceful Schedule Worker** は、Laravelのスケジュールタスクを安全かつ信頼性高く実行するためのパッケージです。Dispatcherパターンにより、スケジュールイベントの `command` をバックグラウンドプロセス（LocalDispatcher）またはAWS Step Functions（StepFunctionsDispatcher）で実行し、グレースフルシャットダウンやシグナルハンドリングを可能にすることで、コンテナ環境やクラウドプラットフォームにおける運用の安全性を向上させます。
 
 主な目的は以下の通りです:
 
@@ -460,7 +460,7 @@ sequenceDiagram
 
 1. **Kernel.php** が `ClockAwareSchedule` を使用してスケジュール定義を行う
 2. **`GracefulScheduleWorkCommand`** が `ScheduleDispatcherInterface` を使用してタスクを実行
-3. **`LocalDispatcher`** はイベントの command をバックグラウンドプロセスとして起動（`Process::start()`）
+3. **`LocalDispatcher`** はイベントの `command` を `Process::start()` でバックグラウンドプロセスとして起動し、非同期で実行
 4. **`StepFunctionsDispatcher`** は AWS Step Functions の `startExecution` API を呼び出し
 5. **`ExecutionTrackerInterface`** が実行履歴を記録し、取りこぼしを検出してリカバリ
 

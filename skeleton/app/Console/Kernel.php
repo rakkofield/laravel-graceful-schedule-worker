@@ -5,7 +5,6 @@ namespace App\Console;
 use App\Console\Commands\Hello;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class Kernel extends ConsoleKernel
@@ -53,11 +52,5 @@ class Kernel extends ConsoleKernel
         $this->load(__DIR__.'/Commands');
 
         require base_path('routes/console.php');
-    }
-
-    public function bootstrap()
-    {
-        Carbon::setTestNow(Carbon::create(2025, 1, 1, 0, 0, 0, 'UTC'));
-        parent::bootstrap();
     }
 }

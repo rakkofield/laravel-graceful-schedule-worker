@@ -79,10 +79,16 @@ class GracefulScheduleWorkCommand extends Command
     }
 
     /**
+     * Handle shutdown signal.
+     *
+     * This method must be public because it is registered as a callback for pcntl_signal().
+     * When PHP receives a signal, it calls this method from external context,
+     * which requires public visibility.
+     *
      * @param int $signal
      * @param mixed $siginfo
      */
-    private function shutdown($signal, $siginfo): void
+    public function shutdown($signal, $siginfo): void
     {
         unset($siginfo);
 

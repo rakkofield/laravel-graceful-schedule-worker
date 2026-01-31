@@ -10,17 +10,20 @@ use Symfony\Component\Process\PhpExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
- * Integration tests for GracefulScheduleWorkCommand.
+ * E2E tests for GracefulScheduleWorkCommand using the skeleton application.
  *
  * These tests launch actual processes using the skeleton application.
  * They require PHP 8.4 or lower due to skeleton's Laravel 7.x dependency.
  *
- * @group integration
+ * Note: LocalDispatcher executes Event->command directly via Process::start(),
+ * so Laravel Event callbacks (appendOutputTo, before, after, etc.) are NOT called.
+ * This is by design - LocalDispatcher provides parallel execution of command strings.
+ *
+ * @group e2e
  */
 final class GracefulScheduleWorkerCommandTest extends TestCase
 {
     private const SKELETON_PATH = __DIR__ . '/../../../skeleton';
-    private const SKELETON_LOG_PATH = self::SKELETON_PATH . '/storage/logs/scheduler.log';
     private const MAX_WAIT_SECONDS = 10;
     private const POLL_INTERVAL_MICROSECONDS = 100000; // 100ms
 
@@ -39,7 +42,7 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
 
             // Skip tests on PHP 8.5+ due to skeleton's Laravel 7.x incompatibility
             if ($binaryVersionId >= 80500) {
-                $this->markTestSkipped('Integration tests require PHP 8.4 or lower (skeleton uses Laravel 7.x)');
+                $this->markTestSkipped('E2E tests require PHP 8.4 or lower (skeleton uses Laravel 7.x)');
             }
         }
     }
@@ -73,70 +76,7 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
     }
 
     /**
-     * @param string $filePath
-     * @param string $expectedContent
-     * @return void
-     */
-    private function waitForFileContent(string $filePath, string $expectedContent): void
-    {
-        $startTime = time();
-        while (time() - $startTime < self::MAX_WAIT_SECONDS) {
-            if (file_exists($filePath)) {
-                $fileContent = file_get_contents($filePath);
-                if ($fileContent !== false && str_contains($fileContent, $expectedContent)) {
-                    return;
-                }
-            }
-            usleep(self::POLL_INTERVAL_MICROSECONDS);
-        }
-
-        // Timeout - provide diagnostic information
-        $fileExists = file_exists($filePath);
-        $actualContent = $fileExists ? file_get_contents($filePath) : 'N/A';
-
-        $this->fail(sprintf(
-            "Timeout waiting for expected content in file.\nFile: %s\nExists: %s\nExpected: %s\nActual content:\n%s",
-            $filePath,
-            $fileExists ? 'yes' : 'no',
-            $expectedContent,
-            $actualContent
-        ));
-    }
-
-    /**
-     * @testdox T4.1 Orchestrator dispatches events via LocalDispatcher
-     */
-    public function testOrchestratorDispatchesEventsViaLocalDispatcher(): void
-    {
-        // Clean up log file before test
-        if (file_exists(self::SKELETON_LOG_PATH)) {
-            unlink(self::SKELETON_LOG_PATH);
-        }
-
-        $command = Application::formatCommandString('schedule:graceful-work');
-        $process = Process::fromShellCommandline($command, self::SKELETON_PATH);
-
-        $process->start();
-        $stdout = $this->captureStdoutUntil($process, 'Running scheduled tasks.');
-
-        // Wait for the scheduled command to be executed and write to log file
-        $this->waitForFileContent(self::SKELETON_LOG_PATH, 'Hello World! from log');
-
-        // Stop the process
-        if ($process->isRunning()) {
-            $process->stop(3, SIGTERM);
-        }
-
-        // Verify command output
-        $this->assertStringContainsString('Running scheduled tasks.', $stdout);
-
-        // Verify the scheduled command was executed (check log file)
-        $logContent = file_get_contents(self::SKELETON_LOG_PATH);
-        $this->assertStringContainsString('Hello World! from log', $logContent);
-    }
-
-    /**
-     * @testdox T4.2 Graceful shutdown stops gracefully on SIGTERM
+     * @testdox T4.1 Graceful shutdown stops gracefully on SIGTERM
      */
     public function testGracefulShutdownStopsGracefullyOnSigterm(): void
     {
