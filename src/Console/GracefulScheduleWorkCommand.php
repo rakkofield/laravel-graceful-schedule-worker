@@ -16,8 +16,7 @@ class GracefulScheduleWorkCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'schedule:graceful-work
-        {--run-output-file= : The file to direct <info>schedule:run</info> output to}';
+    protected $signature = 'schedule:graceful-work';
 
     /**
      * The console command description.
@@ -49,19 +48,10 @@ class GracefulScheduleWorkCommand extends Command
     /**
      * Execute the console command.
      *
-     * @return 0|1
+     * @return int
      */
     public function handle()
     {
-        /** @var string|null $runOutputFile */
-        $runOutputFile = $this->option('run-output-file');
-
-        $validationError = $this->validateOutputFile($runOutputFile);
-        if ($validationError !== null) {
-            $this->error($validationError);
-            return 1;
-        }
-
         $this->info('Running scheduled tasks.');
 
         $this->listenForSignal();
@@ -78,33 +68,6 @@ class GracefulScheduleWorkCommand extends Command
         );
 
         return 0;
-    }
-
-    /**
-     * Validate the output file path.
-     *
-     * @param string|null $path
-     * @return string|null Error message if validation fails, null otherwise
-     */
-    private function validateOutputFile($path)
-    {
-        if ($path === null) {
-            return null;
-        }
-
-        if (file_exists($path)) {
-            return is_writable($path) ? null : 'The output file is not writable: ' . $path;
-        }
-
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            return 'The directory does not exist: ' . $dir;
-        }
-        if (! is_writable($dir)) {
-            return 'The directory is not writable: ' . $dir;
-        }
-
-        return null;
     }
 
     private function listenForSignal(): void
