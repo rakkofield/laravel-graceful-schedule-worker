@@ -11,6 +11,9 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Providers\GracefulScheduleWorkerProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
@@ -33,6 +36,55 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         // Create a minimal container
         $this->app = new Container();
         Container::setInstance($this->app);
+
+        // Bind config
+        $this->app->singleton('config', function () {
+            return new class {
+                private $config = [
+                    'graceful-scheduler' => [
+                        'dispatch' => 'local',
+                    ],
+                ];
+
+                public function get($key, $default = null) {
+                    $keys = explode('.', $key);
+                    $value = $this->config;
+
+                    foreach ($keys as $k) {
+                        if (!isset($value[$k])) {
+                            return $default;
+                        }
+                        $value = $value[$k];
+                    }
+
+                    return $value;
+                }
+
+                public function set($key, $value = null) {
+                    if (is_array($key)) {
+                        foreach ($key as $k => $v) {
+                            $this->setOne($k, $v);
+                        }
+                    } else {
+                        $this->setOne($key, $value);
+                    }
+                }
+
+                private function setOne($key, $value) {
+                    $keys = explode('.', $key);
+                    $config = &$this->config;
+
+                    foreach ($keys as $k) {
+                        if (!isset($config[$k]) || !is_array($config[$k])) {
+                            $config[$k] = [];
+                        }
+                        $config = &$config[$k];
+                    }
+
+                    $config = $value;
+                }
+            };
+        });
 
         // Bind required dependencies for Schedule
         $this->app->bind(EventMutex::class, function () {
@@ -149,5 +201,52 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         // Schedule を解決すると ClockAwareSchedule が返される
         $schedule = $this->app->make(Schedule::class);
         $this->assertInstanceOf(ClockAwareSchedule::class, $schedule);
+    }
+
+    /**
+     * LocalDispatcher がシングルトンとして登録される
+     *
+     * @test
+     */
+    public function it_registers_local_dispatcher_as_singleton()
+    {
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound(LocalDispatcher::class));
+        $this->assertTrue($this->app->isShared(LocalDispatcher::class));
+
+        $dispatcher = $this->app->make(LocalDispatcher::class);
+        $this->assertInstanceOf(LocalDispatcher::class, $dispatcher);
+    }
+
+    /**
+     * ScheduleDispatcherInterface が CompositeDispatcher として登録される
+     *
+     * @test
+     */
+    public function it_registers_schedule_dispatcher_interface_as_composite()
+    {
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound(ScheduleDispatcherInterface::class));
+        $this->assertTrue($this->app->isShared(ScheduleDispatcherInterface::class));
+
+        $dispatcher = $this->app->make(ScheduleDispatcherInterface::class);
+        $this->assertInstanceOf(CompositeDispatcher::class, $dispatcher);
+    }
+
+    /**
+     * CompositeDispatcher は同じインスタンスを返す（シングルトン）
+     *
+     * @test
+     */
+    public function composite_dispatcher_returns_same_instance()
+    {
+        $this->provider->register();
+
+        $dispatcher1 = $this->app->make(ScheduleDispatcherInterface::class);
+        $dispatcher2 = $this->app->make(ScheduleDispatcherInterface::class);
+
+        $this->assertSame($dispatcher1, $dispatcher2);
     }
 }
