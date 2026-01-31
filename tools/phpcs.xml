@@ -9,9 +9,4 @@
     <arg value="sp"/>
 
     <rule ref="PSR12"/>
-
-    <!-- Allow multiple classes in test files (for test helpers/stubs) -->
-    <rule ref="PSR1.Classes.ClassDeclaration.MultipleClasses">
-        <exclude-pattern>*/tests/*</exclude-pattern>
-    </rule>
 </ruleset>

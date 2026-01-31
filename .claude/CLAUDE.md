@@ -88,7 +88,7 @@ skeleton/            # テスト用 Laravel アプリケーション
 - `declare(strict_types=1)` 必須（src/ と tests/ 両方）
 - tearDown で `Container::setInstance(null)` を呼ぶ（Container を使用するテスト）
 - Mock 禁止: Interface には Fake、実クラスには Stub/Spy を使用
-- Fake クラスは `tests/Helper/` に配置
+- テスト用ヘルパークラス（Fake, Stub, Spy, Testable 等）は `tests/Helper/` に配置（1ファイル1クラスを維持）
 
 ## 作業方針
 

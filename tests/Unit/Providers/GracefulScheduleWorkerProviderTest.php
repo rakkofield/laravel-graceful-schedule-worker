@@ -15,18 +15,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableGracefulScheduleWorkerProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Providers\GracefulScheduleWorkerProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
-
-/**
- * Testable ServiceProvider that skips mergeConfigFrom
- */
-class TestableGracefulScheduleWorkerProvider extends GracefulScheduleWorkerProvider
-{
-    protected function mergeConfigFrom($path, $key): void
-    {
-    }
-}
 
 class GracefulScheduleWorkerProviderTest extends TestCase
 {
