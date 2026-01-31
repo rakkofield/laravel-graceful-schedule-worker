@@ -17,7 +17,8 @@ class GracefulScheduleWorkCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'schedule:graceful-work {--run-output-file= : The file to direct <info>schedule:run</info> output to}';
+    protected $signature = 'schedule:graceful-work
+        {--run-output-file= : The file to direct <info>schedule:run</info> output to}';
 
     /**
      * The console command description.

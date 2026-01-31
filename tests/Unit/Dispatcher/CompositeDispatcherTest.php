@@ -212,7 +212,9 @@ class CompositeDispatcherTest extends TestCase
         $localDispatcher = new FakeDispatcher($localResult);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage("Default dispatcher type 'nonexistent' not found in dispatchers. Available types: local");
+        $this->expectExceptionMessage(
+            "Default dispatcher type 'nonexistent' not found in dispatchers. Available types: local"
+        );
 
         new CompositeDispatcher(
             ['local' => $localDispatcher],

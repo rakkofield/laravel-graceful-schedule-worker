@@ -85,7 +85,9 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
         $stdout = $this->captureStdoutUntil($process, 'hello finished.');
 
         $this->assertStringContainsString('Running scheduled tasks.', $stdout);
-        $this->assertStringContainsString("Running scheduled command: '" . PHP_BINARY . "' 'artisan' hello >> '" . realpath(self::SKELETON_LOG_PATH) . "' 2>&1", $stdout);
+        $expectedCommand = "Running scheduled command: '" . PHP_BINARY . "' 'artisan' hello >> '"
+            . realpath(self::SKELETON_LOG_PATH) . "' 2>&1";
+        $this->assertStringContainsString($expectedCommand, $stdout);
         $this->assertStringContainsString('hello start from Scheduler.', $stdout);
         $this->assertStringContainsString('hello successful.', $stdout);
         $this->assertStringContainsString('hello finished.', $stdout);
@@ -96,7 +98,8 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
      */
     public function testRedirectsOutputToFile(): void
     {
-        $command = Application::formatCommandString('schedule:graceful-work') . ' --run-output-file=' . escapeshellarg(self::RUN_OUTPUT_FILE);
+        $command = Application::formatCommandString('schedule:graceful-work')
+            . ' --run-output-file=' . escapeshellarg(self::RUN_OUTPUT_FILE);
         $process = Process::fromShellCommandline($command, self::SKELETON_PATH);
 
         $process->start();
@@ -117,7 +120,9 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
         // Verify output file contains schedule:run output and logs
         $this->assertFileExists(self::RUN_OUTPUT_FILE);
         $fileContent = file_get_contents(self::RUN_OUTPUT_FILE);
-        $this->assertStringContainsString("Running scheduled command: '" . PHP_BINARY . "' 'artisan' hello >> '" . realpath(self::SKELETON_LOG_PATH) . "' 2>&1", $fileContent);
+        $expectedCommand = "Running scheduled command: '" . PHP_BINARY . "' 'artisan' hello >> '"
+            . realpath(self::SKELETON_LOG_PATH) . "' 2>&1";
+        $this->assertStringContainsString($expectedCommand, $fileContent);
         $this->assertStringContainsString('hello start from Scheduler.', $fileContent);
         $this->assertStringContainsString('hello successful.', $fileContent);
         $this->assertStringContainsString('hello finished.', $fileContent);
