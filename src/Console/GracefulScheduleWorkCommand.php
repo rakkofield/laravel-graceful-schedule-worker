@@ -32,33 +32,17 @@ class GracefulScheduleWorkCommand extends Command
     /**
      * Execute the console command.
      *
-     * @return int|void
+     * @return 0|1
      */
     public function handle()
     {
+        /** @var string|null $runOutputFile */
         $runOutputFile = $this->option('run-output-file');
-        if ($runOutputFile !== null) {
-            if (! is_string($runOutputFile)) {
-                $this->error('The --run-output-file option must be a string.');
-                return 1;
-            }
 
-            if (file_exists($runOutputFile)) {
-                if (! is_writable($runOutputFile)) {
-                    $this->error('The output file is not writable: ' . $runOutputFile);
-                    return 1;
-                }
-            } else {
-                $dir = dirname($runOutputFile);
-                if (! is_dir($dir)) {
-                    $this->error('The directory does not exist: ' . $dir);
-                    return 1;
-                }
-                if (! is_writable($dir)) {
-                    $this->error('The directory is not writable: ' . $dir);
-                    return 1;
-                }
-            }
+        $validationError = $this->validateOutputFile($runOutputFile);
+        if ($validationError !== null) {
+            $this->error($validationError);
+            return 1;
         }
 
         $this->info('Running scheduled tasks.');
@@ -124,6 +108,35 @@ class GracefulScheduleWorkCommand extends Command
                 );
             }
         }
+
+        return 0;
+    }
+
+    /**
+     * Validate the output file path.
+     *
+     * @param string|null $path
+     * @return string|null Error message if validation fails, null otherwise
+     */
+    private function validateOutputFile($path)
+    {
+        if ($path === null) {
+            return null;
+        }
+
+        if (file_exists($path)) {
+            return is_writable($path) ? null : 'The output file is not writable: ' . $path;
+        }
+
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            return 'The directory does not exist: ' . $dir;
+        }
+        if (! is_writable($dir)) {
+            return 'The directory is not writable: ' . $dir;
+        }
+
+        return null;
     }
 
     private function listenForSignal(): void

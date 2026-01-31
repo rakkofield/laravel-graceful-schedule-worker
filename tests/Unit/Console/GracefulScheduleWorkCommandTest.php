@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Console\GracefulScheduleWorkCommand;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -31,24 +30,26 @@ class GracefulScheduleWorkCommandTest extends TestCase
 
     private function cleanupTempDir(): void
     {
-        if (is_dir($this->tempDir)) {
-            $files = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($this->tempDir, \RecursiveDirectoryIterator::SKIP_DOTS),
-                \RecursiveIteratorIterator::CHILD_FIRST
-            );
-
-            foreach ($files as $file) {
-                if ($file->isDir()) {
-                    chmod($file->getRealPath(), 0755);
-                    rmdir($file->getRealPath());
-                } else {
-                    chmod($file->getRealPath(), 0644);
-                    unlink($file->getRealPath());
-                }
-            }
-
-            rmdir($this->tempDir);
+        if (! is_dir($this->tempDir)) {
+            return;
         }
+
+        // Clean up files and subdirectories
+        foreach (scandir($this->tempDir) as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $this->tempDir . '/' . $item;
+            if (is_dir($path)) {
+                chmod($path, 0755);
+                rmdir($path);
+            } else {
+                chmod($path, 0644);
+                unlink($path);
+            }
+        }
+
+        rmdir($this->tempDir);
     }
 
     /**
