@@ -15,9 +15,10 @@ use Symfony\Component\Process\Process;
  * These tests launch actual processes using the skeleton application.
  * They require PHP 8.4 or lower due to skeleton's Laravel 7.x dependency.
  *
- * Note: LocalDispatcher executes Event->command directly via Process::start(),
- * so Laravel Event callbacks (appendOutputTo, before, after, etc.) are NOT called.
- * This is by design - LocalDispatcher provides parallel execution of command strings.
+ * LocalDispatcher now uses buildCommand() to construct the full command including:
+ * - Output redirection (appendOutputTo, sendOutputTo)
+ * - schedule:finish call (which triggers afterCallbacks via Artisan command)
+ * beforeCallbacks are called synchronously in the parent process before dispatch.
  *
  * @group e2e
  */

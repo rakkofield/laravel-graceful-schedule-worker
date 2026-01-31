@@ -1208,12 +1208,37 @@ interface ExecutionTrackerInterface
 ### LocalDispatcher
 
 **責務**:
-- イベントの command をバックグラウンドプロセスとして起動（`Process::start()`）
+- `beforeCallbacks` を親プロセスで同期実行
+- `buildCommand()` を使用して完全なコマンドを構築（出力リダイレクト、schedule:finish を含む）
+- 構築されたコマンドをバックグラウンドプロセスとして起動（`Process::start()`）
 - プロセスのライフサイクル管理（起動、監視、グレースフルシャットダウン）
 - メモリリーク防止のための完了プロセスのクリーンアップ
 
+**動作フロー**:
+```
+1. LocalDispatcher.dispatchEvent()
+   ├── callBeforeCallbacks()          ← 親プロセスで同期実行
+   ├── buildCommand()                 ← schedule:finish を含むコマンド構築
+   └── Process::start()               ← バックグラウンド実行
+
+2. シェルで実行
+   ├── original_command > output      ← 出力がファイルにリダイレクト
+   └── schedule:finish "mutex" "$?"   ← 終了コードを渡す
+
+3. schedule:finish（別プロセス）
+   └── callAfterCallbacksWithExitCode() ← onSuccess/onFailure/after を実行
+```
+
+**サポートする Laravel Event 機能**:
+- `before()` / `beforeCallbacks` - 親プロセスで同期実行
+- `after()` / `then()` / `afterCallbacks` - schedule:finish 経由で実行
+- `onSuccess()` / `onFailure()` - schedule:finish 経由で実行
+- `sendOutputTo()` / `appendOutputTo()` - buildCommand() に含まれる
+- `pingBefore()` / `thenPing()` - コールバックとして動作
+
 **重要なポイント**:
 - `Process::start()` による非同期実行で並行処理を実現
+- `runInBackground` を一時的に true にして buildCommand() を呼び出し、元に戻す
 - Dispatcher パターンにより実行方法を抽象化
 
 ### StepFunctionsDispatcher

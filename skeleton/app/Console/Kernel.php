@@ -27,6 +27,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('hello')->everyMinute()
+            ->runInBackground()
             ->appendOutputTo(storage_path('logs/scheduler.log'))
             ->before(function () {
                 Log::info('hello start from Scheduler.');

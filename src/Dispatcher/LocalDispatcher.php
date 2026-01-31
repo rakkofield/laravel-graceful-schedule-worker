@@ -13,7 +13,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     /**
      * 単一イベントをディスパッチする
      *
-     * Event の command を Process::start() でバックグラウンド実行します。
+     * Event をバックグラウンドプロセスとして実行します。
+     * - beforeCallbacks を親プロセスで同期実行
+     * - runInBackground を強制 true にして buildCommand() を呼び出し
+     *   （これにより schedule:finish が含まれ、afterCallbacks が動作する）
+     * - Process::start() でバックグラウンド実行
      *
      * @param Event $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
@@ -21,16 +25,26 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(Event $event, Container $container): DispatchResultInterface
     {
-        $command = $event->command;
         $identifier = $event->mutexName();
 
         try {
-            $process = Process::fromShellCommandLine($command);
+            // 1. beforeCallbacks を呼ぶ
+            $event->callBeforeCallbacks($container);
+
+            // 2. runInBackground を強制的に true にして buildCommand を呼ぶ
+            //    これにより schedule:finish が含まれ、afterCallbacks が動作する
+            $originalRunInBackground = $event->runInBackground;
+            $event->runInBackground = true;
+            $fullCommand = $event->buildCommand();
+            $event->runInBackground = $originalRunInBackground;
+
+            // 3. Process::start() でバックグラウンド実行
+            $process = Process::fromShellCommandLine($fullCommand);
             $process->start();
 
-            return LocalDispatchResult::success($process, $identifier, $command);
+            return LocalDispatchResult::success($process, $identifier, $fullCommand);
         } catch (\Throwable $e) {
-            return LocalDispatchResult::failed($identifier, $command, get_class($e) . ': ' . $e->getMessage());
+            return LocalDispatchResult::failed($identifier, $event->command, get_class($e) . ': ' . $e->getMessage());
         }
     }
 }

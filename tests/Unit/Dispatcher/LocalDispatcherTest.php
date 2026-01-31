@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyCallbackEvent;
 
 class LocalDispatcherTest extends TestCase
 {
@@ -42,6 +43,11 @@ class LocalDispatcherTest extends TestCase
     private function createEvent(string $command): Event
     {
         return new Event($this->mutex, $command);
+    }
+
+    private function createSpyEvent(string $command): SpyCallbackEvent
+    {
+        return new SpyCallbackEvent($this->mutex, $command);
     }
 
     /**
@@ -94,7 +100,8 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertSame('php artisan report:daily', $result->getEventCommand());
+        // buildCommand() により元のコマンドが含まれたフルコマンドが返される
+        $this->assertStringContainsString('php artisan report:daily', $result->getEventCommand());
     }
 
     /**
@@ -170,5 +177,62 @@ class LocalDispatcherTest extends TestCase
         $this->assertTrue($result->isRunning());
 
         $result->getProcess()->stop(0);
+    }
+
+    /**
+     * @testdox T2.11 beforeCallbacks are called before dispatch
+     */
+    public function testBeforeCallbacksAreCalledBeforeDispatch(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createSpyEvent('echo test');
+
+        $dispatcher->dispatchEvent($event, $this->app);
+
+        $this->assertTrue($event->wasBeforeCallbacksCalled());
+    }
+
+    /**
+     * @testdox T2.12 buildCommand includes schedule:finish
+     */
+    public function testBuildCommandIncludesScheduleFinish(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createEvent('echo test');
+
+        $result = $dispatcher->dispatchEvent($event, $this->app);
+
+        // buildCommand() が呼ばれると schedule:finish が含まれる
+        $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
+    }
+
+    /**
+     * @testdox T2.13 runInBackground is restored after buildCommand
+     */
+    public function testRunInBackgroundIsRestoredAfterBuildCommand(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createEvent('echo test');
+        $event->runInBackground = false;
+
+        $dispatcher->dispatchEvent($event, $this->app);
+
+        // runInBackground は元の値に復元されている
+        $this->assertFalse($event->runInBackground);
+    }
+
+    /**
+     * @testdox T2.14 output redirection is included in command
+     */
+    public function testOutputRedirectionIsIncludedInCommand(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createEvent('echo test');
+        $event->sendOutputTo('/tmp/test-output.log');
+
+        $result = $dispatcher->dispatchEvent($event, $this->app);
+
+        // buildCommand() により出力リダイレクトが含まれる
+        $this->assertStringContainsString('/tmp/test-output.log', $result->getEventCommand());
     }
 }
