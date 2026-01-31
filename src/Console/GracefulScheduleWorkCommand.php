@@ -38,14 +38,16 @@ class GracefulScheduleWorkCommand extends Command
     {
         $this->info('Running scheduled tasks.');
 
-        /** @var $executions array<Process> */
         $lastExecutionStartedAt = Carbon::now()->subMinutes(10);
+        /** @var array<Process> $executions */
         $executions = [];
 
         $command = Application::formatCommandString('schedule:run');
 
-        if ($this->option('run-output-file')) {
-            $command .= ' >> ' . ProcessUtils::escapeArgument($this->option('run-output-file')) . ' 2>&1';
+        /** @var string|null $runOutputFile */
+        $runOutputFile = $this->option('run-output-file');
+        if ($runOutputFile) {
+            $command .= ' >> ' . ProcessUtils::escapeArgument($runOutputFile) . ' 2>&1';
         }
 
         $this->listenForSignal();
@@ -62,6 +64,7 @@ class GracefulScheduleWorkCommand extends Command
 
                 try {
                     $execution->start(function ($type, $buffer) {
+                        /** @var string $buffer */
                         $this->output->write($buffer);
                     });
                     $executions[] = $execution;

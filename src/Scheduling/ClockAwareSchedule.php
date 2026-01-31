@@ -28,7 +28,7 @@ class ClockAwareSchedule extends Schedule
      * Add a new Artisan command event to the schedule.
      *
      * @param string $command
-     * @param array $parameters
+     * @param array<string, mixed> $parameters
      * @return ClockAwareEvent
      */
     public function exec($command, array $parameters = [])
