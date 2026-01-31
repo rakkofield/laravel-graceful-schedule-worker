@@ -34,36 +34,55 @@ TDD アプローチを採用し、各実装の前にテストを作成する。
 
 ---
 
-## Phase 2: Dispatcher 分離（後方互換維持）
+## Phase 2: Dispatcher 分離（後方互換維持）+ DispatchResult 導入
 
-**目的**: 既存のロジックを Dispatcher パターンに移行し、後方互換性を維持する
+**目的**: 既存のロジックを Dispatcher パターンに移行し、DispatchResult による型安全な結果管理とバックグラウンド実行を実現する
 
-### タスク一覧
+### Phase 2.1: 基盤実装（完了）
+
+| # | タスク | 成果物 | 状態 |
+|---|--------|--------|------|
+| 2.1.1 | ScheduleDispatcherInterface を作成 | `src/Dispatcher/ScheduleDispatcherInterface.php` | ✅ |
+| 2.1.2 | LocalDispatcher を実装（同期実行） | `src/Dispatcher/LocalDispatcher.php` | ✅ |
+| 2.1.3 | CompositeDispatcher を実装 | `src/Dispatcher/CompositeDispatcher.php` | ✅ |
+| 2.1.4 | 設定ファイルを追加 | `config/graceful-scheduler.php` | ✅ |
+| 2.1.5 | ServiceProvider で Dispatcher をバインド | `src/Providers/GracefulScheduleWorkerProvider.php` | ✅ |
+| 2.1.6 | テスト作成 | `tests/Unit/Dispatcher/*Test.php` | ✅ |
+| 2.1.7 | DESIGN.md を更新 | `docs/DESIGN.md` | ✅ |
+
+### Phase 2.2: DispatchResult 導入 + バックグラウンド実行
 
 | # | タスク | 成果物 | TDD対応テスト |
 |---|--------|--------|---------------|
-| 2.1 | ScheduleDispatcherInterface を作成 | `src/Dispatcher/ScheduleDispatcherInterface.php` | - |
-| 2.2 | LocalDispatcher のユニットテスト作成 | `tests/Unit/Dispatcher/LocalDispatcherTest.php` | T2.1〜T2.2 |
-| 2.3 | LocalDispatcher を実装（既存ロジック抽出） | `src/Dispatcher/LocalDispatcher.php` | - |
-| 2.4 | CompositeDispatcher のユニットテスト作成 | `tests/Unit/Dispatcher/CompositeDispatcherTest.php` | T2.5〜T2.8 |
-| 2.5 | CompositeDispatcher を実装 | `src/Dispatcher/CompositeDispatcher.php` | - |
-| 2.6 | 設定ファイルを追加 | `config/graceful-scheduler.php` | - |
-| 2.7 | GracefulScheduleWorkCommand をリファクタリング | `src/Console/GracefulScheduleWorkCommand.php` (更新) | - |
-| 2.8 | ServiceProvider で Dispatcher をバインド | `src/Providers/GracefulScheduleWorkerProvider.php` (更新) | - |
-| 2.9 | ServiceProvider テスト更新 | `tests/Unit/Providers/GracefulScheduleWorkerProviderTest.php` (更新) | - |
-| 2.10 | 既存テストの確認・修正 | 全テスト通過確認 | - |
-| 2.11 | カバレッジ確認（100%目標） | `composer test:coverage` | - |
-| 2.12 | `/pr-review-toolkit:review-pr` でレビュー実施 | レビュー結果 | - |
-| 2.13 | レビューフィードバック対応 | 修正・テスト追加 | - |
+| 2.2.1 | DispatchResultInterface を作成 | `src/Dispatcher/DispatchResultInterface.php` | - |
+| 2.2.2 | LocalDispatchResult クラス作成 + テスト | `src/Dispatcher/LocalDispatchResult.php`, `tests/Unit/Dispatcher/LocalDispatchResultTest.php` | - |
+| 2.2.3 | ScheduleDispatcherInterface の戻り値変更 | `src/Dispatcher/ScheduleDispatcherInterface.php` (更新) | - |
+| 2.2.4 | LocalDispatcher のバックグラウンド対応 | `src/Dispatcher/LocalDispatcher.php` (更新) | T2.1〜T2.2 更新 |
+| 2.2.5 | CompositeDispatcher のコンストラクタ検証 + 戻り値対応 | `src/Dispatcher/CompositeDispatcher.php` (更新) | T2.5〜T2.8 更新 |
+| 2.2.6 | ServiceProvider の設定マージ修正 | `src/Providers/GracefulScheduleWorkerProvider.php` (更新) | - |
+| 2.2.7 | テスト更新 | 各テストファイル (更新) | - |
+
+### Phase 2.3: 検証・レビュー
+
+| # | タスク | 成果物 |
+|---|--------|--------|
+| 2.3.1 | 既存テストの確認・修正 | 全テスト通過確認 |
+| 2.3.2 | カバレッジ確認（100%目標） | `composer test:coverage` |
+| 2.3.3 | `/pr-review-toolkit:review-pr` でレビュー実施 | レビュー結果 |
+| 2.3.4 | レビューフィードバック対応 | 修正・テスト追加 |
 
 ### 検証
 
-- [ ] Phase 2 の全ユニットテスト（T2.1〜T2.2, T2.5〜T2.8）が通過
+- [ ] Phase 2 の全ユニットテスト（T2.1〜T2.8）が通過
+- [ ] DispatchResultInterface が定義され、LocalDispatcher が実装
+- [ ] LocalDispatcher がバックグラウンドプロセス (Process::start()) で実行
+- [ ] CompositeDispatcher のコンストラクタで検証が機能し、無効な設定で例外
 - [ ] ServiceProvider テストが更新され通過すること
 - [ ] 既存のテストが全て通過すること
 - [ ] デモアプリケーションで動作確認
 - [ ] config による切り替えが動作すること
 - [ ] 新規実装コードのカバレッジ 100%
+- [ ] 並行ディスパッチが機能すること（複数イベント同時実行）
 - [ ] `/pr-review-toolkit:review-pr` レビュー完了
 - [ ] フィードバック対応完了・再テスト通過
 
