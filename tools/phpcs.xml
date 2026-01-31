@@ -9,4 +9,11 @@
     <arg value="sp"/>
 
     <rule ref="PSR12"/>
+
+    <!-- Detect unused use statements -->
+    <rule ref="SlevomatCodingStandard.Namespaces.UnusedUses">
+        <properties>
+            <property name="searchAnnotations" value="true"/>
+        </properties>
+    </rule>
 </ruleset>
