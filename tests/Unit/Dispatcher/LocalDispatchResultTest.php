@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Unit\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;

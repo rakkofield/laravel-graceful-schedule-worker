@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Unit\Scheduling;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateInterval;
 use DateTimeImmutable;

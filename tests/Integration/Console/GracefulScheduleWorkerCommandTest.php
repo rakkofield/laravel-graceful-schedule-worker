@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Integration\Console;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use Illuminate\Console\Application;
 use PHPUnit\Framework\TestCase;

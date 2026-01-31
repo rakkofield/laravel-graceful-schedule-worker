@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Unit\Clock;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;

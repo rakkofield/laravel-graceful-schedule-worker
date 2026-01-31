@@ -22,7 +22,11 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "RakkoInc\\LaravelGracefulScheduleWorker\\": "tests/"
+            "RakkoInc\\LaravelGracefulScheduleWorker\\": [
+                "tests/Unit/",
+                "tests/Integration/"
+            ],
+            "RakkoInc\\LaravelGracefulScheduleWorker\\Helper\\": "tests/Helper/"
         }
     },
     "extra": {

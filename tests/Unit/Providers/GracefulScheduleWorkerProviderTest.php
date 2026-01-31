@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Unit\Providers;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Providers;
 
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\SchedulingMutex;
