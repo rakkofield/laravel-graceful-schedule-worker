@@ -44,8 +44,10 @@ PHP_BINARY=/path/to/php8.1 composer phpstan
 
 タスクが完了したら、確認を待たずに以下を実行する：
 
-1. `composer test` でテスト実行
-2. テストが通ればコミットを作成
+1. `composer phpstan` で静的解析
+2. `composer phpcs` でコーディング規約チェック
+3. `composer test` でテスト実行
+4. すべて通ればコミットを作成
 
 ## PHP バージョン
 
