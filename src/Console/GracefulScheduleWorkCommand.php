@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
-use Illuminate\Console\Application;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\ProcessUtils;
-use Symfony\Component\Process\Process;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Foundation\Application;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 
 class GracefulScheduleWorkCommand extends Command
 {
@@ -30,6 +29,23 @@ class GracefulScheduleWorkCommand extends Command
     /** @var bool */
     private $running = true;
 
+    /** @var ScheduleOrchestratorInterface */
+    private $orchestrator;
+
+    /** @var Schedule */
+    private $schedule;
+
+    /**
+     * @param ScheduleOrchestratorInterface $orchestrator
+     * @param Schedule $schedule
+     */
+    public function __construct(ScheduleOrchestratorInterface $orchestrator, Schedule $schedule)
+    {
+        parent::__construct();
+        $this->orchestrator = $orchestrator;
+        $this->schedule = $schedule;
+    }
+
     /**
      * Execute the console command.
      *
@@ -48,67 +64,18 @@ class GracefulScheduleWorkCommand extends Command
 
         $this->info('Running scheduled tasks.');
 
-        $lastExecutionStartedAt = Carbon::now()->subMinutes(10);
-        /** @var array<Process> $executions */
-        $executions = [];
-
-        $command = Application::formatCommandString('schedule:run');
-
-        if ($runOutputFile) {
-            $command .= ' >> ' . ProcessUtils::escapeArgument($runOutputFile) . ' 2>&1';
-        }
-
         $this->listenForSignal();
 
-        while ($this->running) {
-            usleep(100 * 1000);
+        /** @var Application $app */
+        $app = $this->laravel;
 
-            if (
-                Carbon::now()->second === 0 &&
-                ! Carbon::now()->startOfMinute()->equalTo($lastExecutionStartedAt)
-            ) {
-                $execution = Process::fromShellCommandline($command);
-                $execution->setTimeout(null); // Disable timeout for cron-like behavior
-
-                try {
-                    $execution->start(function ($type, $buffer) {
-                        /** @var string $buffer */
-                        $this->output->write($buffer);
-                    });
-                    $executions[] = $execution;
-                    $lastExecutionStartedAt = Carbon::now()->startOfMinute();
-                } catch (\Exception $e) {
-                    $this->error('Failed to start scheduled task: ' . $e->getMessage());
-                }
+        $this->orchestrator->run(
+            $this->schedule,
+            $app,
+            function () {
+                return $this->running;
             }
-
-            // Process management with improved array cleanup
-            $completedKeys = [];
-            foreach ($executions as $key => $execution) {
-                if (! $execution->isRunning()) {
-                    $completedKeys[] = $key;
-                }
-            }
-
-            // Remove completed processes and rebuild array to prevent memory leaks
-            foreach ($completedKeys as $key) {
-                unset($executions[$key]);
-            }
-
-            if ($completedKeys !== []) {
-                $executions = array_values($executions); // Rebuild array indices
-            }
-        }
-
-        foreach ($executions as $execution) {
-            if ($execution->isRunning()) {
-                $code = $execution->stop();
-
-                $this->info(
-                    'Stop scheduled task command: ' . $execution->getCommandLine() . '. Exit code: ' . $code
-                );
-            }
-        }
+        );
 
         return 0;
     }

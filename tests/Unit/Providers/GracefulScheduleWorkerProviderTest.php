@@ -16,6 +16,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterfac
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableGracefulScheduleWorkerProvider;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class GracefulScheduleWorkerProviderTest extends TestCase
@@ -241,5 +243,32 @@ class GracefulScheduleWorkerProviderTest extends TestCase
 
         $dispatcher = $this->app->make(ScheduleDispatcherInterface::class);
         $this->assertInstanceOf(CompositeDispatcher::class, $dispatcher);
+    }
+
+    /**
+     * @testdox T3.10
+     */
+    public function testRegistersScheduleOrchestratorInterfaceAsSingleton(): void
+    {
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound(ScheduleOrchestratorInterface::class));
+        $this->assertTrue($this->app->isShared(ScheduleOrchestratorInterface::class));
+
+        $orchestrator = $this->app->make(ScheduleOrchestratorInterface::class);
+        $this->assertInstanceOf(DefaultScheduleOrchestrator::class, $orchestrator);
+    }
+
+    /**
+     * @testdox T3.11
+     */
+    public function testScheduleOrchestratorReturnsSameInstance(): void
+    {
+        $this->provider->register();
+
+        $orchestrator1 = $this->app->make(ScheduleOrchestratorInterface::class);
+        $orchestrator2 = $this->app->make(ScheduleOrchestratorInterface::class);
+
+        $this->assertSame($orchestrator1, $orchestrator2);
     }
 }

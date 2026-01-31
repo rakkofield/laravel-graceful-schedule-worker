@@ -13,6 +13,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Console\GracefulScheduleWorkCommand;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class GracefulScheduleWorkerProvider extends ServiceProvider
@@ -56,6 +58,16 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
                 ],
                 $defaultType
             );
+        });
+
+        // ScheduleOrchestratorInterface を登録
+        $this->app->singleton(ScheduleOrchestratorInterface::class, function (Container $app) {
+            /** @var ScheduleDispatcherInterface $dispatcher */
+            $dispatcher = $app->make(ScheduleDispatcherInterface::class);
+            /** @var ClockInterface $clock */
+            $clock = $app->make(ClockInterface::class);
+
+            return new DefaultScheduleOrchestrator($dispatcher, $clock);
         });
     }
 

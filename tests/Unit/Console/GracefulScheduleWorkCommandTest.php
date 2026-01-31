@@ -4,8 +4,16 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
+use Illuminate\Console\Scheduling\EventMutex;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -14,11 +22,20 @@ class GracefulScheduleWorkCommandTest extends TestCase
     /** @var string */
     private $tempDir;
 
+    /** @var FakeEventMutex */
+    private $eventMutex;
+
+    /** @var FakeSchedulingMutex */
+    private $schedulingMutex;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->tempDir = sys_get_temp_dir() . '/graceful-worker-test-' . uniqid();
         mkdir($this->tempDir, 0755, true);
+
+        $this->eventMutex = new FakeEventMutex();
+        $this->schedulingMutex = new FakeSchedulingMutex();
     }
 
     protected function tearDown(): void
@@ -61,7 +78,15 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $container = new Container();
         Container::setInstance($container);
 
-        $command = new GracefulScheduleWorkCommand();
+        $container->instance(EventMutex::class, $this->eventMutex);
+        $container->instance(SchedulingMutex::class, $this->schedulingMutex);
+
+        $schedule = new Schedule();
+        $fakeResult = FakeDispatchResult::success('test-id', 'echo test', 'fake');
+        $dispatcher = new FakeDispatcher($fakeResult);
+        $orchestrator = new DefaultScheduleOrchestrator($dispatcher);
+
+        $command = new GracefulScheduleWorkCommand($orchestrator, $schedule);
         $command->setLaravel($container);
 
         $input = new ArrayInput($options, $command->getDefinition());
