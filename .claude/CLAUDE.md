@@ -28,6 +28,13 @@ composer test:coverage-html
 composer skeleton:update
 ```
 
+### タスク完了時
+
+タスクが完了したら、確認を待たずに以下を実行する：
+
+1. `composer test` でテスト実行
+2. テストが通ればコミットを作成
+
 ## PHP バージョン
 
 - 最小要件: PHP 7.2.5
