@@ -40,6 +40,10 @@
         "test": "phpunit --testdox",
         "test:coverage": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-text",
         "test:coverage-html": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-html coverage",
-        "skeleton:update": "cd skeleton && rm -rf vendor/rakko-inc && composer install --no-interaction"
+        "skeleton:update": "cd skeleton && rm -rf vendor/rakko-inc && composer install --no-interaction",
+        "tools:install": "cd tools && composer install --no-interaction --ignore-platform-reqs",
+        "phpstan": "${PHP_BINARY:-php} tools/vendor/bin/phpstan analyse -c tools/phpstan.neon",
+        "phpcs": "${PHP_BINARY:-php} tools/vendor/bin/phpcs --standard=tools/phpcs.xml",
+        "phpcbf": "${PHP_BINARY:-php} tools/vendor/bin/phpcbf --standard=tools/phpcs.xml"
     }
 }

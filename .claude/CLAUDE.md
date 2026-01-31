@@ -28,6 +28,18 @@ composer test:coverage-html
 composer skeleton:update
 ```
 
+### 静的解析
+
+```bash
+composer tools:install  # 初回のみ
+composer phpstan        # 静的解析（PHP 8.1+ が必要）
+composer phpcs          # コーディング規約チェック
+composer phpcbf         # 自動修正
+
+# PHP インタープリターを指定する場合
+PHP_BINARY=/path/to/php8.1 composer phpstan
+```
+
 ### タスク完了時
 
 タスクが完了したら、確認を待たずに以下を実行する：
@@ -77,3 +89,8 @@ skeleton/            # テスト用 Laravel アプリケーション
 - tearDown で `Container::setInstance(null)` を呼ぶ（Container を使用するテスト）
 - Mock 禁止: Interface には Fake、実クラスには Stub/Spy を使用
 - Fake クラスは `tests/Helper/` に配置
+
+## 作業方針
+
+- 複数タスクがある場合は TaskCreate でタスクリストを作成して管理
+- 独立した作業は並列実行する（複数の Write/Edit を同時に実行など）

@@ -53,8 +53,10 @@ class GracefulScheduleWorkCommand extends Command
         while ($this->running) {
             usleep(100 * 1000);
 
-            if (Carbon::now()->second === 0 &&
-                ! Carbon::now()->startOfMinute()->equalTo($lastExecutionStartedAt)) {
+            if (
+                Carbon::now()->second === 0 &&
+                ! Carbon::now()->startOfMinute()->equalTo($lastExecutionStartedAt)
+            ) {
                 $execution = Process::fromShellCommandline($command);
                 $execution->setTimeout(null); // Disable timeout for cron-like behavior
 
