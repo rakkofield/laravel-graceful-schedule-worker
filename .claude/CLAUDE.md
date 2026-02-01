@@ -22,12 +22,14 @@ composer test:coverage-html
 
 ### Step Functions テスト（LocalStack 使用）
 
-```bash
-# AWS SDK をインストール（初回のみ）
-composer require aws/aws-sdk-php --dev
+`composer test` 実行時に LocalStack が自動起動し、Step Functions テストも実行されます。
 
-# LocalStack 起動 & テスト実行（一括）
-composer test:stepfunctions
+```bash
+# テスト実行（LocalStack は自動起動、テスト後も起動したまま）
+composer test
+
+# テスト後に LocalStack を停止する場合
+LOCALSTACK_DOWN=1 composer test
 
 # 個別操作
 composer stepfunctions:up      # LocalStack 起動
@@ -37,7 +39,6 @@ composer stepfunctions:setup   # 起動 + State Machine 作成
 
 **前提条件:**
 - Docker がインストールされていること
-- AWS CLI がインストールされていること（State Machine 作成用）
 
 ### skeleton 依存更新
 
