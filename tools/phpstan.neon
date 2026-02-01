@@ -2,6 +2,11 @@ parameters:
     level: max
     paths:
         - ../src
+    excludePaths:
+        - ../src/Dispatcher/StepFunctions/AwsSfnClientAdapter.php
     phpVersion: 70205
     bootstrapFiles:
         - ../vendor/autoload.php
+    ignoreErrors:
+        # AWS SDK は suggest なのでインストールされていない場合がある
+        - '#Instantiated class Aws\\Sfn\\SfnClient not found#'

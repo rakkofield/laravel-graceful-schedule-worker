@@ -1,0 +1,65 @@
+name: Step Functions Integration Tests
+
+on:
+  pull_request:
+    paths:
+      - 'src/Dispatcher/StepFunctions/**'
+      - 'src/Dispatcher/StepFunctionsDispatcher.php'
+      - 'src/Dispatcher/StepFunctionsDispatchResult.php'
+      - 'tests/Integration/Dispatcher/**'
+      - 'tests/LocalStack/**'
+      - 'docker-compose.stepfunctions.yml'
+      - '.github/workflows/stepfunctions-test.yml'
+
+jobs:
+  stepfunctions-test:
+    runs-on: ubuntu-latest
+
+    services:
+      localstack:
+        image: localstack/localstack:3.0
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: stepfunctions
+          DEFAULT_REGION: ap-northeast-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl
+          tools: composer:v2
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction
+
+      - name: Install AWS SDK
+        run: composer require aws/aws-sdk-php --dev --no-interaction
+
+      - name: Wait for LocalStack
+        run: |
+          timeout 60 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q running; do sleep 2; done'
+
+      - name: Create State Machine
+        run: |
+          aws --endpoint-url=http://localhost:4566 stepfunctions create-state-machine \
+            --name "GracefulSchedulerStateMachine" \
+            --definition file://tests/LocalStack/state-machine.json \
+            --role-arn "arn:aws:iam::000000000000:role/stepfunctions-role"
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: ap-northeast-1
+
+      - name: Run Integration Tests
+        run: ./vendor/bin/phpunit --group=stepfunctions --testdox
+        env:
+          LOCALSTACK_ENDPOINT: http://localhost:4566
