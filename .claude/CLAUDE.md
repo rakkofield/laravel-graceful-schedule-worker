@@ -20,6 +20,25 @@ composer test:coverage
 composer test:coverage-html
 ```
 
+### Step Functions テスト（LocalStack 使用）
+
+```bash
+# AWS SDK をインストール（初回のみ）
+composer require aws/aws-sdk-php --dev
+
+# LocalStack 起動 & テスト実行（一括）
+composer test:stepfunctions
+
+# 個別操作
+composer stepfunctions:up      # LocalStack 起動
+composer stepfunctions:down    # LocalStack 停止
+composer stepfunctions:setup   # 起動 + State Machine 作成
+```
+
+**前提条件:**
+- Docker がインストールされていること
+- AWS CLI がインストールされていること（State Machine 作成用）
+
 ### skeleton 依存更新
 
 `src/` 配下のコードを変更した場合、Integration テスト前に skeleton の依存を更新する：
