@@ -13,7 +13,8 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^8.5.40 || ^9.6.21",
-        "illuminate/container": "^6.0 || ^7.0"
+        "illuminate/container": "^6.0 || ^7.0",
+        "aws/aws-sdk-php": "^3.0"
     },
     "suggest": {
         "aws/aws-sdk-php": "Required for Step Functions dispatcher (^3.0)"
@@ -30,6 +31,15 @@
                 "tests/Integration/"
             ],
             "RakkoInc\\LaravelGracefulScheduleWorker\\Helper\\": "tests/Helper/"
+        }
+    },
+    "config": {
+        "audit": {
+            "ignore": [
+                "PKSA-dxyf-6n16-t87m",
+                "PKSA-n3s6-289w-qtqb",
+                "PKSA-stsw-jsf7-f6vs"
+            ]
         }
     },
     "extra": {

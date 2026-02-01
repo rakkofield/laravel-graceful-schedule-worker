@@ -6,6 +6,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use Aws\Exception\AwsException;
 use Aws\Sfn\SfnClient;
+use DateTimeInterface;
 
 /**
  * AWS SDK SfnClient のアダプター
@@ -33,13 +34,18 @@ class AwsSfnClientAdapter implements StepFunctionsClientInterface
         try {
             $result = $this->client->startExecution($args);
 
+            /** @var string $executionArn */
+            $executionArn = $result['executionArn'];
+            /** @var DateTimeInterface $startDate */
+            $startDate = $result['startDate'];
+
             return [
-                'executionArn' => $result['executionArn'],
-                'startDate' => $result['startDate'],
+                'executionArn' => $executionArn,
+                'startDate' => $startDate,
             ];
         } catch (AwsException $e) {
             if ($e->getAwsErrorCode() === 'ExecutionAlreadyExists') {
-                $name = isset($args['name']) ? $args['name'] : 'unknown';
+                $name = $args['name'] ?? 'unknown';
                 throw new ExecutionAlreadyExistsException($name, $e->getMessage());
             }
 
