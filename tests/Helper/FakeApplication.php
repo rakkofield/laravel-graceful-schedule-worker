@@ -26,9 +26,6 @@ class FakeApplication extends Container implements Application
     /** @var bool */
     private $isDownForMaintenance = false;
 
-    /** @var array<string, mixed> */
-    private $config = [];
-
     /**
      * Get the version number of the application.
      *
