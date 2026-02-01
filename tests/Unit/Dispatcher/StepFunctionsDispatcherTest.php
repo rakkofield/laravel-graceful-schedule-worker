@@ -2,16 +2,13 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Tests\Unit\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStepFunctionsClient;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;

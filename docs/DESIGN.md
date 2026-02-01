@@ -228,16 +228,21 @@ classDiagram
 
     class StepFunctionsDispatchResult {
         -executionArn string
-        -stateMachineArn string
+        -executionName string
         -eventIdentifier string
         -eventCommand string
         -dispatchedAt DateTimeImmutable
         -error string
+        -wasAlreadyRunning bool
+        -exception Throwable
         +isStarted() bool
         +getExecutionArn() string
-        +getStateMachineArn() string
-        +success(arn, machineArn, id, cmd) StepFunctionsDispatchResult
-        +failed(id, cmd, error) StepFunctionsDispatchResult
+        +getExecutionName() string
+        +wasAlreadyRunning() bool
+        +getException() Throwable
+        +success(arn, name, id, cmd) StepFunctionsDispatchResult
+        +alreadyRunning(name, id, cmd) StepFunctionsDispatchResult
+        +failed(name, id, cmd, error, exception) StepFunctionsDispatchResult
     }
 
     class ScheduleDispatcherInterface {
@@ -937,7 +942,7 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     private $executionArn;
 
     /** @var string */
-    private $stateMachineArn;
+    private $executionName;
 
     /** @var string */
     private $eventIdentifier;
@@ -951,6 +956,12 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     /** @var string|null */
     private $error;
 
+    /** @var bool */
+    private $wasAlreadyRunning;
+
+    /** @var \Throwable|null */
+    private $exception;
+
     // DispatchResultInterface 実装
     public function isStarted(): bool;
     public function getError();  // ?string (PHP 7.2 互換)
@@ -958,23 +969,31 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     public function getEventCommand(): string;
     public function getDispatcherType(): string { return 'stepfunctions'; }
     public function getDispatchedAt(): \DateTimeImmutable;
+    public function getException();  // ?\Throwable (PHP 7.2 互換)
 
     // StepFunctions 固有メソッド
     public function getExecutionArn();  // ?string (PHP 7.2 互換)
-    public function getStateMachineArn(): string;
+    public function getExecutionName(): string;
+    public function wasAlreadyRunning(): bool;
 
     // ファクトリメソッド
     public static function success(
         string $executionArn,
-        string $stateMachineArn,
+        string $executionName,
+        string $identifier,
+        string $command
+    ): self;
+    public static function alreadyRunning(
+        string $executionName,
         string $identifier,
         string $command
     ): self;
     public static function failed(
-        string $stateMachineArn,
+        string $executionName,
         string $identifier,
-        string $command,
-        string $error
+        ?string $command,
+        string $error,
+        \Throwable $exception = null
     ): self;
 }
 ```

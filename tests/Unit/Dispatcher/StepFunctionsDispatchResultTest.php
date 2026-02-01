@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Tests\Unit\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatchResult;
 
 /**
  * @testdox StepFunctionsDispatchResult

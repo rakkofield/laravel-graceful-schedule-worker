@@ -7,14 +7,16 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
-use Illuminate\Contracts\Foundation\Application;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
 
 class DefaultScheduleOrchestratorTest extends TestCase
 {
@@ -33,7 +35,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     /** @var SpySchedule */
     private $schedule;
 
-    /** @var Application */
+    /** @var FakeApplication */
     private $app;
 
     /** @var FixedClock */
@@ -52,7 +54,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $defaultResult = FakeDispatchResult::success('test-id', 'echo test', 'fake');
         $this->dispatcher = new FakeDispatcher($defaultResult);
         $this->schedule = new SpySchedule($this->eventMutex, $this->schedulingMutex);
-        $this->app = $this->createMockApplication();
+        $this->app = new FakeApplication();
         // 時刻を 12:00:00 に固定（秒が 0 の状態）
         $this->clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
     }
@@ -61,17 +63,6 @@ class DefaultScheduleOrchestratorTest extends TestCase
     {
         Container::setInstance(null);
         parent::tearDown();
-    }
-
-    /**
-     * @return Application
-     */
-    private function createMockApplication(): Application
-    {
-        // Application インターフェースのモックを作成
-        /** @var Application $app */
-        $app = $this->createMock(Application::class);
-        return $app;
     }
 
     /**
@@ -232,5 +223,80 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         // 正常にディスパッチされたことを確認
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox dispatch_failure_is_handled
+     */
+    public function testDispatchFailureIsHandled(): void
+    {
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        // 失敗した結果を返すように設定
+        $result = FakeDispatchResult::failed($event->mutexName(), 'echo test', 'Connection refused', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        // error_log 出力をキャプチャするため、一時ファイルにリダイレクト
+        $tempFile = tmpfile();
+        $tempFilePath = stream_get_meta_data($tempFile)['uri'];
+        $oldErrorLog = ini_set('error_log', $tempFilePath);
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // 元に戻す
+        if ($oldErrorLog !== false) {
+            ini_set('error_log', $oldErrorLog);
+        }
+
+        // ログ内容を読み取る
+        $errorLogOutput = file_get_contents($tempFilePath);
+        fclose($tempFile);
+
+        // ディスパッチが呼ばれたことを確認
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+
+        // エラーログにメッセージが出力されていることを確認
+        $this->assertStringContainsString('Dispatch failed', $errorLogOutput);
+        $this->assertStringContainsString('Connection refused', $errorLogOutput);
+    }
+
+    /**
+     * @testdox stopRunningProcesses stops all running processes
+     */
+    public function testStopRunningProcessesStopsAllProcesses(): void
+    {
+        $event = $this->createEvent('sleep 100');
+        $this->schedule->setDueEvents([$event]);
+
+        // StubProcess を使用して LocalDispatchResult を作成
+        $stubProcess = new StubProcess(true);
+        $localResult = LocalDispatchResult::success($stubProcess, $event->mutexName(), 'sleep 100');
+
+        $this->dispatcher->setResult($localResult);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // run() 終了後、プロセスが停止されていることを確認
+        $this->assertTrue($stubProcess->wasStopped());
+        $this->assertFalse($stubProcess->isRunning());
     }
 }

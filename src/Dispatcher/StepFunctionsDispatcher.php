@@ -97,7 +97,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 get_class($e) . ': ' . $e->getMessage(),
                 $e
             );
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             return StepFunctionsDispatchResult::failed(
                 $executionName,
                 $mutexName,
@@ -106,5 +106,6 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 $e
             );
         }
+        // Note: \Error は catch されずに再スローされる（致命的エラーは呼び出し元に伝播）
     }
 }

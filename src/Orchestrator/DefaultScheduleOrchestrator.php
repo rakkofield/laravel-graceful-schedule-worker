@@ -8,6 +8,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 
@@ -83,6 +84,11 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 foreach ($events as $event) {
                     $result = $this->dispatcher->dispatchEvent($event, $container);
 
+                    // ディスパッチ失敗時のハンドリング
+                    if (!$result->isStarted()) {
+                        $this->handleDispatchFailure($event, $result);
+                    }
+
                     // LocalDispatchResult の場合はプロセスを追跡
                     if ($result instanceof LocalDispatchResult && $result->isStarted()) {
                         $this->runningProcesses[] = $result;
@@ -144,5 +150,23 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
             }
         }
         $this->runningProcesses = [];
+    }
+
+    /**
+     * ディスパッチ失敗時のハンドリング
+     *
+     * @param \Illuminate\Console\Scheduling\Event $event
+     * @param DispatchResultInterface $result
+     * @return void
+     */
+    private function handleDispatchFailure(
+        \Illuminate\Console\Scheduling\Event $event,
+        DispatchResultInterface $result
+    ): void {
+        error_log(sprintf(
+            '[GracefulScheduleWorker] Dispatch failed for event "%s": %s',
+            $event->mutexName(),
+            $result->getError() ?? 'Unknown error'
+        ));
     }
 }
