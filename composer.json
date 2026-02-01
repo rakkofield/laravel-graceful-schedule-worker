@@ -50,13 +50,13 @@
         }
     },
     "scripts": {
-        "test": "phpunit --testdox",
+        "test": [
+            "@stepfunctions:setup",
+            "phpunit --testdox",
+            "@stepfunctions:down-if-requested"
+        ],
         "test:coverage": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-text",
         "test:coverage-html": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-html coverage",
-        "test:stepfunctions": [
-            "@stepfunctions:setup",
-            "LOCALSTACK_ENDPOINT=http://localhost:4566 ./vendor/bin/phpunit --group=stepfunctions --testdox"
-        ],
         "stepfunctions:up": "docker compose -f docker-compose.stepfunctions.yml up -d",
         "stepfunctions:down": "docker compose -f docker-compose.stepfunctions.yml down",
         "stepfunctions:setup": [
@@ -64,8 +64,9 @@
             "@stepfunctions:wait",
             "@stepfunctions:create-state-machine"
         ],
-        "stepfunctions:wait": "bash -c 'timeout 60 bash -c \"until curl -s http://localhost:4566/_localstack/health | grep -q running; do sleep 2; done\" || echo \"LocalStack not ready\"'",
+        "stepfunctions:wait": "bash -c 'for i in $(seq 1 30); do curl -s http://localhost:4566/_localstack/health | grep -q available && exit 0; sleep 2; done; echo \"LocalStack not ready\"'",
         "stepfunctions:create-state-machine": "bash -c 'AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=ap-northeast-1 aws --endpoint-url=http://localhost:4566 stepfunctions create-state-machine --name GracefulSchedulerStateMachine --definition file://tests/LocalStack/state-machine.json --role-arn arn:aws:iam::000000000000:role/stepfunctions-role 2>/dev/null || true'",
+        "stepfunctions:down-if-requested": "bash -c '[ \"$LOCALSTACK_DOWN\" = \"1\" ] && docker compose -f docker-compose.stepfunctions.yml down || true'",
         "skeleton:update": "cd skeleton && rm -rf vendor/rakko-inc && composer install --no-interaction",
         "tools:install": "cd tools && composer install --no-interaction --ignore-platform-reqs",
         "phpstan": "${PHP_BINARY:-php} tools/vendor/bin/phpstan analyse -c tools/phpstan.neon --memory-limit=512M",

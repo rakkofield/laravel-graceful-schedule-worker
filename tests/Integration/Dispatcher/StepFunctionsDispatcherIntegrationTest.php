@@ -76,13 +76,34 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
                 'key' => 'test',
                 'secret' => 'test',
             ],
+            'suppress_php_deprecation_warning' => true,
         ]);
+
+        $this->ensureStateMachineExists();
     }
 
     protected function tearDown(): void
     {
         Container::setInstance(null);
         parent::tearDown();
+    }
+
+    private function ensureStateMachineExists(): void
+    {
+        $definition = file_get_contents(__DIR__ . '/../../LocalStack/state-machine.json');
+
+        try {
+            $this->sfnClient->createStateMachine([
+                'name' => 'GracefulSchedulerStateMachine',
+                'definition' => $definition,
+                'roleArn' => 'arn:aws:iam::000000000000:role/stepfunctions-role',
+            ]);
+        } catch (\Aws\Exception\AwsException $e) {
+            // State machine already exists, ignore
+            if ($e->getAwsErrorCode() !== 'StateMachineAlreadyExists') {
+                throw $e;
+            }
+        }
     }
 
     private function isLocalStackAvailable(): bool
@@ -102,7 +123,8 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         }
 
         $health = json_decode($response, true);
-        return isset($health['services']['stepfunctions']) && $health['services']['stepfunctions'] === 'running';
+        return isset($health['services']['stepfunctions'])
+            && in_array($health['services']['stepfunctions'], ['running', 'available'], true);
     }
 
     private function createEvent(string $command): Event

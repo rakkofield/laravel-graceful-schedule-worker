@@ -14,17 +14,8 @@
     </testsuite>
     <testsuite name="Integration">
       <directory suffix="Test.php">./tests/Integration</directory>
-      <exclude>./tests/Integration/Dispatcher/StepFunctionsDispatcherIntegrationTest.php</exclude>
-    </testsuite>
-    <testsuite name="StepFunctions">
-      <directory suffix="Test.php">./tests/Integration/Dispatcher</directory>
     </testsuite>
   </testsuites>
-  <groups>
-    <exclude>
-      <group>stepfunctions</group>
-    </exclude>
-  </groups>
   <filter>
     <whitelist processUncoveredFilesFromWhitelist="true">
       <directory suffix=".php">./src</directory>
