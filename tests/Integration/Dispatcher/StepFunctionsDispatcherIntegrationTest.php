@@ -14,6 +14,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClient
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\LocalStackSfnClientAdapter;
 
 /**
  * StepFunctionsDispatcher の LocalStack を使った Integration テスト
@@ -132,9 +133,11 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         return new Event($this->mutex, $command);
     }
 
-    private function createDispatcher(): StepFunctionsDispatcher
+    private function createDispatcher(bool $useLocalStackAdapter = false): StepFunctionsDispatcher
     {
-        $adapter = new AwsSfnClientAdapter($this->sfnClient);
+        $adapter = $useLocalStackAdapter
+            ? new LocalStackSfnClientAdapter($this->sfnClient)
+            : new AwsSfnClientAdapter($this->sfnClient);
         return new StepFunctionsDispatcher($adapter, self::$stateMachineArn, $this->clock);
     }
 
@@ -159,12 +162,16 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
      */
     public function testDuplicateExecutionReturnsAlreadyRunning(): void
     {
-        // 固定時刻を使用して同じ Execution Name になるようにする
-        $fixedTime = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
-        $this->clock = new FixedClock($fixedTime);
+        // テスト実行ごとにユニークな時刻を使用（マイクロ秒精度）
+        $uniqueTime = new DateTimeImmutable();
+        $this->clock = new FixedClock($uniqueTime);
 
-        $dispatcher = $this->createDispatcher();
-        $event = $this->createEvent('php artisan test:duplicate');
+        // LocalStack は ExecutionAlreadyExists の代わりに InvalidName を返すため、
+        // LocalStack 用アダプターを使用
+        $dispatcher = $this->createDispatcher(true);
+        // ユニークなコマンド名を使用（タイムスタンプ付き）
+        $uniqueCommand = 'php artisan test:duplicate-' . $uniqueTime->format('U.u');
+        $event = $this->createEvent($uniqueCommand);
 
         // 1回目の実行
         $result1 = $dispatcher->dispatchEvent($event, $this->app);
