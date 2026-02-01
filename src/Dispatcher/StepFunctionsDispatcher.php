@@ -10,7 +10,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
 
 /**
  * Step Functions を使用したイベントディスパッチャー
@@ -89,15 +88,9 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 $mutexName,
                 (string) $command
             );
-        } catch (StepFunctionsException $e) {
-            return StepFunctionsDispatchResult::failed(
-                $executionName,
-                $mutexName,
-                $command,
-                get_class($e) . ': ' . $e->getMessage(),
-                $e
-            );
         } catch (\Exception $e) {
+            // StepFunctionsException およびその他の Exception を処理
+            // Note: \Error は catch されずに再スローされる（致命的エラーは呼び出し元に伝播）
             return StepFunctionsDispatchResult::failed(
                 $executionName,
                 $mutexName,
@@ -106,6 +99,5 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 $e
             );
         }
-        // Note: \Error は catch されずに再スローされる（致命的エラーは呼び出し元に伝播）
     }
 }
