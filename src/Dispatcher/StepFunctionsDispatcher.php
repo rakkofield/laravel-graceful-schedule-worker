@@ -78,7 +78,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
             ]);
 
             return StepFunctionsDispatchResult::success(
-                $result['executionArn'],
+                $result->getExecutionArn(),
                 $executionName,
                 $mutexName,
                 (string) $command
@@ -94,14 +94,16 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 $executionName,
                 $mutexName,
                 $command,
-                get_class($e) . ': ' . $e->getMessage()
+                get_class($e) . ': ' . $e->getMessage(),
+                $e
             );
         } catch (\Throwable $e) {
             return StepFunctionsDispatchResult::failed(
                 $executionName,
                 $mutexName,
                 $command,
-                get_class($e) . ': ' . $e->getMessage()
+                get_class($e) . ': ' . $e->getMessage(),
+                $e
             );
         }
     }

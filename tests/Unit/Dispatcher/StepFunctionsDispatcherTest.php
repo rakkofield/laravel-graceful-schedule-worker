@@ -226,4 +226,33 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->assertSame('php artisan report:daily', $result->getEventCommand());
     }
+
+    /**
+     * @testdox T5.11 一般エラー時に getException() で例外を取得できる
+     */
+    public function testReturnsExceptionOnGeneralError(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+
+        $this->client->willThrowError('Connection refused');
+
+        $result = $dispatcher->dispatchEvent($event, $this->app);
+
+        $this->assertNotNull($result->getException());
+        $this->assertSame('Connection refused', $result->getException()->getMessage());
+    }
+
+    /**
+     * @testdox T5.12 成功時は getException() が null を返す
+     */
+    public function testReturnsNullExceptionOnSuccess(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+
+        $result = $dispatcher->dispatchEvent($event, $this->app);
+
+        $this->assertNull($result->getException());
+    }
 }

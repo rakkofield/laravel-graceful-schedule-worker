@@ -125,4 +125,14 @@ class FakeDispatchResult implements DispatchResultInterface
     {
         return $this->dispatchedAt;
     }
+
+    /**
+     * {@inheritdoc}
+     *
+     * FakeDispatchResult では例外は保持しません。
+     */
+    public function getException(): ?\Throwable
+    {
+        return null;
+    }
 }

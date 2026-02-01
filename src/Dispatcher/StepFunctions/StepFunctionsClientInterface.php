@@ -15,9 +15,9 @@ interface StepFunctionsClientInterface
      * State Machine の Execution を開始する
      *
      * @param array{stateMachineArn: string, name?: string, input?: string} $args
-     * @return array{executionArn: string, startDate: \DateTimeInterface}
+     * @return StartExecutionResult
      * @throws ExecutionAlreadyExistsException 同名の Execution が既に存在する場合
      * @throws StepFunctionsException その他の Step Functions エラー
      */
-    public function startExecution(array $args): array;
+    public function startExecution(array $args): StartExecutionResult;
 }

@@ -6,6 +6,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
 
 use DateTimeImmutable;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
 
@@ -26,7 +27,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     /**
      * {@inheritdoc}
      */
-    public function startExecution(array $args): array
+    public function startExecution(array $args): StartExecutionResult
     {
         if ($this->nextError !== null) {
             $error = $this->nextError;
@@ -57,10 +58,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
         // 同じ名前での再実行を防ぐ
         $this->existingExecutions[$name] = true;
 
-        return [
-            'executionArn' => $executionArn,
-            'startDate' => $startDate,
-        ];
+        return new StartExecutionResult($executionArn, $startDate);
     }
 
     /**

@@ -52,4 +52,11 @@ interface DispatchResultInterface
      * @return \DateTimeImmutable ディスパッチ時刻
      */
     public function getDispatchedAt(): \DateTimeImmutable;
+
+    /**
+     * 発生した例外を取得
+     *
+     * @return \Throwable|null 例外（成功時は null）
+     */
+    public function getException(): ?\Throwable;
 }

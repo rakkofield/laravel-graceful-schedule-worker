@@ -173,4 +173,65 @@ class StepFunctionsDispatchResultTest extends TestCase
 
         $this->assertSame('', $result->getEventCommand());
     }
+
+    /**
+     * @testdox T5.11 success() で getException() が null を返す
+     */
+    public function testSuccessReturnsNullException(): void
+    {
+        $result = StepFunctionsDispatchResult::success(
+            'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
+            'exec-1',
+            'framework/schedule-mutex',
+            'php artisan schedule:run'
+        );
+
+        $this->assertNull($result->getException());
+    }
+
+    /**
+     * @testdox T5.12 alreadyRunning() で getException() が null を返す
+     */
+    public function testAlreadyRunningReturnsNullException(): void
+    {
+        $result = StepFunctionsDispatchResult::alreadyRunning(
+            'exec-1',
+            'framework/schedule-mutex',
+            'php artisan schedule:run'
+        );
+
+        $this->assertNull($result->getException());
+    }
+
+    /**
+     * @testdox T5.13 failed() で例外を渡すと getException() で取得できる
+     */
+    public function testFailedReturnsException(): void
+    {
+        $exception = new \RuntimeException('Connection refused');
+        $result = StepFunctionsDispatchResult::failed(
+            'exec-1',
+            'framework/schedule-mutex',
+            'php artisan schedule:run',
+            'RuntimeException: Connection refused',
+            $exception
+        );
+
+        $this->assertSame($exception, $result->getException());
+    }
+
+    /**
+     * @testdox T5.14 failed() で例外を渡さない場合は getException() が null を返す
+     */
+    public function testFailedWithoutExceptionReturnsNull(): void
+    {
+        $result = StepFunctionsDispatchResult::failed(
+            'exec-1',
+            'framework/schedule-mutex',
+            'php artisan schedule:run',
+            'Connection refused'
+        );
+
+        $this->assertNull($result->getException());
+    }
 }

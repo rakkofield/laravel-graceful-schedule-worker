@@ -171,4 +171,14 @@ class LocalDispatchResult implements DispatchResultInterface
 
         return $this->process->getExitCode();
     }
+
+    /**
+     * {@inheritdoc}
+     *
+     * LocalDispatcher では例外は保持しません。
+     */
+    public function getException(): ?\Throwable
+    {
+        return null;
+    }
 }

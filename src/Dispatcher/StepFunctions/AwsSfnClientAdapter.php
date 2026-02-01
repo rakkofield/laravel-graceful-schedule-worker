@@ -29,7 +29,7 @@ class AwsSfnClientAdapter implements StepFunctionsClientInterface
     /**
      * {@inheritdoc}
      */
-    public function startExecution(array $args): array
+    public function startExecution(array $args): StartExecutionResult
     {
         try {
             $result = $this->client->startExecution($args);
@@ -39,10 +39,7 @@ class AwsSfnClientAdapter implements StepFunctionsClientInterface
             /** @var DateTimeInterface $startDate */
             $startDate = $result['startDate'];
 
-            return [
-                'executionArn' => $executionArn,
-                'startDate' => $startDate,
-            ];
+            return new StartExecutionResult($executionArn, $startDate);
         } catch (AwsException $e) {
             if ($e->getAwsErrorCode() === 'ExecutionAlreadyExists') {
                 $name = $args['name'] ?? 'unknown';

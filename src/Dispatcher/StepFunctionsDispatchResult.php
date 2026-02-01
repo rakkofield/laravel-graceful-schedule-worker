@@ -34,6 +34,9 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     /** @var bool */
     private $wasAlreadyRunning;
 
+    /** @var \Throwable|null */
+    private $exception;
+
     /**
      * @param string|null $executionArn
      * @param string $executionName
@@ -42,6 +45,7 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
      * @param DateTimeImmutable $dispatchedAt
      * @param string|null $error
      * @param bool $wasAlreadyRunning
+     * @param \Throwable|null $exception
      */
     private function __construct(
         $executionArn,
@@ -50,7 +54,8 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
         string $eventCommand,
         DateTimeImmutable $dispatchedAt,
         $error,
-        bool $wasAlreadyRunning
+        bool $wasAlreadyRunning,
+        \Throwable $exception = null
     ) {
         $this->executionArn = $executionArn;
         $this->executionName = $executionName;
@@ -59,6 +64,7 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
         $this->dispatchedAt = $dispatchedAt;
         $this->error = $error;
         $this->wasAlreadyRunning = $wasAlreadyRunning;
+        $this->exception = $exception;
     }
 
     /**
@@ -120,13 +126,15 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
      * @param string $identifier
      * @param string|null $command
      * @param string $error
+     * @param \Throwable|null $exception
      * @return self
      */
     public static function failed(
         string $executionName,
         string $identifier,
         ?string $command,
-        string $error
+        string $error,
+        \Throwable $exception = null
     ): self {
         return new self(
             null,
@@ -135,7 +143,8 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
             $command ?? '',
             new DateTimeImmutable(),
             $error,
-            false
+            false,
+            $exception
         );
     }
 
@@ -217,5 +226,13 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     public function wasAlreadyRunning(): bool
     {
         return $this->wasAlreadyRunning;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getException(): ?\Throwable
+    {
+        return $this->exception;
     }
 }
