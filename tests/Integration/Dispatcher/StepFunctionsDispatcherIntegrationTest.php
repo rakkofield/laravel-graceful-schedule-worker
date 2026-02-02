@@ -97,7 +97,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
 
     private function ensureStateMachineExists(): void
     {
-        $definition = file_get_contents(__DIR__ . '/../../LocalStack/state-machine.json');
+        $definition = file_get_contents(__DIR__ . '/../../StepFunctions/state-machine.json');
 
         try {
             $this->sfnClient->createStateMachine([

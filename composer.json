@@ -52,31 +52,19 @@
     "scripts": {
         "test": [
             "@stepfunctions:setup",
-            "phpunit --testdox",
-            "@stepfunctions:down-if-requested"
+            "SFN_ENDPOINT=http://localhost:5001 phpunit --testdox"
         ],
         "test:coverage": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-text",
         "test:coverage-html": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-html coverage",
-        "stepfunctions:up": "docker compose -f docker-compose.stepfunctions.yml up -d",
-        "stepfunctions:down": "docker compose -f docker-compose.stepfunctions.yml down",
-        "stepfunctions:setup": [
-            "@stepfunctions:up",
-            "@stepfunctions:wait",
-            "@stepfunctions:create-state-machine"
-        ],
-        "stepfunctions:wait": "bash -c 'for i in $(seq 1 30); do curl -s http://localhost:4566/_localstack/health | grep -q available && exit 0; sleep 2; done; echo \"LocalStack not ready\"'",
-        "stepfunctions:create-state-machine": "bash -c 'AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=ap-northeast-1 aws --endpoint-url=http://localhost:4566 stepfunctions create-state-machine --name GracefulSchedulerStateMachine --definition file://tests/LocalStack/state-machine.json --role-arn arn:aws:iam::000000000000:role/stepfunctions-role 2>/dev/null || true'",
-        "stepfunctions:down-if-requested": "bash -c '[ \"$LOCALSTACK_DOWN\" = \"1\" ] && docker compose -f docker-compose.stepfunctions.yml down || true'",
+        "stepfunctions:up": "docker compose up -d",
+        "stepfunctions:down": "docker compose down",
+        "stepfunctions:setup": ["@stepfunctions:up", "@stepfunctions:wait", "@stepfunctions:create-state-machine"],
+        "stepfunctions:wait": "bash -c 'for i in $(seq 1 30); do curl -s http://localhost:5001/moto-api/ && exit 0; sleep 2; done; echo \"moto not ready\"'",
+        "stepfunctions:create-state-machine": "bash -c 'AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=ap-northeast-1 aws --endpoint-url=http://localhost:5001 stepfunctions create-state-machine --name GracefulSchedulerStateMachine --definition file://tests/StepFunctions/state-machine.json --role-arn arn:aws:iam::000000000000:role/stepfunctions-role 2>/dev/null || true'",
         "skeleton:update": "cd skeleton && rm -rf vendor/rakko-inc && composer install --no-interaction",
         "tools:install": "cd tools && composer install --no-interaction --ignore-platform-reqs",
         "phpstan": "${PHP_BINARY:-php} tools/vendor/bin/phpstan analyse -c tools/phpstan.neon --memory-limit=512M",
         "phpcs": "${PHP_BINARY:-php} tools/vendor/bin/phpcs --standard=tools/phpcs.xml",
-        "phpcbf": "${PHP_BINARY:-php} tools/vendor/bin/phpcbf --standard=tools/phpcs.xml",
-        "moto:up": "docker compose -f docker-compose.moto.yml up -d",
-        "moto:down": "docker compose -f docker-compose.moto.yml down",
-        "moto:setup": ["@moto:up", "@moto:wait", "@moto:create-state-machine"],
-        "moto:wait": "bash -c 'for i in $(seq 1 30); do curl -s http://localhost:5001/moto-api/ && exit 0; sleep 2; done; echo \"moto not ready\"'",
-        "moto:create-state-machine": "bash -c 'AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=ap-northeast-1 aws --endpoint-url=http://localhost:5001 stepfunctions create-state-machine --name GracefulSchedulerStateMachine --definition file://tests/LocalStack/state-machine.json --role-arn arn:aws:iam::000000000000:role/stepfunctions-role 2>/dev/null || true'",
-        "test:moto": ["@moto:setup", "SFN_ENDPOINT=http://localhost:5001 phpunit --testdox --group stepfunctions"]
+        "phpcbf": "${PHP_BINARY:-php} tools/vendor/bin/phpcbf --standard=tools/phpcs.xml"
     }
 }
