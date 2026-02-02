@@ -40,6 +40,16 @@ composer stepfunctions:setup   # 起動 + State Machine 作成
 **前提条件:**
 - Docker がインストールされていること
 
+### Step Functions テスト（moto 使用）
+
+LocalStack の代替として moto も使用可能です。
+
+```bash
+composer moto:setup    # moto 起動 + State Machine 作成
+composer moto:down     # moto 停止
+composer test:moto     # moto で Step Functions テスト実行
+```
+
 ### skeleton 依存更新
 
 `src/` 配下のコードを変更した場合、Integration テスト前に skeleton の依存を更新する：

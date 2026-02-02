@@ -11,12 +11,14 @@ use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\LocalStackSfnClientAdapter;
 
 /**
- * StepFunctionsDispatcher の LocalStack を使った Integration テスト
+ * StepFunctionsDispatcher の LocalStack/moto を使った Integration テスト
  *
  * @group integration
  * @group stepfunctions
@@ -38,11 +40,14 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     /** @var SfnClient|null */
     private $sfnClient;
 
+    /** @var string */
+    private $endpoint;
+
     public static function setUpBeforeClass(): void
     {
         parent::setUpBeforeClass();
 
-        // LocalStack の State Machine ARN
+        // State Machine ARN
         self::$stateMachineArn =
             'arn:aws:states:ap-northeast-1:000000000000:stateMachine:GracefulSchedulerStateMachine';
     }
@@ -51,8 +56,11 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        if (!$this->isLocalStackAvailable()) {
-            $this->markTestSkipped('LocalStack is not available');
+        // SFN_ENDPOINT を優先、フォールバックとして LOCALSTACK_ENDPOINT、デフォルトは LocalStack
+        $this->endpoint = getenv('SFN_ENDPOINT') ?: (getenv('LOCALSTACK_ENDPOINT') ?: 'http://localhost:4566');
+
+        if (!$this->isSfnEndpointAvailable()) {
+            $this->markTestSkipped('Step Functions endpoint is not available: ' . $this->endpoint);
         }
 
         if (!class_exists(SfnClient::class)) {
@@ -67,11 +75,10 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         });
         $this->clock = new FixedClock(new DateTimeImmutable());
 
-        $endpoint = getenv('LOCALSTACK_ENDPOINT') ?: 'http://localhost:4566';
         $this->sfnClient = new SfnClient([
             'region' => 'ap-northeast-1',
             'version' => 'latest',
-            'endpoint' => $endpoint,
+            'endpoint' => $this->endpoint,
             'credentials' => [
                 'key' => 'test',
                 'secret' => 'test',
@@ -106,17 +113,23 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         }
     }
 
-    private function isLocalStackAvailable(): bool
+    private function isSfnEndpointAvailable(): bool
     {
-        $endpoint = getenv('LOCALSTACK_ENDPOINT') ?: 'http://localhost:4566';
-        $healthUrl = $endpoint . '/_localstack/health';
-
         $context = stream_context_create([
             'http' => [
                 'timeout' => 2,
             ],
         ]);
 
+        // moto の場合
+        if ($this->isMotoEndpoint()) {
+            $healthUrl = $this->endpoint . '/moto-api/';
+            $response = @file_get_contents($healthUrl, false, $context);
+            return $response !== false;
+        }
+
+        // LocalStack の場合
+        $healthUrl = $this->endpoint . '/_localstack/health';
         $response = @file_get_contents($healthUrl, false, $context);
         if ($response === false) {
             return false;
@@ -127,17 +140,32 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
             && in_array($health['services']['stepfunctions'], ['running', 'available'], true);
     }
 
+    private function isMotoEndpoint(): bool
+    {
+        // ポート 5001 は moto、4566 は LocalStack
+        return strpos($this->endpoint, ':5001') !== false;
+    }
+
+    private function usesLocalStackAdapter(): bool
+    {
+        // LocalStack は ExecutionAlreadyExists の代わりに InvalidName を返すため、
+        // LocalStackSfnClientAdapter が必要
+        return !$this->isMotoEndpoint();
+    }
+
     private function createEvent(string $command): Event
     {
         return new Event($this->mutex, $command);
     }
 
-    private function createDispatcher(bool $useLocalStackAdapter = false): StepFunctionsDispatcher
-    {
+    private function createDispatcher(
+        bool $useLocalStackAdapter = false,
+        ExecutionNameGenerator $nameGenerator = null
+    ): StepFunctionsDispatcher {
         $adapter = $useLocalStackAdapter
             ? new LocalStackSfnClientAdapter($this->sfnClient)
             : new AwsSfnClientAdapter($this->sfnClient);
-        return new StepFunctionsDispatcher($adapter, self::$stateMachineArn, $this->clock);
+        return new StepFunctionsDispatcher($adapter, self::$stateMachineArn, $this->clock, $nameGenerator);
     }
 
     /**
@@ -161,24 +189,30 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
      */
     public function testDuplicateExecutionReturnsAlreadyRunning(): void
     {
-        // テスト実行ごとにユニークな時刻を使用（マイクロ秒精度）
+        // テスト実行ごとにユニークな Execution Name を使用
         $uniqueTime = new DateTimeImmutable();
-        $this->clock = new FixedClock($uniqueTime);
+        $fixedName = 'test-duplicate-' . $uniqueTime->format('U-u');
+        $nameGenerator = new FixedExecutionNameGenerator($fixedName);
 
-        // LocalStack は ExecutionAlreadyExists の代わりに InvalidName を返すため、
-        // LocalStack 用アダプターを使用
-        $dispatcher = $this->createDispatcher(true);
-        // ユニークなコマンド名を使用（タイムスタンプ付き）
+        // 1回目の実行
+        $this->clock = new FixedClock($uniqueTime);
+        $dispatcher1 = $this->createDispatcher($this->usesLocalStackAdapter(), $nameGenerator);
         $uniqueCommand = 'php artisan test:duplicate-' . $uniqueTime->format('U.u');
         $event = $this->createEvent($uniqueCommand);
 
-        // 1回目の実行
-        $result1 = $dispatcher->dispatchEvent($event, $this->app);
+        $result1 = $dispatcher1->dispatchEvent($event, $this->app);
         $this->assertTrue($result1->isStarted());
         $this->assertFalse($result1->wasAlreadyRunning());
 
-        // 2回目の実行（同じ Execution Name）
-        $result2 = $dispatcher->dispatchEvent($event, $this->app);
+        // 2回目の実行（同じ Execution Name だが異なる時刻 = 異なる input）
+        // AWS/moto の仕様: 同じ name + 同じ input = べき等動作（成功）
+        //                  同じ name + 異なる input = ExecutionAlreadyExists
+        // LocalStack は ExecutionAlreadyExists の代わりに InvalidName を返す
+        $differentTime = $uniqueTime->modify('+1 second');
+        $this->clock = new FixedClock($differentTime);
+        $dispatcher2 = $this->createDispatcher($this->usesLocalStackAdapter(), $nameGenerator);
+
+        $result2 = $dispatcher2->dispatchEvent($event, $this->app);
         $this->assertTrue($result2->isStarted());
         $this->assertTrue($result2->wasAlreadyRunning());
     }
