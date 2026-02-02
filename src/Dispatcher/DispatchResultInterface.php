@@ -35,7 +35,10 @@ interface DispatchResultInterface
     /**
      * 実行コマンドを取得
      *
-     * @return string 実行コマンド（例: "php artisan report:daily"）
+     * LocalDispatcher: シェル実行コマンド（出力リダイレクト含む）
+     * StepFunctionsDispatcher: Event::command の値
+     *
+     * @return string 実行コマンド
      */
     public function getEventCommand(): string;
 

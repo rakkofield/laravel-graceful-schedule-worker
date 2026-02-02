@@ -29,25 +29,31 @@ class LocalDispatchResult implements DispatchResultInterface
     /** @var string|null */
     private $error;
 
+    /** @var \Throwable|null */
+    private $exception;
+
     /**
      * @param Process|null $process
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable $dispatchedAt
      * @param string|null $error
+     * @param \Throwable|null $exception
      */
     private function __construct(
         $process,
         string $eventIdentifier,
         string $eventCommand,
         DateTimeImmutable $dispatchedAt,
-        $error
+        $error,
+        $exception = null
     ) {
         $this->process = $process;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->dispatchedAt = $dispatchedAt;
         $this->error = $error;
+        $this->exception = $exception;
     }
 
     /**
@@ -75,16 +81,22 @@ class LocalDispatchResult implements DispatchResultInterface
      * @param string $identifier
      * @param string|null $command
      * @param string $error
+     * @param \Throwable|null $exception
      * @return self
      */
-    public static function failed(string $identifier, ?string $command, string $error): self
-    {
+    public static function failed(
+        string $identifier,
+        ?string $command,
+        string $error,
+        ?\Throwable $exception = null
+    ): self {
         return new self(
             null,
             $identifier,
             $command ?? '',
             new DateTimeImmutable(),
-            $error
+            $error,
+            $exception
         );
     }
 
@@ -174,11 +186,9 @@ class LocalDispatchResult implements DispatchResultInterface
 
     /**
      * {@inheritdoc}
-     *
-     * LocalDispatcher では例外は保持しません。
      */
     public function getException(): ?\Throwable
     {
-        return null;
+        return $this->exception;
     }
 }

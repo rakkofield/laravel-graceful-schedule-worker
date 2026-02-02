@@ -43,8 +43,10 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $process->start();
 
             return LocalDispatchResult::success($process, $identifier, $fullCommand);
-        } catch (\Throwable $e) {
-            return LocalDispatchResult::failed($identifier, $event->command, get_class($e) . ': ' . $e->getMessage());
+        } catch (\Exception $e) {
+            $error = get_class($e) . ': ' . $e->getMessage();
+
+            return LocalDispatchResult::failed($identifier, $event->command, $error, $e);
         }
     }
 }

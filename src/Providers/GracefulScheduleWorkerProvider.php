@@ -111,7 +111,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             ];
 
             // credentials が設定されている場合のみ追加
-            if (isset($sfConfig['credentials']['key'], $sfConfig['credentials']['secret'])) {
+            if (!empty($sfConfig['credentials']['key']) && !empty($sfConfig['credentials']['secret'])) {
                 $clientConfig['credentials'] = [
                     'key' => $sfConfig['credentials']['key'],
                     'secret' => $sfConfig['credentials']['secret'],

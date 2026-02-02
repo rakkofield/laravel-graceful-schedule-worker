@@ -299,4 +299,32 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->assertTrue($stubProcess->wasStopped());
         $this->assertFalse($stubProcess->isRunning());
     }
+
+    /**
+     * @testdox T3.6 同一分内で複数回ループしても1回しかディスパッチされない
+     */
+    public function testOnlyDispatchesOncePerMinute(): void
+    {
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        // 時刻を毎分0秒に固定（setUp で 12:00:00 に設定済み）
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $orchestrator->setSleepMicroseconds(0);
+
+        // shouldContinue で 3 回ループを回す
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 3;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // 3 回ループしても、同一分内なので 1 回しかディスパッチされない
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+    }
 }

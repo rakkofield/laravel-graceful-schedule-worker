@@ -24,6 +24,11 @@ class SpyCallbackEvent extends Event
     private $afterCallbacksCalled = false;
 
     /**
+     * @var \Throwable|null
+     */
+    private $exceptionToThrow = null;
+
+    /**
      * @param EventMutex $mutex
      * @param string $command
      */
@@ -39,6 +44,11 @@ class SpyCallbackEvent extends Event
     public function callBeforeCallbacks(Container $container)
     {
         $this->beforeCallbacksCalled = true;
+
+        if ($this->exceptionToThrow !== null) {
+            throw $this->exceptionToThrow;
+        }
+
         parent::callBeforeCallbacks($container);
     }
 
@@ -69,6 +79,18 @@ class SpyCallbackEvent extends Event
     }
 
     /**
+     * Set an exception to throw when callBeforeCallbacks is called.
+     *
+     * @param \Throwable $e
+     * @return self
+     */
+    public function throwOnBeforeCallback(\Throwable $e): self
+    {
+        $this->exceptionToThrow = $e;
+        return $this;
+    }
+
+    /**
      * Reset spy state.
      *
      * @return void
@@ -77,5 +99,6 @@ class SpyCallbackEvent extends Event
     {
         $this->beforeCallbacksCalled = false;
         $this->afterCallbacksCalled = false;
+        $this->exceptionToThrow = null;
     }
 }
