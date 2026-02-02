@@ -327,4 +327,33 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // 3 回ループしても、同一分内なので 1 回しかディスパッチされない
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
     }
+
+    /**
+     * @testdox T3.7 秒が0でない場合はディスパッチをスキップする
+     */
+    public function testSkipsDispatchWhenSecondIsNotZero(): void
+    {
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        // 秒を 30 に設定（0 でないのでスキップされる）
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:30'));
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock);
+        $orchestrator->setSleepMicroseconds(0);
+
+        // shouldContinue で 2 回ループを回す
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 2;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // 秒が 0 でないため、ディスパッチは呼ばれない
+        $this->assertSame(0, $this->dispatcher->getDispatchCount());
+    }
 }

@@ -213,4 +213,25 @@ class LocalDispatchResultTest extends TestCase
         $this->assertSame('failed-event-id', $result->getEventIdentifier());
         $this->assertSame('php artisan failed:command', $result->getEventCommand());
     }
+
+    /**
+     * @testdox T2.36 failed() stores exception when provided
+     */
+    public function testFailedStoresException(): void
+    {
+        $exception = new \RuntimeException('Test error');
+        $result = LocalDispatchResult::failed('id', 'cmd', 'error', $exception);
+
+        $this->assertSame($exception, $result->getException());
+    }
+
+    /**
+     * @testdox T2.37 failed() returns null exception when not provided
+     */
+    public function testFailedReturnsNullExceptionWhenNotProvided(): void
+    {
+        $result = LocalDispatchResult::failed('id', 'cmd', 'error');
+
+        $this->assertNull($result->getException());
+    }
 }
