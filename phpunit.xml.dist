@@ -7,6 +7,8 @@
 >
   <php>
     <ini name="error_reporting" value="-1"/>
+    <env name="SFN_ENDPOINT" value="http://localhost:5001"/>
+    <env name="AWS_SUPPRESS_PHP_DEPRECATION_WARNING" value="true"/>
   </php>
   <testsuites>
     <testsuite name="Unit">

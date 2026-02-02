@@ -1600,7 +1600,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 
 **検証**:
 
-- LocalStack を使用した統合テスト
+- moto を使用した統合テスト
 - モックテストでエラーハンドリングを確認
 - 同じ ExecutionName での重複起動が拒否されること
 
@@ -1711,12 +1711,12 @@ public function testWasMissedDetectsMissedSchedules()
 
 ### 統合テスト
 
-**LocalStack を使用した Step Functions テスト**:
+**moto を使用した Step Functions テスト**:
 
 ```php
 public function testStepFunctionsIntegration()
 {
-    // LocalStack の Step Functions エンドポイントを使用
+    // moto の Step Functions エンドポイントを使用
     // 実際の startExecution を実行して結果を検証
 }
 ```
@@ -1739,9 +1739,9 @@ public function testTrackerWithRedis()
 cd demo
 docker compose up
 
-# StepFunctions 環境（LocalStack）
+# StepFunctions 環境（moto）
 cd demo
-docker compose -f docker-compose.stepfunctions.yml up
+docker compose up -d
 ```
 
 ---

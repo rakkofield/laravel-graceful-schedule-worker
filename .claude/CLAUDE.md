@@ -29,9 +29,8 @@ composer test:coverage-html
 composer test
 
 # 個別操作
-composer stepfunctions:up      # moto 起動
+composer stepfunctions:up      # moto 起動（healthcheck で待機）
 composer stepfunctions:down    # moto 停止
-composer stepfunctions:setup   # 起動 + State Machine 作成
 ```
 
 **前提条件:**

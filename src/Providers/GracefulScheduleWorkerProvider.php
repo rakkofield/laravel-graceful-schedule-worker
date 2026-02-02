@@ -118,7 +118,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
                 ];
             }
 
-            // endpoint が設定されている場合（LocalStack 用）
+            // endpoint が設定されている場合（テスト環境用）
             if (isset($sfConfig['endpoint'])) {
                 $clientConfig['endpoint'] = $sfConfig['endpoint'];
             }

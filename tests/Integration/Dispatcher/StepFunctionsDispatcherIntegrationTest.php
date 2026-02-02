@@ -15,10 +15,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNam
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedExecutionNameGenerator;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\LocalStackSfnClientAdapter;
 
 /**
- * StepFunctionsDispatcher の LocalStack/moto を使った Integration テスト
+ * StepFunctionsDispatcher の moto を使った Integration テスト
  *
  * @group integration
  * @group stepfunctions
@@ -56,15 +55,11 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        // SFN_ENDPOINT を優先、フォールバックとして LOCALSTACK_ENDPOINT、デフォルトは LocalStack
-        $this->endpoint = getenv('SFN_ENDPOINT') ?: (getenv('LOCALSTACK_ENDPOINT') ?: 'http://localhost:4566');
+        // SFN_ENDPOINT を使用（phpunit.xml.dist で設定）
+        $this->endpoint = getenv('SFN_ENDPOINT') ?: 'http://localhost:5001';
 
         if (!$this->isSfnEndpointAvailable()) {
             $this->markTestSkipped('Step Functions endpoint is not available: ' . $this->endpoint);
-        }
-
-        if (!class_exists(SfnClient::class)) {
-            $this->markTestSkipped('aws/aws-sdk-php is not installed');
         }
 
         $this->app = new Container();
@@ -121,36 +116,9 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
             ],
         ]);
 
-        // moto の場合
-        if ($this->isMotoEndpoint()) {
-            $healthUrl = $this->endpoint . '/moto-api/';
-            $response = @file_get_contents($healthUrl, false, $context);
-            return $response !== false;
-        }
-
-        // LocalStack の場合
-        $healthUrl = $this->endpoint . '/_localstack/health';
+        $healthUrl = $this->endpoint . '/moto-api/';
         $response = @file_get_contents($healthUrl, false, $context);
-        if ($response === false) {
-            return false;
-        }
-
-        $health = json_decode($response, true);
-        return isset($health['services']['stepfunctions'])
-            && in_array($health['services']['stepfunctions'], ['running', 'available'], true);
-    }
-
-    private function isMotoEndpoint(): bool
-    {
-        // ポート 5001 は moto、4566 は LocalStack
-        return strpos($this->endpoint, ':5001') !== false;
-    }
-
-    private function usesLocalStackAdapter(): bool
-    {
-        // LocalStack は ExecutionAlreadyExists の代わりに InvalidName を返すため、
-        // LocalStackSfnClientAdapter が必要
-        return !$this->isMotoEndpoint();
+        return $response !== false;
     }
 
     private function createEvent(string $command): Event
@@ -159,12 +127,9 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     }
 
     private function createDispatcher(
-        bool $useLocalStackAdapter = false,
         ExecutionNameGenerator $nameGenerator = null
     ): StepFunctionsDispatcher {
-        $adapter = $useLocalStackAdapter
-            ? new LocalStackSfnClientAdapter($this->sfnClient)
-            : new AwsSfnClientAdapter($this->sfnClient);
+        $adapter = new AwsSfnClientAdapter($this->sfnClient);
         return new StepFunctionsDispatcher($adapter, self::$stateMachineArn, $this->clock, $nameGenerator);
     }
 
@@ -196,7 +161,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
 
         // 1回目の実行
         $this->clock = new FixedClock($uniqueTime);
-        $dispatcher1 = $this->createDispatcher($this->usesLocalStackAdapter(), $nameGenerator);
+        $dispatcher1 = $this->createDispatcher($nameGenerator);
         $uniqueCommand = 'php artisan test:duplicate-' . $uniqueTime->format('U.u');
         $event = $this->createEvent($uniqueCommand);
 
@@ -207,10 +172,9 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         // 2回目の実行（同じ Execution Name だが異なる時刻 = 異なる input）
         // AWS/moto の仕様: 同じ name + 同じ input = べき等動作（成功）
         //                  同じ name + 異なる input = ExecutionAlreadyExists
-        // LocalStack は ExecutionAlreadyExists の代わりに InvalidName を返す
         $differentTime = $uniqueTime->modify('+1 second');
         $this->clock = new FixedClock($differentTime);
-        $dispatcher2 = $this->createDispatcher($this->usesLocalStackAdapter(), $nameGenerator);
+        $dispatcher2 = $this->createDispatcher($nameGenerator);
 
         $result2 = $dispatcher2->dispatchEvent($event, $this->app);
         $this->assertTrue($result2->isStarted());
