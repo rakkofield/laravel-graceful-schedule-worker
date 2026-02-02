@@ -23,7 +23,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class GracefulScheduleWorkerProvider extends ServiceProvider
 {
-    public function register()
+    public function register(): void
     {
         // 設定ファイルをマージ（register時に設定が必要なため）
         $this->mergeConfigFrom(
