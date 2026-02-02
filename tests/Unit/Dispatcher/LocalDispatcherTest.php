@@ -235,4 +235,36 @@ class LocalDispatcherTest extends TestCase
         // buildCommand() により出力リダイレクトが含まれる
         $this->assertStringContainsString('/tmp/test-output.log', $result->getEventCommand());
     }
+
+    /**
+     * @testdox T2.15 beforeCallbacks で例外が発生した場合は失敗結果を返す
+     */
+    public function testReturnsFailedWhenBeforeCallbackThrows(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createSpyEvent('echo test');
+        $event->throwOnBeforeCallback(new \RuntimeException('Test exception'));
+
+        $result = $dispatcher->dispatchEvent($event, $this->app);
+
+        $this->assertFalse($result->isStarted());
+        $this->assertNotNull($result->getError());
+        $this->assertStringContainsString('RuntimeException', $result->getError());
+        $this->assertStringContainsString('Test exception', $result->getError());
+    }
+
+    /**
+     * @testdox T2.16 beforeCallbacks で Error が発生した場合は再スローされる
+     */
+    public function testRethrowsErrorFromBeforeCallback(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createSpyEvent('echo test');
+        $event->throwOnBeforeCallback(new \Error('Test error'));
+
+        $this->expectException(\Error::class);
+        $this->expectExceptionMessage('Test error');
+
+        $dispatcher->dispatchEvent($event, $this->app);
+    }
 }
