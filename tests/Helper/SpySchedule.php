@@ -55,4 +55,17 @@ class SpySchedule extends Schedule
     {
         return $this->dueEventsToReturn;
     }
+
+    /**
+     * テスト用: イベントを追加
+     *
+     * Schedule::events() が返すイベントリストに追加します。
+     *
+     * @param Event $event
+     * @return void
+     */
+    public function addEvent(Event $event): void
+    {
+        $this->events[] = $event;
+    }
 }

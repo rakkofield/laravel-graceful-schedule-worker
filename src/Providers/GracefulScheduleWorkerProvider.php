@@ -20,6 +20,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 class GracefulScheduleWorkerProvider extends ServiceProvider
 {
@@ -43,6 +45,9 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
 
         // StepFunctions 関連のバインディング（AWS SDK がインストールされている場合のみ）
         $this->registerStepFunctionsBindings();
+
+        // ExecutionTrackerInterface を登録（設定で有効な場合のみ）
+        $this->registerTrackerBindings();
 
         // CompositeDispatcher を ScheduleDispatcherInterface として登録
         $this->app->singleton(ScheduleDispatcherInterface::class, function (Container $app) {
@@ -79,7 +84,14 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
-            return new DefaultScheduleOrchestrator($dispatcher, $clock);
+            // ExecutionTrackerInterface が登録されている場合は取得
+            $tracker = null;
+            if ($app->bound(ExecutionTrackerInterface::class)) {
+                /** @var ExecutionTrackerInterface $tracker */
+                $tracker = $app->make(ExecutionTrackerInterface::class);
+            }
+
+            return new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker);
         });
     }
 
@@ -142,6 +154,47 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             $clock = $app->make(ClockInterface::class);
 
             return new StepFunctionsDispatcher($client, $stateMachineArn, $clock);
+        });
+    }
+
+    /**
+     * ExecutionTracker 関連のバインディングを登録
+     *
+     * 設定で tracker.enabled が true の場合のみ登録されます。
+     *
+     * @return void
+     */
+    protected function registerTrackerBindings(): void
+    {
+        // config が登録されていない場合はスキップ
+        if (!$this->app->bound('config')) {
+            return;
+        }
+
+        /** @var ConfigRepository $config */
+        $config = $this->app->make('config');
+
+        // tracker が無効の場合はスキップ
+        if (!$config->get('graceful-scheduler.tracker.enabled', false)) {
+            return;
+        }
+
+        $this->app->singleton(ExecutionTrackerInterface::class, function (Container $app) {
+            /** @var ConfigRepository $config */
+            $config = $app->make('config');
+
+            /** @var string|null $storeName */
+            $storeName = $config->get('graceful-scheduler.tracker.store');
+
+            /** @var \Illuminate\Contracts\Cache\Factory $cacheFactory */
+            $cacheFactory = $app->make('cache');
+            /** @var \Illuminate\Contracts\Cache\Repository $cache */
+            $cache = $cacheFactory->store($storeName);
+
+            /** @var int $lockTtl */
+            $lockTtl = $config->get('graceful-scheduler.tracker.lock_ttl', 3600);
+
+            return new CacheExecutionTracker($cache, $lockTtl);
         });
     }
 

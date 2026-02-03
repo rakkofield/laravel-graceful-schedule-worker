@@ -13,12 +13,15 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableGracefulScheduleWorkerProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 class GracefulScheduleWorkerProviderTest extends TestCase
 {
@@ -270,5 +273,131 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $orchestrator2 = $this->app->make(ScheduleOrchestratorInterface::class);
 
         $this->assertSame($orchestrator1, $orchestrator2);
+    }
+
+    /**
+     * @testdox T3.12 Registers ExecutionTrackerInterface when enabled
+     */
+    public function testRegistersExecutionTrackerInterfaceWhenEnabled(): void
+    {
+        // Setup cache mock
+        $cacheStore = new FakeCacheStore();
+        $this->app->singleton('cache', function () use ($cacheStore) {
+            return new class ($cacheStore) {
+                /** @var FakeCacheStore */
+                private $store;
+
+                /**
+                 * @param FakeCacheStore $store
+                 */
+                public function __construct(FakeCacheStore $store)
+                {
+                    $this->store = $store;
+                }
+
+                /**
+                 * @param string|null $name
+                 * @return FakeCacheStore
+                 */
+                public function store($name = null)
+                {
+                    return $this->store;
+                }
+            };
+        });
+
+        // Enable tracker in config
+        $this->app->make('config')->set('graceful-scheduler.tracker.enabled', true);
+
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound(ExecutionTrackerInterface::class));
+        $this->assertTrue($this->app->isShared(ExecutionTrackerInterface::class));
+
+        $tracker = $this->app->make(ExecutionTrackerInterface::class);
+        $this->assertInstanceOf(CacheExecutionTracker::class, $tracker);
+    }
+
+    /**
+     * @testdox T3.13 Does not register ExecutionTrackerInterface when disabled
+     */
+    public function testDoesNotRegisterExecutionTrackerInterfaceWhenDisabled(): void
+    {
+        // tracker.enabled is false by default
+        $this->app->make('config')->set('graceful-scheduler.tracker.enabled', false);
+
+        $this->provider->register();
+
+        $this->assertFalse($this->app->bound(ExecutionTrackerInterface::class));
+    }
+
+    /**
+     * @testdox T3.14 Orchestrator receives Tracker when enabled
+     */
+    public function testOrchestratorReceivesTrackerWhenEnabled(): void
+    {
+        // Setup cache mock
+        $cacheStore = new FakeCacheStore();
+        $this->app->singleton('cache', function () use ($cacheStore) {
+            return new class ($cacheStore) {
+                /** @var FakeCacheStore */
+                private $store;
+
+                /**
+                 * @param FakeCacheStore $store
+                 */
+                public function __construct(FakeCacheStore $store)
+                {
+                    $this->store = $store;
+                }
+
+                /**
+                 * @param string|null $name
+                 * @return FakeCacheStore
+                 */
+                public function store($name = null)
+                {
+                    return $this->store;
+                }
+            };
+        });
+
+        // Enable tracker in config
+        $this->app->make('config')->set('graceful-scheduler.tracker.enabled', true);
+
+        $this->provider->register();
+
+        $orchestrator = $this->app->make(ScheduleOrchestratorInterface::class);
+        $this->assertInstanceOf(DefaultScheduleOrchestrator::class, $orchestrator);
+
+        // リフレクションで tracker プロパティを確認
+        $reflection = new \ReflectionClass($orchestrator);
+        $property = $reflection->getProperty('tracker');
+        $property->setAccessible(true);
+        $tracker = $property->getValue($orchestrator);
+
+        $this->assertInstanceOf(ExecutionTrackerInterface::class, $tracker);
+    }
+
+    /**
+     * @testdox T3.15 Orchestrator has null Tracker when disabled
+     */
+    public function testOrchestratorHasNullTrackerWhenDisabled(): void
+    {
+        // tracker.enabled is false by default
+        $this->app->make('config')->set('graceful-scheduler.tracker.enabled', false);
+
+        $this->provider->register();
+
+        $orchestrator = $this->app->make(ScheduleOrchestratorInterface::class);
+        $this->assertInstanceOf(DefaultScheduleOrchestrator::class, $orchestrator);
+
+        // リフレクションで tracker プロパティを確認
+        $reflection = new \ReflectionClass($orchestrator);
+        $property = $reflection->getProperty('tracker');
+        $property->setAccessible(true);
+        $tracker = $property->getValue($orchestrator);
+
+        $this->assertNull($tracker);
     }
 }

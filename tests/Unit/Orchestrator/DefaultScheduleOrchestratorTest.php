@@ -13,10 +13,12 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 class DefaultScheduleOrchestratorTest extends TestCase
 {
@@ -354,6 +356,216 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator->run($this->schedule, $this->app, $shouldContinue);
 
         // 秒が 0 でないため、ディスパッチは呼ばれない
+        $this->assertSame(0, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @param string $command
+     * @return ClockAwareEvent
+     */
+    private function createClockAwareEvent(string $command): ClockAwareEvent
+    {
+        return new ClockAwareEvent($this->eventMutex, $command, $this->clock);
+    }
+
+    /**
+     * @testdox T3.20 Acquires lock before dispatch when tracker is set
+     */
+    public function testAcquiresLockBeforeDispatch(): void
+    {
+        $tracker = new FakeExecutionTracker();
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // ロックが取得されていることを確認
+        $locks = $tracker->getLocks();
+        $this->assertNotEmpty($locks);
+    }
+
+    /**
+     * @testdox T3.21 Skips event when lock not acquired
+     */
+    public function testSkipsEventWhenLockNotAcquired(): void
+    {
+        $tracker = new FakeExecutionTracker();
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        // ロック取得を失敗させる
+        $dueAt = \Carbon\Carbon::parse('2024-01-15 12:00:00');
+        $tracker->setLockResult($event->mutexName(), $dueAt, false);
+
+        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // ディスパッチがスキップされることを確認
+        $this->assertSame(0, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox T3.22 Marks executed after successful dispatch
+     */
+    public function testMarksExecutedAfterSuccessfulDispatch(): void
+    {
+        $tracker = new FakeExecutionTracker();
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // 実行が記録されていることを確認
+        $executed = $tracker->getExecuted();
+        $this->assertArrayHasKey($event->mutexName(), $executed);
+    }
+
+    /**
+     * @testdox T3.23 Checks missed executions and recovers
+     */
+    public function testChecksMissedExecutionsAndRecovers(): void
+    {
+        $tracker = new FakeExecutionTracker();
+
+        // due ではないが recoverable なイベントを作成
+        $event = $this->createClockAwareEvent('echo test');
+        $event->cron('0 * * * *'); // 毎時0分
+        $event->enableRecovery();  // リカバリを有効化
+
+        // due events は空（通常のディスパッチは行われない）
+        $this->schedule->setDueEvents([]);
+        // schedule.events() には含まれる
+        $this->schedule->addEvent($event);
+
+        // 取りこぼしを設定
+        $tracker->setMissedResult($event->mutexName(), true);
+        // 10:00 に実行記録（現在 12:00 なので、11:00 が取りこぼし）
+        $tracker->setExecuted($event->mutexName(), \Carbon\Carbon::parse('2024-01-15 10:00:00'));
+
+        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // リカバリでディスパッチされることを確認
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox T3.24 Skips missed event outside grace period
+     */
+    public function testSkipsMissedEventOutsideGracePeriod(): void
+    {
+        $tracker = new FakeExecutionTracker();
+
+        // recoverable なイベントを作成（grace period 30分）
+        $event = $this->createClockAwareEvent('echo test');
+        $event->cron('0 * * * *'); // 毎時0分
+        $event->withGracePeriod(30); // 30分
+
+        $this->schedule->setDueEvents([]);
+        $this->schedule->addEvent($event);
+
+        // 取りこぼしを設定
+        $tracker->setMissedResult($event->mutexName(), true);
+        // 10:00 に実行記録（現在 12:00 なので grace period 超過）
+        $tracker->setExecuted($event->mutexName(), \Carbon\Carbon::parse('2024-01-15 10:00:00'));
+
+        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // grace period 超過のためディスパッチされないことを確認
+        $this->assertSame(0, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox T3.25 Does not recover non-recoverable event
+     */
+    public function testDoesNotRecoverNonRecoverableEvent(): void
+    {
+        $tracker = new FakeExecutionTracker();
+
+        // recoverable でないイベント
+        $event = $this->createClockAwareEvent('echo test');
+        $event->cron('0 * * * *'); // 毎時0分
+        // enableRecovery() を呼ばない
+
+        $this->schedule->setDueEvents([]);
+        $this->schedule->addEvent($event);
+
+        // 取りこぼしを設定
+        $tracker->setMissedResult($event->mutexName(), true);
+
+        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // recoverable でないためディスパッチされないことを確認
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
 }
