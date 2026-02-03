@@ -1,0 +1,80 @@
+name: static analysis
+
+on:
+    push:
+        branches:
+            - '*.x'
+    pull_request:
+
+jobs:
+    phpcs:
+        runs-on: ubuntu-24.04
+        name: phpcs
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: 8.1
+                  extensions: dom, curl, libxml, mbstring, zip
+                  tools: composer:v2
+                  coverage: none
+
+            - name: Cache tools vendor
+              uses: actions/cache@v4
+              with:
+                  path: tools/vendor
+                  key: tools-vendor-${{ hashFiles('tools/composer.lock') }}
+                  restore-keys: tools-vendor-
+
+            - name: Install tools
+              run: composer tools:install
+
+            - name: Run phpcs
+              run: composer phpcs
+
+    phpstan:
+        runs-on: ubuntu-24.04
+        name: phpstan
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: 8.1
+                  extensions: dom, curl, libxml, mbstring, zip
+                  tools: composer:v2
+                  coverage: none
+
+            - name: Cache tools vendor
+              uses: actions/cache@v4
+              with:
+                  path: tools/vendor
+                  key: tools-vendor-${{ hashFiles('tools/composer.lock') }}
+                  restore-keys: tools-vendor-
+
+            - name: Install tools
+              run: composer tools:install
+
+            - name: Get composer cache directory
+              id: composer-cache
+              run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+            - name: Cache main dependencies
+              uses: actions/cache@v4
+              with:
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  key: ${{ runner.os }}-8.1-composer-${{ hashFiles('composer.lock') }}
+                  restore-keys: ${{ runner.os }}-8.1-composer-
+
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-interaction
+
+            - name: Run phpstan
+              run: composer phpstan
