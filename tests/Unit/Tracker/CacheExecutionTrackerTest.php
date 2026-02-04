@@ -344,4 +344,28 @@ class CacheExecutionTrackerTest extends TestCase
         // 通常の Event は grace period チェックがないので missedDue が返る
         $this->assertNotNull($result);
     }
+
+    /**
+     * @testdox T4.15 getMissedDueIfRecoverable returns missedDue when ClockAwareEvent has no gracePeriod set
+     */
+    public function testGetMissedDueIfRecoverableReturnsMissedDueWhenNoGracePeriod(): void
+    {
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 14:05:00'));
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+
+        // ClockAwareEvent を作成するが withGracePeriod() を呼ばない
+        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event->cron('0 * * * *'); // 毎時0分
+
+        // 10:00 に実行記録
+        $tracker->markExecuted($event, Carbon::parse('2024-01-15 10:00:00'));
+
+        // 14:05 にチェック（grace period 未設定なので、時間経過に関係なく missedDue が返る）
+        $now = Carbon::parse('2024-01-15 14:05:00');
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
+
+        // gracePeriod が null の ClockAwareEvent は grace period チェックをスキップ
+        $this->assertNotNull($result);
+        $this->assertSame(14, $result->hour);
+    }
 }

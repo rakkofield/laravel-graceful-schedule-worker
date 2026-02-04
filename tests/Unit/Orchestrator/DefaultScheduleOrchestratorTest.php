@@ -576,4 +576,66 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // recoverable でないためディスパッチされないことを確認
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
+
+    /**
+     * @testdox T3.26 Recovery dispatch failure is logged and markExecuted is not called
+     */
+    public function testRecoveryDispatchFailureIsHandled(): void
+    {
+        $tracker = new FakeExecutionTracker();
+
+        // リカバリ対象のイベントを設定
+        $event = $this->createClockAwareEvent('echo test');
+        $event->cron('0 * * * *');
+        $event->enableRecovery();
+
+        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+
+        // FakeExecutionTracker でリカバリ対象を設定
+        $tracker->setRecoverableResult($event->mutexName(), $missedDue);
+
+        // ディスパッチ失敗を設定
+        $failedResult = FakeDispatchResult::failed($event->mutexName(), 'echo test', 'Dispatch failed', 'fake');
+        $this->dispatcher->setResult($failedResult);
+
+        // スケジュールにイベントを追加（due ではない）
+        $this->schedule->setDueEvents([]);
+        $this->schedule->addEvent($event);
+
+        // ログキャプチャ
+        $logMessages = [];
+        $spyLogger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $spyLogger->method('error')->willReturnCallback(function ($message, $context) use (&$logMessages) {
+            $logMessages[] = ['level' => 'error', 'message' => $message, 'context' => $context];
+        });
+        $spyLogger->method('info')->willReturnCallback(function ($message, $context) use (&$logMessages) {
+            $logMessages[] = ['level' => 'info', 'message' => $message, 'context' => $context];
+        });
+
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $this->dispatcher,
+            $this->clock,
+            $tracker,
+            $spyLogger
+        );
+        $orchestrator->setSleepMicroseconds(0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // エラーログが出力されていることを確認
+        $errorLogs = array_filter($logMessages, function ($log) {
+            return $log['level'] === 'error';
+        });
+        $this->assertNotEmpty($errorLogs);
+        $this->assertStringContainsString('Failed to dispatch', array_values($errorLogs)[0]['message']);
+
+        // markExecuted が呼ばれていないことを確認
+        $this->assertEmpty($tracker->getExecuted());
+    }
 }
