@@ -8,6 +8,7 @@ use Aws\Sfn\SfnClient;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
+use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\GracefulScheduleWorkCommand;
@@ -22,6 +23,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInte
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 class GracefulScheduleWorkerProvider extends ServiceProvider
 {
@@ -46,7 +48,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
         // StepFunctions 関連のバインディング（AWS SDK がインストールされている場合のみ）
         $this->registerStepFunctionsBindings();
 
-        // ExecutionTrackerInterface を登録（設定で有効な場合のみ）
+        // ExecutionTrackerInterface を登録（常に登録、設定に応じて実装を切り替え）
         $this->registerTrackerBindings();
 
         // CompositeDispatcher を ScheduleDispatcherInterface として登録
@@ -83,15 +85,14 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             $dispatcher = $app->make(ScheduleDispatcherInterface::class);
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
+            /** @var ExecutionTrackerInterface $tracker */
+            $tracker = $app->make(ExecutionTrackerInterface::class);
 
-            // ExecutionTrackerInterface が登録されている場合は取得
-            $tracker = null;
-            if ($app->bound(ExecutionTrackerInterface::class)) {
-                /** @var ExecutionTrackerInterface $tracker */
-                $tracker = $app->make(ExecutionTrackerInterface::class);
-            }
+            // Logger を取得（Laravel の log サービスから、なければ NullLogger）
+            /** @var \Psr\Log\LoggerInterface $logger */
+            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
 
-            return new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker);
+            return new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger);
         });
     }
 
@@ -160,28 +161,25 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
     /**
      * ExecutionTracker 関連のバインディングを登録
      *
-     * 設定で tracker.enabled が true の場合のみ登録されます。
+     * tracker.enabled に応じて CacheExecutionTracker または NullExecutionTracker を登録します。
      *
      * @return void
      */
     protected function registerTrackerBindings(): void
     {
-        // config が登録されていない場合はスキップ
-        if (!$this->app->bound('config')) {
-            return;
-        }
-
-        /** @var ConfigRepository $config */
-        $config = $this->app->make('config');
-
-        // tracker が無効の場合はスキップ
-        if (!$config->get('graceful-scheduler.tracker.enabled', false)) {
-            return;
-        }
-
         $this->app->singleton(ExecutionTrackerInterface::class, function (Container $app) {
+            // config が登録されていない場合は NullExecutionTracker
+            if (!$app->bound('config')) {
+                return new NullExecutionTracker();
+            }
+
             /** @var ConfigRepository $config */
             $config = $app->make('config');
+
+            // tracker が無効の場合は NullExecutionTracker
+            if (!$config->get('graceful-scheduler.tracker.enabled', false)) {
+                return new NullExecutionTracker();
+            }
 
             /** @var string|null $storeName */
             $storeName = $config->get('graceful-scheduler.tracker.store');
@@ -194,7 +192,11 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var int $lockTtl */
             $lockTtl = $config->get('graceful-scheduler.tracker.lock_ttl', 3600);
 
-            return new CacheExecutionTracker($cache, $lockTtl);
+            // Logger を取得（Laravel の log サービスから、なければ NullLogger）
+            /** @var \Psr\Log\LoggerInterface $logger */
+            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+
+            return new CacheExecutionTracker($cache, $logger, $lockTtl);
         });
     }
 

@@ -24,24 +24,21 @@ interface ExecutionTrackerInterface
     public function markExecuted(Event $event, Carbon $dueAt): void;
 
     /**
-     * タスクが取りこぼされたかどうかを判定する
+     * リカバリすべき取りこぼしがあれば、その実行予定時刻を返す
      *
-     * cron 式から前回の実行予定時刻を計算し、最後に実行された予定時刻と比較する。
-     * 前回の実行予定時刻が最後の実行記録より後であれば、取りこぼしがある。
+     * 以下の条件をすべて満たす場合に missedDue を返す:
+     * - 前回の実行予定時刻より後の実行予定が存在する（取りこぼしあり）
+     * - grace period 内である（ClockAwareEvent の場合）
+     *
+     * 初回実行（実行記録なし）の場合は null を返す。
+     * cron 式が不正な場合は例外を投げる。
      *
      * @param Event $event チェック対象のイベント
      * @param Carbon $now 現在時刻
-     * @return bool 取りこぼしがあれば true
+     * @return Carbon|null リカバリすべき場合は missedDue、そうでなければ null
+     * @throws \InvalidArgumentException cron 式が不正な場合
      */
-    public function wasMissed(Event $event, Carbon $now): bool;
-
-    /**
-     * 最後に実行された予定時刻を取得する
-     *
-     * @param Event $event 対象イベント
-     * @return Carbon|null 最後の実行予定時刻（未実行なら null）
-     */
-    public function getLastExecutedDue(Event $event): ?Carbon;
+    public function getMissedDueIfRecoverable(Event $event, Carbon $now): ?Carbon;
 
     /**
      * 指定時刻に対するロックを取得する

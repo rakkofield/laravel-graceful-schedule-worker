@@ -6,8 +6,10 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use Carbon\Carbon;
 use Illuminate\Console\Scheduling\Event;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
@@ -32,12 +34,18 @@ class CacheExecutionTrackerTest extends TestCase
      */
     private $mutex;
 
+    /**
+     * @var NullLogger
+     */
+    private $logger;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->lockProvider = new FakeLockProvider();
         $this->cache = new FakeCacheStore($this->lockProvider);
         $this->mutex = new FakeEventMutex();
+        $this->logger = new NullLogger();
     }
 
     /**
@@ -64,7 +72,7 @@ class CacheExecutionTrackerTest extends TestCase
      */
     public function testMarkExecutedStoresTimestamp(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createEvent('php artisan test:task');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -76,26 +84,48 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.2 wasMissed returns false on first run
+     * @testdox T4.2 constructor throws exception for non-positive lockTtl
      */
-    public function testWasMissedReturnsFalseOnFirstRun(): void
+    public function testConstructorThrowsExceptionForNonPositiveLockTtl(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('lockTtl must be a positive integer');
+
+        new CacheExecutionTracker($this->cache, $this->logger, 0);
+    }
+
+    /**
+     * @testdox T4.2b constructor throws exception for negative lockTtl
+     */
+    public function testConstructorThrowsExceptionForNegativeLockTtl(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('lockTtl must be a positive integer');
+
+        new CacheExecutionTracker($this->cache, $this->logger, -1);
+    }
+
+    /**
+     * @testdox T4.3 getMissedDueIfRecoverable returns null on first run
+     */
+    public function testGetMissedDueIfRecoverableReturnsNullOnFirstRun(): void
+    {
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createEvent('php artisan test:task');
         $event->cron('0 * * * *'); // 毎時0分
         $now = Carbon::parse('2024-01-15 11:05:00');
 
-        $result = $tracker->wasMissed($event, $now);
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
-        $this->assertFalse($result);
+        $this->assertNull($result);
     }
 
     /**
-     * @testdox T4.3 wasMissed returns true when missed
+     * @testdox T4.4 getMissedDueIfRecoverable returns missedDue when missed
      */
-    public function testWasMissedReturnsTrueWhenMissed(): void
+    public function testGetMissedDueIfRecoverableReturnsMissedDue(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createEvent('php artisan test:task');
         $event->cron('0 * * * *'); // 毎時0分
 
@@ -104,17 +134,19 @@ class CacheExecutionTrackerTest extends TestCase
 
         // 11:05 にチェック（11:00 が欠落している）
         $now = Carbon::parse('2024-01-15 11:05:00');
-        $result = $tracker->wasMissed($event, $now);
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
-        $this->assertTrue($result);
+        $this->assertNotNull($result);
+        $this->assertSame(11, $result->hour);
+        $this->assertSame(0, $result->minute);
     }
 
     /**
-     * @testdox T4.4 wasMissed returns false when on schedule
+     * @testdox T4.5 getMissedDueIfRecoverable returns null when on schedule
      */
-    public function testWasMissedReturnsFalseWhenOnSchedule(): void
+    public function testGetMissedDueIfRecoverableReturnsNullWhenOnSchedule(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createEvent('php artisan test:task');
         $event->cron('0 * * * *'); // 毎時0分
 
@@ -123,17 +155,91 @@ class CacheExecutionTrackerTest extends TestCase
 
         // 11:05 にチェック（正常）
         $now = Carbon::parse('2024-01-15 11:05:00');
-        $result = $tracker->wasMissed($event, $now);
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
-        $this->assertFalse($result);
+        $this->assertNull($result);
     }
 
     /**
-     * @testdox T4.5 acquireLock returns true on success
+     * @testdox T4.6 getMissedDueIfRecoverable returns null when grace period exceeded
+     */
+    public function testGetMissedDueIfRecoverableReturnsNullWhenGracePeriodExceeded(): void
+    {
+        $logMessages = [];
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->method('warning')->willReturnCallback(function ($message, $context) use (&$logMessages) {
+            $logMessages[] = ['message' => $message, 'context' => $context];
+        });
+
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 14:05:00'));
+        $tracker = new CacheExecutionTracker($this->cache, $logger);
+        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event->cron('0 * * * *'); // 毎時0分
+        $event->withGracePeriod(120); // 2時間
+
+        // 10:00 に実行記録（14:05 では grace period 超過）
+        $tracker->markExecuted($event, Carbon::parse('2024-01-15 10:00:00'));
+
+        // 14:05 にチェック
+        $now = Carbon::parse('2024-01-15 14:05:00');
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
+
+        $this->assertNull($result);
+        $this->assertNotEmpty($logMessages);
+        $this->assertStringContainsString('grace period exceeded', $logMessages[0]['message']);
+    }
+
+    /**
+     * @testdox T4.7 getMissedDueIfRecoverable returns missedDue within grace period
+     */
+    public function testGetMissedDueIfRecoverableReturnsMissedDueWithinGracePeriod(): void
+    {
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 11:30:00'));
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event->cron('0 * * * *'); // 毎時0分
+        $event->withGracePeriod(120); // 2時間
+
+        // 10:00 に実行記録（11:30 は grace period 内）
+        $tracker->markExecuted($event, Carbon::parse('2024-01-15 10:00:00'));
+
+        // 11:30 にチェック
+        $now = Carbon::parse('2024-01-15 11:30:00');
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
+
+        $this->assertNotNull($result);
+        $this->assertSame(11, $result->hour);
+    }
+
+    /**
+     * @testdox T4.8 getMissedDueIfRecoverable throws on invalid cron expression
+     */
+    public function testGetMissedDueIfRecoverableThrowsOnInvalidCron(): void
+    {
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $event = $this->createEvent('php artisan test:task');
+
+        // 無効な cron 式を設定
+        $reflection = new \ReflectionProperty($event, 'expression');
+        $reflection->setAccessible(true);
+        $reflection->setValue($event, 'invalid cron');
+
+        // 実行記録を設定（初回チェックをスキップ）
+        $tracker->markExecuted($event, Carbon::parse('2024-01-15 10:00:00'));
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid cron expression');
+
+        $now = Carbon::parse('2024-01-15 11:05:00');
+        $tracker->getMissedDueIfRecoverable($event, $now);
+    }
+
+    /**
+     * @testdox T4.9 acquireLock returns true on success
      */
     public function testAcquireLockReturnsTrueOnSuccess(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createEvent('php artisan test:task');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -144,11 +250,11 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.6 acquireLock returns false when already locked
+     * @testdox T4.10 acquireLock returns false when already locked
      */
     public function testAcquireLockReturnsFalseWhenLocked(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createEvent('php artisan test:task');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -162,11 +268,11 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.7 releaseLock removes lock and allows re-acquisition
+     * @testdox T4.11 releaseLock removes lock and allows re-acquisition
      */
     public function testReleaseLockRemovesLock(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createEvent('php artisan test:task');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -182,43 +288,13 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.8 getLastExecutedDue returns stored value
-     */
-    public function testGetLastExecutedDueReturnsStoredValue(): void
-    {
-        $tracker = new CacheExecutionTracker($this->cache);
-        $event = $this->createEvent('php artisan test:task');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
-
-        $tracker->markExecuted($event, $dueAt);
-
-        $result = $tracker->getLastExecutedDue($event);
-
-        $this->assertInstanceOf(Carbon::class, $result);
-        $this->assertTrue($result->equalTo($dueAt));
-    }
-
-    /**
-     * @testdox T4.9 getLastExecutedDue returns null when not found
-     */
-    public function testGetLastExecutedDueReturnsNullWhenNotFound(): void
-    {
-        $tracker = new CacheExecutionTracker($this->cache);
-        $event = $this->createEvent('php artisan test:task');
-
-        $result = $tracker->getLastExecutedDue($event);
-
-        $this->assertNull($result);
-    }
-
-    /**
-     * @testdox T4.10 acquireLock uses fallback when LockProvider unavailable
+     * @testdox T4.12 acquireLock uses fallback when LockProvider unavailable
      */
     public function testAcquireLockFallbackWhenLockProviderUnavailable(): void
     {
         // LockProvider を持たない Cache を使用
         $cacheWithoutLock = new FakeCacheStore(null);
-        $tracker = new CacheExecutionTracker($cacheWithoutLock);
+        $tracker = new CacheExecutionTracker($cacheWithoutLock, $this->logger);
         $event = $this->createEvent('php artisan test:task');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -232,41 +308,12 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.11 wasMissed returns false on invalid cron expression
-     */
-    public function testWasMissedReturnsFalseOnInvalidCronExpression(): void
-    {
-        $logMessages = [];
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->method('warning')->willReturnCallback(function ($message, $context) use (&$logMessages) {
-            $logMessages[] = ['message' => $message, 'context' => $context];
-        });
-
-        $tracker = new CacheExecutionTracker($this->cache, 3600, $logger);
-        $event = $this->createEvent('php artisan test:task');
-
-        // 無効な cron 式を設定（通常は Event::cron() を通すが、直接設定）
-        $reflection = new \ReflectionProperty($event, 'expression');
-        $reflection->setAccessible(true);
-        $reflection->setValue($event, 'invalid cron');
-
-        // 実行記録を設定（初回チェックをスキップ）
-        $tracker->markExecuted($event, Carbon::parse('2024-01-15 10:00:00'));
-
-        $now = Carbon::parse('2024-01-15 11:05:00');
-        $result = $tracker->wasMissed($event, $now);
-
-        $this->assertFalse($result);
-        $this->assertNotEmpty($logMessages);
-    }
-
-    /**
-     * @testdox T4.12 markExecuted uses grace period for TTL calculation with ClockAwareEvent
+     * @testdox T4.13 markExecuted uses grace period for TTL calculation with ClockAwareEvent
      */
     public function testMarkExecutedUsesGracePeriodForTtl(): void
     {
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 10:00:00'));
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createClockAwareEvent('php artisan test:task', $clock);
         $event->withGracePeriod(120); // 2時間 = 7200秒
 
@@ -276,5 +323,25 @@ class CacheExecutionTrackerTest extends TestCase
         // キーが保存されていることを確認
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertTrue($this->cache->has($key));
+    }
+
+    /**
+     * @testdox T4.14 getMissedDueIfRecoverable works with non-ClockAwareEvent (no grace period check)
+     */
+    public function testGetMissedDueIfRecoverableWorksWithNonClockAwareEvent(): void
+    {
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $event = $this->createEvent('php artisan test:task');
+        $event->cron('0 * * * *'); // 毎時0分
+
+        // 10:00 に実行記録
+        $tracker->markExecuted($event, Carbon::parse('2024-01-15 10:00:00'));
+
+        // 14:05 にチェック（通常の Event なので grace period チェックなし）
+        $now = Carbon::parse('2024-01-15 14:05:00');
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
+
+        // 通常の Event は grace period チェックがないので missedDue が返る
+        $this->assertNotNull($result);
     }
 }

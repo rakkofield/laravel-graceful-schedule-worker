@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
+use Carbon\Carbon;
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
@@ -19,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 class DefaultScheduleOrchestratorTest extends TestCase
 {
@@ -43,6 +46,9 @@ class DefaultScheduleOrchestratorTest extends TestCase
     /** @var FixedClock */
     private $clock;
 
+    /** @var NullLogger */
+    private $logger;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -59,6 +65,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->app = new FakeApplication();
         // 時刻を 12:00:00 に固定（秒が 0 の状態）
         $this->clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $this->logger = new NullLogger();
     }
 
     protected function tearDown(): void
@@ -87,7 +94,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0); // テスト時はスリープを無効化
 
         // shouldContinue は 1 回だけ true を返してからすぐ false を返す
@@ -112,7 +120,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // due でないイベントは dueEvents に含まれないため、空配列を設定
         $this->schedule->setDueEvents([]);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -136,7 +145,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event3 = $this->createEvent('echo test3');
         $this->schedule->setDueEvents([$event1, $event2, $event3]);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -162,7 +172,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         // 最初から false を返す
@@ -185,7 +196,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -212,7 +224,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'local');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -239,7 +252,15 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::failed($event->mutexName(), 'echo test', 'Connection refused', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        // ログをキャプチャするために SpyLogger を使用
+        $logMessages = [];
+        $spyLogger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $spyLogger->method('error')->willReturnCallback(function ($message, $context) use (&$logMessages) {
+            $logMessages[] = ['message' => $message, 'context' => $context];
+        });
+
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $spyLogger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -248,28 +269,14 @@ class DefaultScheduleOrchestratorTest extends TestCase
             return $callCount <= 1;
         };
 
-        // error_log 出力をキャプチャするため、一時ファイルにリダイレクト
-        $tempFile = tmpfile();
-        $tempFilePath = stream_get_meta_data($tempFile)['uri'];
-        $oldErrorLog = ini_set('error_log', $tempFilePath);
-
         $orchestrator->run($this->schedule, $this->app, $shouldContinue);
-
-        // 元に戻す
-        if ($oldErrorLog !== false) {
-            ini_set('error_log', $oldErrorLog);
-        }
-
-        // ログ内容を読み取る
-        $errorLogOutput = file_get_contents($tempFilePath);
-        fclose($tempFile);
 
         // ディスパッチが呼ばれたことを確認
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
 
         // エラーログにメッセージが出力されていることを確認
-        $this->assertStringContainsString('Dispatch failed', $errorLogOutput);
-        $this->assertStringContainsString('Connection refused', $errorLogOutput);
+        $this->assertNotEmpty($logMessages);
+        $this->assertStringContainsString('Failed to dispatch event', $logMessages[0]['message']);
     }
 
     /**
@@ -286,7 +293,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         $this->dispatcher->setResult($localResult);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -314,7 +322,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         // 時刻を毎分0秒に固定（setUp で 12:00:00 に設定済み）
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         // shouldContinue で 3 回ループを回す
@@ -343,7 +352,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         // 秒を 30 に設定（0 でないのでスキップされる）
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:30'));
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock);
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         // shouldContinue で 2 回ループを回す
@@ -380,7 +390,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -406,13 +416,13 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         // ロック取得を失敗させる
-        $dueAt = \Carbon\Carbon::parse('2024-01-15 12:00:00');
+        $dueAt = Carbon::parse('2024-01-15 12:00:00');
         $tracker->setLockResult($event->mutexName(), $dueAt, false);
 
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -439,7 +449,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -456,9 +466,9 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.23 Checks missed executions and recovers
+     * @testdox T3.23 Checks missed executions at startup and recovers
      */
-    public function testChecksMissedExecutionsAndRecovers(): void
+    public function testChecksMissedExecutionsAtStartupAndRecovers(): void
     {
         $tracker = new FakeExecutionTracker();
 
@@ -472,15 +482,14 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // schedule.events() には含まれる
         $this->schedule->addEvent($event);
 
-        // 取りこぼしを設定
-        $tracker->setMissedResult($event->mutexName(), true);
-        // 10:00 に実行記録（現在 12:00 なので、11:00 が取りこぼし）
-        $tracker->setExecuted($event->mutexName(), \Carbon\Carbon::parse('2024-01-15 10:00:00'));
+        // 取りこぼしを設定: missedDue を返す
+        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+        $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -496,29 +505,27 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.24 Skips missed event outside grace period
+     * @testdox T3.24 Skips missed event when getMissedDueIfRecoverable returns null
      */
-    public function testSkipsMissedEventOutsideGracePeriod(): void
+    public function testSkipsMissedEventWhenGetMissedDueIfRecoverableReturnsNull(): void
     {
         $tracker = new FakeExecutionTracker();
 
-        // recoverable なイベントを作成（grace period 30分）
+        // recoverable なイベントを作成
         $event = $this->createClockAwareEvent('echo test');
         $event->cron('0 * * * *'); // 毎時0分
-        $event->withGracePeriod(30); // 30分
+        $event->enableRecovery();
 
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        // 取りこぼしを設定
-        $tracker->setMissedResult($event->mutexName(), true);
-        // 10:00 に実行記録（現在 12:00 なので grace period 超過）
-        $tracker->setExecuted($event->mutexName(), \Carbon\Carbon::parse('2024-01-15 10:00:00'));
+        // 取りこぼしなし（null を返す）
+        $tracker->setRecoverableResult($event->mutexName(), null);
 
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -529,7 +536,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         $orchestrator->run($this->schedule, $this->app, $shouldContinue);
 
-        // grace period 超過のためディスパッチされないことを確認
+        // 取りこぼしなしのためディスパッチされないことを確認
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
 
@@ -548,13 +555,14 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        // 取りこぼしを設定
-        $tracker->setMissedResult($event->mutexName(), true);
+        // 取りこぼしを設定（ただし recoverable でないのでチェックされない）
+        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+        $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;

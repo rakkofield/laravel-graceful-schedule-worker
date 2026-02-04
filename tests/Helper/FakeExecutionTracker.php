@@ -24,9 +24,9 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     private $locks = [];
 
     /**
-     * @var array<string, bool>
+     * @var array<string, Carbon|null>
      */
-    private $missedResults = [];
+    private $recoverableResults = [];
 
     /**
      * @var array<string, bool>
@@ -44,17 +44,9 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function wasMissed(Event $event, Carbon $now): bool
+    public function getMissedDueIfRecoverable(Event $event, Carbon $now): ?Carbon
     {
-        return $this->missedResults[$event->mutexName()] ?? false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getLastExecutedDue(Event $event): ?Carbon
-    {
-        return $this->executed[$event->mutexName()] ?? null;
+        return $this->recoverableResults[$event->mutexName()] ?? null;
     }
 
     /**
@@ -87,14 +79,14 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * テスト用: 取りこぼし判定結果を設定
+     * テスト用: リカバリ判定結果を設定
      *
      * @param string $mutexName
-     * @param bool $missed
+     * @param Carbon|null $missedDue リカバリすべき場合は missedDue、そうでなければ null
      */
-    public function setMissedResult(string $mutexName, bool $missed): void
+    public function setRecoverableResult(string $mutexName, ?Carbon $missedDue): void
     {
-        $this->missedResults[$mutexName] = $missed;
+        $this->recoverableResults[$mutexName] = $missedDue;
     }
 
     /**
@@ -148,7 +140,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     {
         $this->executed = [];
         $this->locks = [];
-        $this->missedResults = [];
+        $this->recoverableResults = [];
         $this->lockResults = [];
     }
 }

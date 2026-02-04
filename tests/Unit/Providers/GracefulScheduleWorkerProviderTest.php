@@ -22,6 +22,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInte
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 class GracefulScheduleWorkerProviderTest extends TestCase
 {
@@ -319,16 +320,19 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.13 Does not register ExecutionTrackerInterface when disabled
+     * @testdox T3.13 Registers NullExecutionTracker when disabled
      */
-    public function testDoesNotRegisterExecutionTrackerInterfaceWhenDisabled(): void
+    public function testRegistersNullExecutionTrackerWhenDisabled(): void
     {
         // tracker.enabled is false by default
         $this->app->make('config')->set('graceful-scheduler.tracker.enabled', false);
 
         $this->provider->register();
 
-        $this->assertFalse($this->app->bound(ExecutionTrackerInterface::class));
+        $this->assertTrue($this->app->bound(ExecutionTrackerInterface::class));
+
+        $tracker = $this->app->make(ExecutionTrackerInterface::class);
+        $this->assertInstanceOf(NullExecutionTracker::class, $tracker);
     }
 
     /**
@@ -380,9 +384,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.15 Orchestrator has null Tracker when disabled
+     * @testdox T3.15 Orchestrator has NullExecutionTracker when disabled
      */
-    public function testOrchestratorHasNullTrackerWhenDisabled(): void
+    public function testOrchestratorHasNullExecutionTrackerWhenDisabled(): void
     {
         // tracker.enabled is false by default
         $this->app->make('config')->set('graceful-scheduler.tracker.enabled', false);
@@ -398,6 +402,6 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $property->setAccessible(true);
         $tracker = $property->getValue($orchestrator);
 
-        $this->assertNull($tracker);
+        $this->assertInstanceOf(NullExecutionTracker::class, $tracker);
     }
 }

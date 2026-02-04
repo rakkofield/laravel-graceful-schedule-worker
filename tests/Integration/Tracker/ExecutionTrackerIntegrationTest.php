@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use DateTimeImmutable;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
@@ -51,6 +52,9 @@ class ExecutionTrackerIntegrationTest extends TestCase
     /** @var FakeLockProvider */
     private $lockProvider;
 
+    /** @var NullLogger */
+    private $logger;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -62,6 +66,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $this->schedulingMutex = new FakeSchedulingMutex();
         $this->lockProvider = new FakeLockProvider();
         $this->cache = new FakeCacheStore($this->lockProvider);
+        $this->logger = new NullLogger();
 
         $defaultResult = FakeDispatchResult::success('test-id', 'echo test', 'fake');
         $this->dispatcher = new FakeDispatcher($defaultResult);
@@ -92,7 +97,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
     {
         // 11:05 の時点でテスト開始（11:00 の取りこぼしを検出）
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 11:05:00'));
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
 
         // recoverable なイベントを作成（grace period 2時間）
         $event = $this->createEvent('echo test', $clock);
@@ -108,7 +113,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -122,10 +127,12 @@ class ExecutionTrackerIntegrationTest extends TestCase
         // 11:00 のタスクがリカバリ実行される
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
 
-        // 実行記録が更新されていることを確認
-        $lastExecuted = $tracker->getLastExecutedDue($event);
-        $this->assertNotNull($lastExecuted);
+        // 実行記録が更新されていることを確認（キャッシュの値をチェック）
+        $key = 'schedule:tracker:last:' . $event->mutexName();
+        $timestamp = $this->cache->get($key);
+        $this->assertNotNull($timestamp);
         // リカバリ時刻（11:00）が記録されている
+        $lastExecuted = Carbon::createFromTimestamp((int) $timestamp);
         $this->assertSame(11, $lastExecuted->hour);
     }
 
@@ -136,7 +143,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
     {
         // 14:05 の時点でテスト開始（grace period 2時間超過）
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 14:05:00'));
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
 
         // recoverable なイベントを作成（grace period 2時間）
         $event = $this->createEvent('echo test', $clock);
@@ -152,7 +159,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -173,7 +180,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
     public function testNoDuplicateExecutionWithLock(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
 
         // イベントを作成
         $event = $this->createEvent('echo test', $clock);
@@ -185,7 +192,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $this->dispatcher->setResult($result);
 
         // 最初の Orchestrator がロックを取得して実行
-        $orchestrator1 = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker);
+        $orchestrator1 = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
         $orchestrator1->setSleepMicroseconds(0);
 
         $callCount1 = 0;
@@ -200,7 +207,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
 
         // 2つ目の Orchestrator は同じロックを取得できない
-        $orchestrator2 = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker);
+        $orchestrator2 = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
         $orchestrator2->setSleepMicroseconds(0);
 
         $callCount2 = 0;
@@ -221,7 +228,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
     public function testMultipleEventsAreTrackedIndependently(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        $tracker = new CacheExecutionTracker($this->cache);
+        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
 
         // 2つのイベントを作成
         $event1 = $this->createEvent('echo test1', $clock);
@@ -235,7 +242,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $result = FakeDispatchResult::success('test-id', 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
         $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
@@ -249,8 +256,10 @@ class ExecutionTrackerIntegrationTest extends TestCase
         // 両方のイベントが実行される
         $this->assertSame(2, $this->dispatcher->getDispatchCount());
 
-        // 両方の実行記録が存在することを確認
-        $this->assertNotNull($tracker->getLastExecutedDue($event1));
-        $this->assertNotNull($tracker->getLastExecutedDue($event2));
+        // 両方の実行記録が存在することを確認（キャッシュの値をチェック）
+        $key1 = 'schedule:tracker:last:' . $event1->mutexName();
+        $key2 = 'schedule:tracker:last:' . $event2->mutexName();
+        $this->assertNotNull($this->cache->get($key1));
+        $this->assertNotNull($this->cache->get($key2));
     }
 }

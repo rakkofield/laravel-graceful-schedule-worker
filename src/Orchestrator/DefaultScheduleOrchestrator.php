@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
 use Carbon\Carbon;
-use Cron\CronExpression;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatchResult;
@@ -29,10 +27,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     /** @var ScheduleDispatcherInterface */
     private $dispatcher;
 
-    /** @var ClockInterface|null */
+    /** @var ClockInterface */
     private $clock;
 
-    /** @var ExecutionTrackerInterface|null */
+    /** @var ExecutionTrackerInterface */
     private $tracker;
 
     /** @var LoggerInterface */
@@ -46,20 +44,20 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 
     /**
      * @param ScheduleDispatcherInterface $dispatcher
-     * @param ClockInterface|null $clock テスト用に時刻を注入可能
-     * @param ExecutionTrackerInterface|null $tracker 実行トラッカー
-     * @param LoggerInterface|null $logger ロガー
+     * @param ClockInterface $clock 時刻プロバイダ
+     * @param ExecutionTrackerInterface $tracker 実行トラッカー
+     * @param LoggerInterface $logger ロガー
      */
     public function __construct(
         ScheduleDispatcherInterface $dispatcher,
-        ?ClockInterface $clock = null,
-        ?ExecutionTrackerInterface $tracker = null,
-        ?LoggerInterface $logger = null
+        ClockInterface $clock,
+        ExecutionTrackerInterface $tracker,
+        LoggerInterface $logger
     ) {
         $this->dispatcher = $dispatcher;
         $this->clock = $clock;
         $this->tracker = $tracker;
-        $this->logger = $logger ?? new NullLogger();
+        $this->logger = $logger;
     }
 
     /**
@@ -81,6 +79,9 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         // Laravel の Application は Container を継承しているため、Container::getInstance() を使用
         $container = Container::getInstance();
         $lastExecutionStartedAt = $this->getCurrentTime()->modify('-10 minutes');
+
+        // 起動時に一度だけ取りこぼしチェック
+        $this->checkMissedExecutions($schedule, $container, Carbon::instance($this->getCurrentTime()));
 
         while ($shouldContinue()) {
             // スリープを挟んで CPU 負荷を軽減
@@ -107,9 +108,6 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 foreach ($events as $event) {
                     $this->dispatchEventWithTracking($event, $container, $nowCarbon);
                 }
-
-                // 取りこぼしチェック
-                $this->checkMissedExecutions($schedule, $container, $nowCarbon);
             }
 
             // 完了したプロセスをクリーンアップ
@@ -132,24 +130,18 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      */
     private function dispatchEventWithTracking(Event $event, Container $container, Carbon $now): void
     {
-        // Tracker が設定されている場合はロックを取得
-        if ($this->tracker !== null) {
-            if (!$this->tracker->acquireLock($event, $now)) {
-                $this->logger->debug('[GracefulScheduleWorker] Lock not acquired, skipping event', [
-                    'event' => $event->mutexName(),
-                ]);
-                return;
-            }
+        if (!$this->tracker->acquireLock($event, $now)) {
+            $this->logger->debug('[GracefulScheduleWorker] Lock not acquired, skipping event', [
+                'event' => $event->mutexName(),
+            ]);
+            return;
         }
 
         $result = $this->dispatcher->dispatchEvent($event, $container);
 
         // ディスパッチ成功時の処理
         if ($result->isStarted()) {
-            // Tracker が設定されている場合は実行を記録
-            if ($this->tracker !== null) {
-                $this->tracker->markExecuted($event, $now);
-            }
+            $this->tracker->markExecuted($event, $now);
 
             // LocalDispatchResult の場合はプロセスを追跡
             if ($result instanceof LocalDispatchResult) {
@@ -170,28 +162,17 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      */
     private function checkMissedExecutions(Schedule $schedule, Container $container, Carbon $now): void
     {
-        $tracker = $this->tracker;
-        if ($tracker === null) {
-            return;
-        }
-
         foreach ($schedule->events() as $event) {
             if (!$this->isRecoverableEvent($event)) {
                 continue;
             }
 
-            if (!$tracker->wasMissed($event, $now)) {
+            $missedDue = $this->tracker->getMissedDueIfRecoverable($event, $now);
+            if ($missedDue === null) {
                 continue;
             }
 
-            if (!$this->isWithinGracePeriod($event, $now)) {
-                $this->logger->warning('[GracefulScheduleWorker] Skipping missed event: grace period exceeded', [
-                    'event' => $event->mutexName(),
-                ]);
-                continue;
-            }
-
-            $this->recoverMissedEvent($event, $container, $now);
+            $this->recoverMissedEvent($event, $container, $missedDue);
         }
     }
 
@@ -207,55 +188,15 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     }
 
     /**
-     * grace period 内かどうかをチェック
-     *
-     * @param Event $event
-     * @param Carbon $now
-     * @return bool
-     */
-    private function isWithinGracePeriod(Event $event, Carbon $now): bool
-    {
-        if (!$event instanceof ClockAwareEvent) {
-            return false;
-        }
-
-        $gracePeriod = $event->getGracePeriod();
-        if ($gracePeriod === null) {
-            return true; // 無制限
-        }
-
-        if ($this->tracker === null) {
-            return true;
-        }
-
-        $lastExecutedDue = $this->tracker->getLastExecutedDue($event);
-        if ($lastExecutedDue === null) {
-            return true; // 初回
-        }
-
-        $deadline = $lastExecutedDue->copy()->add($gracePeriod);
-        return $now->lessThanOrEqualTo($deadline);
-    }
-
-    /**
      * 取りこぼしイベントをリカバリ
      *
      * @param Event $event
      * @param Container $container
-     * @param Carbon $now
+     * @param Carbon $missedDue
      * @return void
      */
-    private function recoverMissedEvent(Event $event, Container $container, Carbon $now): void
+    private function recoverMissedEvent(Event $event, Container $container, Carbon $missedDue): void
     {
-        $missedDue = $this->getMissedDue($event, $now);
-        if ($missedDue === null) {
-            return;
-        }
-
-        if ($this->tracker === null) {
-            return;
-        }
-
         if (!$this->tracker->acquireLock($event, $missedDue)) {
             return; // 他の Worker がリカバリ中
         }
@@ -269,28 +210,11 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 
         if ($result->isStarted()) {
             $this->tracker->markExecuted($event, $missedDue);
-
             if ($result instanceof LocalDispatchResult) {
                 $this->runningProcesses[] = $result;
             }
-        }
-    }
-
-    /**
-     * 取りこぼした実行予定時刻を取得
-     *
-     * @param Event $event
-     * @param Carbon $now
-     * @return Carbon|null
-     */
-    private function getMissedDue(Event $event, Carbon $now): ?Carbon
-    {
-        try {
-            $cron = CronExpression::factory($event->expression);
-            $previousRunDate = $cron->getPreviousRunDate($now->toDateTime());
-            return Carbon::instance($previousRunDate);
-        } catch (\Exception $e) {
-            return null;
+        } else {
+            $this->handleDispatchFailure($event, $result);
         }
     }
 
@@ -301,10 +225,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      */
     private function getCurrentTime(): \DateTimeImmutable
     {
-        if ($this->clock !== null) {
-            return $this->clock->now();
-        }
-        return new \DateTimeImmutable();
+        return $this->clock->now();
     }
 
     /**
@@ -351,10 +272,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         \Illuminate\Console\Scheduling\Event $event,
         DispatchResultInterface $result
     ): void {
-        error_log(sprintf(
-            '[GracefulScheduleWorker] Dispatch failed for event "%s": %s',
-            $event->mutexName(),
-            $result->getError() ?? 'Unknown error'
-        ));
+        $this->logger->error('[GracefulScheduleWorker] Failed to dispatch event', [
+            'event' => $event->mutexName(),
+            'dispatcher_type' => $result->getDispatcherType(),
+            'error' => $result->getError(),
+        ]);
     }
 }

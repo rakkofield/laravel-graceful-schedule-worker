@@ -11,8 +11,8 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository;
+use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
@@ -21,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 class CacheExecutionTracker implements ExecutionTrackerInterface
 {
     private const PREFIX = 'schedule:tracker:';
+    private const DEFAULT_TTL_SECONDS = 86400; // 24 hours
 
     /**
      * @var Repository
@@ -44,17 +45,21 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
     /**
      * @param Repository $cache
+     * @param LoggerInterface $logger
      * @param int $lockTtl ロックの TTL（秒）
-     * @param LoggerInterface|null $logger
+     * @throws InvalidArgumentException lockTtl が正の整数でない場合
      */
     public function __construct(
         Repository $cache,
-        int $lockTtl = 3600,
-        ?LoggerInterface $logger = null
+        LoggerInterface $logger,
+        int $lockTtl = 3600
     ) {
+        if ($lockTtl <= 0) {
+            throw new InvalidArgumentException('lockTtl must be a positive integer');
+        }
         $this->cache = $cache;
+        $this->logger = $logger;
         $this->lockTtl = $lockTtl;
-        $this->logger = $logger ?? new NullLogger();
     }
 
     /**
@@ -70,41 +75,48 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function wasMissed(Event $event, Carbon $now): bool
+    public function getMissedDueIfRecoverable(Event $event, Carbon $now): ?Carbon
     {
         $lastExecutedDue = $this->getLastExecutedDue($event);
         if ($lastExecutedDue === null) {
-            return false; // 初回実行
+            return null; // 初回実行は取りこぼしなし
         }
 
+        // cron 式から前回の実行予定時刻を計算（例外はそのまま伝播）
         try {
             $cron = CronExpression::factory($event->expression);
             $previousRunDate = $cron->getPreviousRunDate($now->toDateTime());
-            $previousDue = Carbon::instance($previousRunDate);
         } catch (\Exception $e) {
-            $this->logger->warning('[GracefulScheduleWorker] Invalid cron expression', [
-                'expression' => $event->expression,
-                'error' => $e->getMessage(),
-            ]);
-            return false;
+            throw new InvalidArgumentException(
+                sprintf('Invalid cron expression: %s', $event->expression),
+                0,
+                $e
+            );
+        }
+        $missedDue = Carbon::instance($previousRunDate);
+
+        // 取りこぼしチェック
+        if (!$missedDue->greaterThan($lastExecutedDue)) {
+            return null; // 取りこぼしなし
         }
 
-        return $previousDue->greaterThan($lastExecutedDue);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getLastExecutedDue(Event $event): ?Carbon
-    {
-        $key = $this->getLastExecutedKey($event);
-        $timestamp = $this->cache->get($key);
-
-        if ($timestamp === null || !is_numeric($timestamp)) {
-            return null;
+        // grace period チェック（ClockAwareEvent の場合のみ）
+        if ($event instanceof ClockAwareEvent) {
+            $gracePeriod = $event->getGracePeriod();
+            if ($gracePeriod !== null) {
+                $deadline = $lastExecutedDue->copy()->add($gracePeriod);
+                if ($now->greaterThan($deadline)) {
+                    $this->logger->warning('[GracefulScheduleWorker] Skipping missed event: grace period exceeded', [
+                        'event' => $event->mutexName(),
+                        'missedDue' => $missedDue->toDateTimeString(),
+                        'deadline' => $deadline->toDateTimeString(),
+                    ]);
+                    return null; // grace period 超過
+                }
+            }
         }
 
-        return Carbon::createFromTimestamp((int) $timestamp);
+        return $missedDue;
     }
 
     /**
@@ -125,6 +137,8 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         }
 
         // フォールバック: has() + put()
+        // 注意: この操作はアトミックではないため、競合状態が発生する可能性があります。
+        // 分散環境では LockProvider をサポートするキャッシュドライバ（Redis等）の使用を推奨します。
         if ($this->cache->has($key)) {
             return false;
         }
@@ -147,6 +161,24 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
         // フォールバック
         $this->cache->forget($key);
+    }
+
+    /**
+     * 最後に実行された予定時刻を取得する
+     *
+     * @param Event $event 対象イベント
+     * @return Carbon|null 最後の実行予定時刻（未実行なら null）
+     */
+    private function getLastExecutedDue(Event $event): ?Carbon
+    {
+        $key = $this->getLastExecutedKey($event);
+        $timestamp = $this->cache->get($key);
+
+        if ($timestamp === null || !is_numeric($timestamp)) {
+            return null;
+        }
+
+        return Carbon::createFromTimestamp((int) $timestamp);
     }
 
     /**
@@ -179,7 +211,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
             $seconds = $this->dateIntervalToSeconds($gracePeriod);
             return $seconds * 2;
         }
-        return 86400; // 24時間
+        return self::DEFAULT_TTL_SECONDS;
     }
 
     /**
