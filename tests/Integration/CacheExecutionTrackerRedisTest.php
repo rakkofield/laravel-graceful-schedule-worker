@@ -12,8 +12,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeRedisFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestRedisFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Redis;
 
@@ -53,6 +53,30 @@ class CacheExecutionTrackerRedisTest extends TestCase
         $this->cache->flush();
     }
 
+    protected function tearDown(): void
+    {
+        if (isset($this->cache)) {
+            $this->cache->flush();
+        }
+        parent::tearDown();
+    }
+
+    /**
+     * @return string
+     */
+    private function getRedisHost(): string
+    {
+        return getenv('REDIS_HOST') ?: '127.0.0.1';
+    }
+
+    /**
+     * @return int
+     */
+    private function getRedisPort(): int
+    {
+        return (int) (getenv('REDIS_PORT') ?: 6379);
+    }
+
     /**
      * @return bool
      */
@@ -60,9 +84,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     {
         try {
             $redis = new Redis();
-            $host = getenv('REDIS_HOST') ?: '127.0.0.1';
-            $port = (int) (getenv('REDIS_PORT') ?: 6379);
-            $redis->connect($host, $port, 1.0);
+            $redis->connect($this->getRedisHost(), $this->getRedisPort(), 1.0);
             $redis->ping();
             $redis->close();
             return true;
@@ -76,10 +98,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
      */
     private function createRedisCache(): Repository
     {
-        $host = getenv('REDIS_HOST') ?: '127.0.0.1';
-        $port = (int) (getenv('REDIS_PORT') ?: 6379);
-
-        $factory = new FakeRedisFactory($host, $port);
+        $factory = new TestRedisFactory($this->getRedisHost(), $this->getRedisPort());
         $store = new RedisStore($factory, 'test:');
 
         return new Repository($store);
@@ -117,14 +136,14 @@ class CacheExecutionTrackerRedisTest extends TestCase
 
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertTrue($this->cache->has($key));
-        // Redis returns values as strings
+        // assertEquals は型を無視して比較するため、Redis が文字列を返しても一致する
         $this->assertEquals($dueAt->timestamp, $this->cache->get($key));
     }
 
     /**
-     * @testdox T7.2 acquireLock uses Redis atomic lock
+     * @testdox T7.2 acquireLock returns true on first call
      */
-    public function testAcquireLockUsesRedisAtomicLock(): void
+    public function testAcquireLockReturnsTrueOnFirstCall(): void
     {
         $tracker = new CacheExecutionTracker($this->cache, $this->logger);
         $event = $this->createEvent('php artisan test:redis-lock');
@@ -187,5 +206,43 @@ class CacheExecutionTrackerRedisTest extends TestCase
         $this->assertNotNull($result);
         $this->assertSame(11, $result->hour);
         $this->assertSame(0, $result->minute);
+    }
+
+    /**
+     * @testdox T7.6 Concurrent lock acquisition across separate trackers fails
+     */
+    public function testConcurrentLockAcquisitionAcrossSeparateTrackersFails(): void
+    {
+        $tracker1 = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker2 = new CacheExecutionTracker($this->createRedisCache(), $this->logger);
+        $event = $this->createEvent('php artisan test:concurrent');
+        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+
+        $result1 = $tracker1->acquireLock($event, $dueAt);
+        $result2 = $tracker2->acquireLock($event, $dueAt);
+
+        $this->assertTrue($result1);
+        $this->assertFalse($result2);
+    }
+
+    /**
+     * @testdox T7.7 Lock expires after TTL allowing re-acquisition
+     * @group slow
+     */
+    public function testLockExpiresAfterTtlAllowingReAcquisition(): void
+    {
+        $shortTtl = 2; // 2秒
+        $tracker1 = new CacheExecutionTracker($this->cache, $this->logger, $shortTtl);
+        $event = $this->createEvent('php artisan test:ttl-expiry');
+        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+
+        $tracker1->acquireLock($event, $dueAt);
+
+        sleep(3); // TTL より長く待機
+
+        $tracker2 = new CacheExecutionTracker($this->createRedisCache(), $this->logger);
+        $result = $tracker2->acquireLock($event, $dueAt);
+
+        $this->assertTrue($result);
     }
 }

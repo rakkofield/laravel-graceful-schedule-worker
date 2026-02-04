@@ -12,9 +12,9 @@ use Redis;
  * テスト用の Redis Factory 実装
  *
  * Illuminate\Cache\RedisStore が必要とする Factory インターフェースを実装。
- * テスト環境で直接 PhpRedisConnection を返す簡易的な実装。
+ * テスト環境で直接 Redis に接続する実装。
  */
-class FakeRedisFactory implements Factory
+class TestRedisFactory implements Factory
 {
     /**
      * @var PhpRedisConnection
@@ -36,7 +36,7 @@ class FakeRedisFactory implements Factory
      * Get a Redis connection by name.
      *
      * @param string|null $name
-     * @return PhpRedisConnection
+     * @return \Illuminate\Redis\Connections\Connection
      */
     public function connection($name = null)
     {
