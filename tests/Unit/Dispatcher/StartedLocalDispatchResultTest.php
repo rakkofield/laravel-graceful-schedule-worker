@@ -8,17 +8,21 @@ use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
-class LocalDispatchResultTest extends TestCase
+/**
+ * @testdox StartedLocalDispatchResult
+ */
+class StartedLocalDispatchResultTest extends TestCase
 {
     /**
      * @testdox T2.20
      */
-    public function testImplementsDispatchResultInterface(): void
+    public function testImplementsStartedDispatchResultInterface(): void
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $process->wait();
     }
@@ -26,11 +30,11 @@ class LocalDispatchResultTest extends TestCase
     /**
      * @testdox T2.21
      */
-    public function testSuccessCreatesStartedResult(): void
+    public function testIsStartedReturnsTrue(): void
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
         $this->assertTrue($result->isStarted());
         $this->assertNull($result->getError());
@@ -40,35 +44,14 @@ class LocalDispatchResultTest extends TestCase
     /**
      * @testdox T2.22
      */
-    public function testSuccessStoresProcess(): void
+    public function testStoresProcess(): void
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
         $this->assertSame($process, $result->getProcess());
         $process->wait();
-    }
-
-    /**
-     * @testdox T2.23
-     */
-    public function testFailedCreatesNotStartedResult(): void
-    {
-        $result = LocalDispatchResult::failed('test-id', 'php artisan test', 'Something went wrong');
-
-        $this->assertFalse($result->isStarted());
-        $this->assertNull($result->getProcess());
-    }
-
-    /**
-     * @testdox T2.24
-     */
-    public function testFailedStoresErrorMessage(): void
-    {
-        $result = LocalDispatchResult::failed('test-id', 'php artisan test', 'Something went wrong');
-
-        $this->assertSame('Something went wrong', $result->getError());
     }
 
     /**
@@ -78,11 +61,9 @@ class LocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $successResult = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
-        $failedResult = LocalDispatchResult::failed('test-id', 'php artisan test', 'error');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
-        $this->assertSame('local', $successResult->getDispatcherType());
-        $this->assertSame('local', $failedResult->getDispatcherType());
+        $this->assertSame('local', $result->getDispatcherType());
         $process->wait();
     }
 
@@ -93,7 +74,7 @@ class LocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = LocalDispatchResult::success($process, 'my-event-identifier', 'php artisan test');
+        $result = new StartedLocalDispatchResult($process, 'my-event-identifier', 'php artisan test');
 
         $this->assertSame('my-event-identifier', $result->getEventIdentifier());
         $process->wait();
@@ -106,7 +87,7 @@ class LocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan report:daily');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan report:daily');
 
         $this->assertSame('php artisan report:daily', $result->getEventCommand());
         $process->wait();
@@ -120,7 +101,7 @@ class LocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $beforeCreate = new DateTimeImmutable();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
         $afterCreate = new DateTimeImmutable();
 
         $dispatchedAt = $result->getDispatchedAt();
@@ -138,7 +119,7 @@ class LocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('sleep 2');
         $process->start();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
         $this->assertTrue($result->isRunning());
         $process->stop(0);
@@ -152,17 +133,7 @@ class LocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $process->wait();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
-
-        $this->assertFalse($result->isRunning());
-    }
-
-    /**
-     * @testdox T2.31
-     */
-    public function testIsRunningReturnsFalseWhenProcessIsNull(): void
-    {
-        $result = LocalDispatchResult::failed('test-id', 'php artisan test', 'error');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
         $this->assertFalse($result->isRunning());
     }
@@ -175,19 +146,9 @@ class LocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $process->wait();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
         $this->assertSame(0, $result->getExitCode());
-    }
-
-    /**
-     * @testdox T2.33
-     */
-    public function testGetExitCodeReturnsNullWhenProcessIsNull(): void
-    {
-        $result = LocalDispatchResult::failed('test-id', 'php artisan test', 'error');
-
-        $this->assertNull($result->getExitCode());
     }
 
     /**
@@ -197,41 +158,36 @@ class LocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('sleep 2');
         $process->start();
-        $result = LocalDispatchResult::success($process, 'test-id', 'php artisan test');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
         $this->assertNull($result->getExitCode());
         $process->stop(0);
     }
 
     /**
-     * @testdox T2.35
+     * @testdox T2.38 getException() always returns null
      */
-    public function testFailedResultStoresEventIdentifierAndCommand(): void
+    public function testGetExceptionReturnsNull(): void
     {
-        $result = LocalDispatchResult::failed('failed-event-id', 'php artisan failed:command', 'error');
-
-        $this->assertSame('failed-event-id', $result->getEventIdentifier());
-        $this->assertSame('php artisan failed:command', $result->getEventCommand());
-    }
-
-    /**
-     * @testdox T2.36 failed() stores exception when provided
-     */
-    public function testFailedStoresException(): void
-    {
-        $exception = new \RuntimeException('Test error');
-        $result = LocalDispatchResult::failed('id', 'cmd', 'error', $exception);
-
-        $this->assertSame($exception, $result->getException());
-    }
-
-    /**
-     * @testdox T2.37 failed() returns null exception when not provided
-     */
-    public function testFailedReturnsNullExceptionWhenNotProvided(): void
-    {
-        $result = LocalDispatchResult::failed('id', 'cmd', 'error');
+        $process = Process::fromShellCommandLine('echo test');
+        $process->start();
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
 
         $this->assertNull($result->getException());
+        $process->wait();
+    }
+
+    /**
+     * @testdox T2.40 dispatchedAt を明示的に渡した場合はその値が返される
+     */
+    public function testGetDispatchedAtReturnsExplicitValue(): void
+    {
+        $process = Process::fromShellCommandLine('echo test');
+        $process->start();
+        $explicitTime = new DateTimeImmutable('2024-01-15 12:00:00');
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', $explicitTime);
+
+        $this->assertSame($explicitTime, $result->getDispatchedAt());
+        $process->wait();
     }
 }

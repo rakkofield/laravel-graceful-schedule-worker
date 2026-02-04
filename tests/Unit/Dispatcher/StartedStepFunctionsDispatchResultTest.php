@@ -8,22 +8,23 @@ use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @testdox StepFunctionsDispatchResult
+ * @testdox StartedStepFunctionsDispatchResult
  */
-class StepFunctionsDispatchResultTest extends TestCase
+class StartedStepFunctionsDispatchResultTest extends TestCase
 {
     /**
      * @testdox T5.1 success() で isStarted が true を返す
      */
     public function testSuccessReturnsIsStartedTrue(): void
     {
-        $result = StepFunctionsDispatchResult::success(
+        $result = StartedStepFunctionsDispatchResult::success(
             'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run'
         );
 
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertTrue($result->isStarted());
         $this->assertNull($result->getError());
         $this->assertFalse($result->wasAlreadyRunning());
@@ -34,7 +35,7 @@ class StepFunctionsDispatchResultTest extends TestCase
      */
     public function testAlreadyRunningReturnsIsStartedTrueAndWasAlreadyRunningTrue(): void
     {
-        $result = StepFunctionsDispatchResult::alreadyRunning(
+        $result = StartedStepFunctionsDispatchResult::alreadyRunning(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run'
@@ -47,28 +48,11 @@ class StepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.3 failed() で isStarted が false を返す
-     */
-    public function testFailedReturnsIsStartedFalse(): void
-    {
-        $result = StepFunctionsDispatchResult::failed(
-            'exec-1',
-            'framework/schedule-mutex',
-            'php artisan schedule:run',
-            'Connection refused'
-        );
-
-        $this->assertFalse($result->isStarted());
-        $this->assertSame('Connection refused', $result->getError());
-        $this->assertFalse($result->wasAlreadyRunning());
-    }
-
-    /**
      * @testdox T5.4 getDispatcherType() が 'stepfunctions' を返す
      */
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
-        $result = StepFunctionsDispatchResult::success(
+        $result = StartedStepFunctionsDispatchResult::success(
             'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
             'exec-1',
             'framework/schedule-mutex',
@@ -84,7 +68,7 @@ class StepFunctionsDispatchResultTest extends TestCase
     public function testGetExecutionArnReturnsArnOnSuccess(): void
     {
         $arn = 'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1';
-        $result = StepFunctionsDispatchResult::success(
+        $result = StartedStepFunctionsDispatchResult::success(
             $arn,
             'exec-1',
             'framework/schedule-mutex',
@@ -99,7 +83,7 @@ class StepFunctionsDispatchResultTest extends TestCase
      */
     public function testGetExecutionNameReturnsExecutionName(): void
     {
-        $result = StepFunctionsDispatchResult::success(
+        $result = StartedStepFunctionsDispatchResult::success(
             'arn:aws:states:ap-northeast-1:123:execution:sm:my-execution',
             'my-execution',
             'framework/schedule-mutex',
@@ -114,7 +98,7 @@ class StepFunctionsDispatchResultTest extends TestCase
      */
     public function testGetEventIdentifierReturnsIdentifier(): void
     {
-        $result = StepFunctionsDispatchResult::success(
+        $result = StartedStepFunctionsDispatchResult::success(
             'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
             'exec-1',
             'framework/schedule-mutex',
@@ -129,7 +113,7 @@ class StepFunctionsDispatchResultTest extends TestCase
      */
     public function testGetEventCommandReturnsCommand(): void
     {
-        $result = StepFunctionsDispatchResult::success(
+        $result = StartedStepFunctionsDispatchResult::success(
             'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
             'exec-1',
             'framework/schedule-mutex',
@@ -145,7 +129,7 @@ class StepFunctionsDispatchResultTest extends TestCase
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
         $before = new DateTimeImmutable();
-        $result = StepFunctionsDispatchResult::success(
+        $result = StartedStepFunctionsDispatchResult::success(
             'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
             'exec-1',
             'framework/schedule-mutex',
@@ -159,26 +143,11 @@ class StepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.10 failed() で command が null の場合は空文字列になる
-     */
-    public function testFailedWithNullCommandReturnsEmptyString(): void
-    {
-        $result = StepFunctionsDispatchResult::failed(
-            'exec-1',
-            'framework/schedule-mutex',
-            null,
-            'Connection refused'
-        );
-
-        $this->assertSame('', $result->getEventCommand());
-    }
-
-    /**
      * @testdox T5.11 success() で getException() が null を返す
      */
     public function testSuccessReturnsNullException(): void
     {
-        $result = StepFunctionsDispatchResult::success(
+        $result = StartedStepFunctionsDispatchResult::success(
             'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
             'exec-1',
             'framework/schedule-mutex',
@@ -193,42 +162,10 @@ class StepFunctionsDispatchResultTest extends TestCase
      */
     public function testAlreadyRunningReturnsNullException(): void
     {
-        $result = StepFunctionsDispatchResult::alreadyRunning(
+        $result = StartedStepFunctionsDispatchResult::alreadyRunning(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run'
-        );
-
-        $this->assertNull($result->getException());
-    }
-
-    /**
-     * @testdox T5.13 failed() で例外を渡すと getException() で取得できる
-     */
-    public function testFailedReturnsException(): void
-    {
-        $exception = new \RuntimeException('Connection refused');
-        $result = StepFunctionsDispatchResult::failed(
-            'exec-1',
-            'framework/schedule-mutex',
-            'php artisan schedule:run',
-            'RuntimeException: Connection refused',
-            $exception
-        );
-
-        $this->assertSame($exception, $result->getException());
-    }
-
-    /**
-     * @testdox T5.14 failed() で例外を渡さない場合は getException() が null を返す
-     */
-    public function testFailedWithoutExceptionReturnsNull(): void
-    {
-        $result = StepFunctionsDispatchResult::failed(
-            'exec-1',
-            'framework/schedule-mutex',
-            'php artisan schedule:run',
-            'Connection refused'
         );
 
         $this->assertNull($result->getException());

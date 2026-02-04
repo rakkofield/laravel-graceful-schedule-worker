@@ -7,6 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 use Carbon\Carbon;
 use Cron\CronExpression;
 use DateInterval;
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Cache\LockProvider;
@@ -73,17 +74,17 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function markExecuted(Event $event, Carbon $dueAt): void
+    public function markExecuted(Event $event, DateTimeInterface $dueAt): void
     {
         $key = $this->getLastExecutedKey($event);
         $ttl = $this->calculateTtl($event);
-        $this->cache->put($key, $dueAt->timestamp, $ttl);
+        $this->cache->put($key, $dueAt->getTimestamp(), $ttl);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getMissedDueIfRecoverable(Event $event, Carbon $now): ?Carbon
+    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface
     {
         $lastExecutedDue = $this->getLastExecutedDue($event);
         if ($lastExecutedDue === null) {
@@ -91,9 +92,12 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         }
 
         // cron 式から前回の実行予定時刻を計算（例外はそのまま伝播）
+        // DateTimeInterface を Carbon に変換して CronExpression に渡す
+        // Note: Carbon::parse() は DateTimeInterface を受け付ける
+        $nowCarbon = Carbon::parse($now->format(\DateTimeInterface::ATOM));
         try {
             $cron = CronExpression::factory($event->expression);
-            $previousRunDate = $cron->getPreviousRunDate($now->toDateTime());
+            $previousRunDate = $cron->getPreviousRunDate($nowCarbon);
         } catch (\Exception $e) {
             throw new InvalidArgumentException(
                 sprintf('Invalid cron expression: %s', $event->expression),
@@ -103,8 +107,8 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         }
         $missedDue = Carbon::instance($previousRunDate);
 
-        // 取りこぼしチェック
-        if (!$missedDue->greaterThan($lastExecutedDue)) {
+        // 取りこぼしチェック（タイムスタンプで比較）
+        if ($missedDue->getTimestamp() <= $lastExecutedDue->getTimestamp()) {
             return null; // 取りこぼしなし
         }
 
@@ -113,7 +117,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
             $gracePeriod = $event->getGracePeriod();
             if ($gracePeriod !== null) {
                 $deadline = $lastExecutedDue->copy()->add($gracePeriod);
-                if ($now->greaterThan($deadline)) {
+                if ($now->getTimestamp() > $deadline->getTimestamp()) {
                     $this->logger->warning('[GracefulScheduleWorker] Skipping missed event: grace period exceeded', [
                         'event' => $event->mutexName(),
                         'missedDue' => $missedDue->toDateTimeString(),
@@ -130,7 +134,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function acquireLock(Event $event, Carbon $dueAt): bool
+    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool
     {
         $key = $this->getLockKey($event, $dueAt);
         $lock = $this->lockProvider->lock($key, $this->lockTtl);
@@ -146,7 +150,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function releaseLock(Event $event, Carbon $dueAt): void
+    public function releaseLock(Event $event, DateTimeInterface $dueAt): void
     {
         $key = $this->getLockKey($event, $dueAt);
 
@@ -185,12 +189,12 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
     /**
      * @param Event $event
-     * @param Carbon $dueAt
+     * @param DateTimeInterface $dueAt
      * @return string
      */
-    private function getLockKey(Event $event, Carbon $dueAt): string
+    private function getLockKey(Event $event, DateTimeInterface $dueAt): string
     {
-        return self::PREFIX . 'lock:' . $event->mutexName() . ':' . $dueAt->timestamp;
+        return self::PREFIX . 'lock:' . $event->mutexName() . ':' . $dueAt->getTimestamp();
     }
 
     /**

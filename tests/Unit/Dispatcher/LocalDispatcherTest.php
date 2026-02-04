@@ -61,7 +61,7 @@ class LocalDispatcherTest extends TestCase
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
-        $this->assertInstanceOf(LocalDispatchResult::class, $result);
+        $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
     }
 
     /**
@@ -207,9 +207,9 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.13 runInBackground is restored after buildCommand
+     * @testdox T2.13 runInBackground is set to true after dispatch
      */
-    public function testRunInBackgroundIsRestoredAfterBuildCommand(): void
+    public function testRunInBackgroundIsSetAfterDispatch(): void
     {
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
@@ -217,8 +217,8 @@ class LocalDispatcherTest extends TestCase
 
         $dispatcher->dispatchEvent($event, $this->app);
 
-        // runInBackground は元の値に復元されている
-        $this->assertFalse($event->runInBackground);
+        // runInBackground は true に変更される（イベントは1回しかディスパッチされないため復元不要）
+        $this->assertTrue($event->runInBackground);
     }
 
     /**

@@ -34,18 +34,18 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
      * @param StepFunctionsClientInterface $client
      * @param string $stateMachineArn
      * @param ClockInterface $clock
-     * @param ExecutionNameGenerator|null $nameGenerator
+     * @param ExecutionNameGenerator $nameGenerator
      */
     public function __construct(
         StepFunctionsClientInterface $client,
         string $stateMachineArn,
         ClockInterface $clock,
-        ExecutionNameGenerator $nameGenerator = null
+        ExecutionNameGenerator $nameGenerator
     ) {
         $this->client = $client;
         $this->stateMachineArn = $stateMachineArn;
         $this->clock = $clock;
-        $this->nameGenerator = $nameGenerator ?? new ExecutionNameGenerator();
+        $this->nameGenerator = $nameGenerator;
     }
 
     /**
@@ -76,14 +76,14 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 'input' => $input,
             ]);
 
-            return StepFunctionsDispatchResult::success(
+            return StartedStepFunctionsDispatchResult::success(
                 $result->getExecutionArn(),
                 $executionName,
                 $mutexName,
                 (string) $command
             );
         } catch (ExecutionAlreadyExistsException $e) {
-            return StepFunctionsDispatchResult::alreadyRunning(
+            return StartedStepFunctionsDispatchResult::alreadyRunning(
                 $executionName,
                 $mutexName,
                 (string) $command
@@ -91,7 +91,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         } catch (\Exception $e) {
             // StepFunctionsException およびその他の Exception を処理
             // Note: \Error は catch されずに再スローされる（致命的エラーは呼び出し元に伝播）
-            return StepFunctionsDispatchResult::failed(
+            return FailedStepFunctionsDispatchResult::failed(
                 $executionName,
                 $mutexName,
                 $command,

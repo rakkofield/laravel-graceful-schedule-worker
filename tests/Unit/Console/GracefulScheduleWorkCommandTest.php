@@ -18,6 +18,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 class GracefulScheduleWorkCommandTest extends TestCase
@@ -71,13 +72,14 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $tracker = new NullExecutionTracker();
         $logger = new NullLogger();
-        $orchestrator = new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, 0);
 
         $mockApp = $this->createMockApplication();
         $this->container->instance(Application::class, $mockApp);
+        $this->container->instance(ScheduleOrchestratorInterface::class, $orchestrator);
+        $this->container->instance(Schedule::class, $schedule);
 
-        $command = new GracefulScheduleWorkCommand($orchestrator, $schedule);
+        $command = new GracefulScheduleWorkCommand();
         $command->setLaravel($mockApp);
 
         // The command runs indefinitely, so we verify it can be instantiated and has correct signature

@@ -8,6 +8,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
  * Dispatcher の結果を型安全に扱うためのインターフェース
  *
  * 共通メタデータを定義し、各 Dispatcher 固有の情報は具象クラスで保持します。
+ *
+ * 成功時は StartedDispatchResultInterface、失敗時は FailedDispatchResultInterface を
+ * 使用することで、型安全に結果を扱うことができます。
  */
 interface DispatchResultInterface
 {

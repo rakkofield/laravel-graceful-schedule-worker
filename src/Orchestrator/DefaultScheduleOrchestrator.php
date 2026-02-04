@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
 use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
@@ -12,8 +13,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
@@ -36,7 +37,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     /** @var LoggerInterface */
     private $logger;
 
-    /** @var array<LocalDispatchResult> */
+    /** @var array<StartedLocalDispatchResult> */
     private $runningProcesses = [];
 
     /** @var int スリープ時間（マイクロ秒） */
@@ -47,28 +48,20 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      * @param ClockInterface $clock 時刻プロバイダ
      * @param ExecutionTrackerInterface $tracker 実行トラッカー
      * @param LoggerInterface $logger ロガー
+     * @param int $sleepMicroseconds スリープ時間（マイクロ秒）
      */
     public function __construct(
         ScheduleDispatcherInterface $dispatcher,
         ClockInterface $clock,
         ExecutionTrackerInterface $tracker,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        int $sleepMicroseconds = 100000
     ) {
         $this->dispatcher = $dispatcher;
         $this->clock = $clock;
         $this->tracker = $tracker;
         $this->logger = $logger;
-    }
-
-    /**
-     * スリープ時間を設定（テスト用）
-     *
-     * @param int $microseconds
-     * @return void
-     */
-    public function setSleepMicroseconds(int $microseconds): void
-    {
-        $this->sleepMicroseconds = $microseconds;
+        $this->sleepMicroseconds = $sleepMicroseconds;
     }
 
     /**
@@ -139,14 +132,13 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 
         $result = $this->dispatcher->dispatchEvent($event, $container);
 
-        // ディスパッチ成功時の処理
-        if ($result->isStarted()) {
+        // StartedLocalDispatchResult の場合はプロセスを追跡
+        if ($result instanceof StartedLocalDispatchResult) {
             $this->tracker->markExecuted($event, $now);
-
-            // LocalDispatchResult の場合はプロセスを追跡
-            if ($result instanceof LocalDispatchResult) {
-                $this->runningProcesses[] = $result;
-            }
+            $this->runningProcesses[] = $result;
+        } elseif ($result->isStarted()) {
+            // StepFunctions などその他の成功ケース
+            $this->tracker->markExecuted($event, $now);
         } else {
             $this->handleDispatchFailure($event, $result);
         }
@@ -192,27 +184,33 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      *
      * @param Event $event
      * @param Container $container
-     * @param Carbon $missedDue
+     * @param DateTimeInterface $missedDue
      * @return void
      */
-    private function recoverMissedEvent(Event $event, Container $container, Carbon $missedDue): void
+    private function recoverMissedEvent(Event $event, Container $container, DateTimeInterface $missedDue): void
     {
-        if (!$this->tracker->acquireLock($event, $missedDue)) {
-            return; // 他の Worker がリカバリ中
-        }
+        // ログ出力用に Carbon に変換
+        $missedDueCarbon = $missedDue instanceof Carbon ? $missedDue : Carbon::instance($missedDue);
 
+        if (!$this->tracker->acquireLock($event, $missedDue)) {
+            $this->logger->debug('[GracefulScheduleWorker] Recovery lock not acquired, another worker is recovering', [
+                'event' => $event->mutexName(),
+                'missedDue' => $missedDueCarbon->toDateTimeString(),
+            ]);
+            return;
+        }
         $this->logger->info('[GracefulScheduleWorker] Recovering missed event', [
             'event' => $event->mutexName(),
-            'due' => $missedDue->toDateTimeString(),
+            'due' => $missedDueCarbon->toDateTimeString(),
         ]);
 
         $result = $this->dispatcher->dispatchEvent($event, $container);
 
-        if ($result->isStarted()) {
+        if ($result instanceof StartedLocalDispatchResult) {
             $this->tracker->markExecuted($event, $missedDue);
-            if ($result instanceof LocalDispatchResult) {
-                $this->runningProcesses[] = $result;
-            }
+            $this->runningProcesses[] = $result;
+        } elseif ($result->isStarted()) {
+            $this->tracker->markExecuted($event, $missedDue);
         } else {
             $this->handleDispatchFailure($event, $result);
         }
@@ -238,7 +236,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         $this->runningProcesses = array_values(
             array_filter(
                 $this->runningProcesses,
-                function (LocalDispatchResult $result) {
+                function (StartedLocalDispatchResult $result) {
                     return $result->isRunning();
                 }
             )
@@ -254,7 +252,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     {
         foreach ($this->runningProcesses as $result) {
             $process = $result->getProcess();
-            if ($process !== null && $process->isRunning()) {
+            if ($process->isRunning()) {
                 $process->stop();
             }
         }

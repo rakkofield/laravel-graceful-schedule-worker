@@ -113,8 +113,8 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        // sleepMicroseconds = 0 でテスト時はスリープを無効化
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -159,8 +159,8 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        // sleepMicroseconds = 0 でテスト時はスリープを無効化
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -191,9 +191,8 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        // 最初の Orchestrator がロックを取得して実行
-        $orchestrator1 = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
-        $orchestrator1->setSleepMicroseconds(0);
+        // 最初の Orchestrator がロックを取得して実行（sleepMicroseconds = 0）
+        $orchestrator1 = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger, 0);
 
         $callCount1 = 0;
         $shouldContinue1 = function () use (&$callCount1) {
@@ -206,9 +205,8 @@ class ExecutionTrackerIntegrationTest extends TestCase
         // 1回目は実行される
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
 
-        // 2つ目の Orchestrator は同じロックを取得できない
-        $orchestrator2 = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
-        $orchestrator2->setSleepMicroseconds(0);
+        // 2つ目の Orchestrator は同じロックを取得できない（sleepMicroseconds = 0）
+        $orchestrator2 = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger, 0);
 
         $callCount2 = 0;
         $shouldContinue2 = function () use (&$callCount2) {
@@ -242,8 +240,8 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $result = FakeDispatchResult::success('test-id', 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        // sleepMicroseconds = 0 でテスト時はスリープを無効化
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {

@@ -7,11 +7,11 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use DateTimeImmutable;
 
 /**
- * StepFunctionsDispatcher 用の結果クラス
+ * StepFunctionsDispatcher の成功結果クラス
  *
  * Execution 情報を保持し、Step Functions の実行状態を管理します。
  */
-class StepFunctionsDispatchResult implements DispatchResultInterface
+class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
 {
     /** @var string|null */
     private $executionArn;
@@ -28,43 +28,31 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
-    /** @var string|null */
-    private $error;
-
     /** @var bool */
     private $wasAlreadyRunning;
-
-    /** @var \Throwable|null */
-    private $exception;
 
     /**
      * @param string|null $executionArn
      * @param string $executionName
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param DateTimeImmutable $dispatchedAt
-     * @param string|null $error
      * @param bool $wasAlreadyRunning
-     * @param \Throwable|null $exception
+     * @param DateTimeImmutable|null $dispatchedAt
      */
     private function __construct(
-        $executionArn,
+        ?string $executionArn,
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
-        DateTimeImmutable $dispatchedAt,
-        $error,
         bool $wasAlreadyRunning,
-        \Throwable $exception = null
+        ?DateTimeImmutable $dispatchedAt = null
     ) {
         $this->executionArn = $executionArn;
         $this->executionName = $executionName;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
-        $this->dispatchedAt = $dispatchedAt;
-        $this->error = $error;
         $this->wasAlreadyRunning = $wasAlreadyRunning;
-        $this->exception = $exception;
+        $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
     }
 
     /**
@@ -87,8 +75,6 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
             $executionName,
             $identifier,
             $command,
-            new DateTimeImmutable(),
-            null,
             false
         );
     }
@@ -113,38 +99,7 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
             $executionName,
             $identifier,
             $command,
-            new DateTimeImmutable(),
-            null,
             true
-        );
-    }
-
-    /**
-     * 失敗した場合の結果を作成
-     *
-     * @param string $executionName
-     * @param string $identifier
-     * @param string|null $command
-     * @param string $error
-     * @param \Throwable|null $exception
-     * @return self
-     */
-    public static function failed(
-        string $executionName,
-        string $identifier,
-        ?string $command,
-        string $error,
-        \Throwable $exception = null
-    ): self {
-        return new self(
-            null,
-            $executionName,
-            $identifier,
-            $command ?? '',
-            new DateTimeImmutable(),
-            $error,
-            false,
-            $exception
         );
     }
 
@@ -153,7 +108,7 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
      */
     public function isStarted(): bool
     {
-        return $this->error === null;
+        return true;
     }
 
     /**
@@ -161,7 +116,7 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
      */
     public function getError(): ?string
     {
-        return $this->error;
+        return null;
     }
 
     /**
@@ -197,9 +152,17 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     }
 
     /**
+     * {@inheritdoc}
+     */
+    public function getException(): ?\Throwable
+    {
+        return null;
+    }
+
+    /**
      * Execution ARN を取得
      *
-     * @return string|null 成功時は ARN、失敗または既存実行時は null
+     * @return string|null 成功時は ARN、既存実行時は null
      */
     public function getExecutionArn(): ?string
     {
@@ -226,13 +189,5 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     public function wasAlreadyRunning(): bool
     {
         return $this->wasAlreadyRunning;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getException(): ?\Throwable
-    {
-        return $this->exception;
     }
 }

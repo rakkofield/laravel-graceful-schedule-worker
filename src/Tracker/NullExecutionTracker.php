@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
-use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 
 /**
@@ -18,7 +18,7 @@ class NullExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function markExecuted(Event $event, Carbon $dueAt): void
+    public function markExecuted(Event $event, DateTimeInterface $dueAt): void
     {
         // 何もしない
     }
@@ -26,7 +26,7 @@ class NullExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function getMissedDueIfRecoverable(Event $event, Carbon $now): ?Carbon
+    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface
     {
         return null; // 取りこぼしなし
     }
@@ -34,7 +34,7 @@ class NullExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function acquireLock(Event $event, Carbon $dueAt): bool
+    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool
     {
         return true; // 常に成功
     }
@@ -42,7 +42,7 @@ class NullExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function releaseLock(Event $event, Carbon $dueAt): void
+    public function releaseLock(Event $event, DateTimeInterface $dueAt): void
     {
         // 何もしない
     }

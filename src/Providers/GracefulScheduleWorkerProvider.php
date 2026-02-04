@@ -17,6 +17,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
@@ -44,7 +45,13 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
         $this->app->singleton(ClockAwareSchedule::class);
 
         // LocalDispatcher を登録
-        $this->app->singleton(LocalDispatcher::class);
+        // Note: Foundation\Application の場合は basePath() が利用可能
+        // テスト等で Container のみの場合は basePath は null
+        // @phpstan-ignore function.alreadyNarrowedType (テストでは Container を使うため)
+        $basePath = method_exists($this->app, 'basePath') ? $this->app->basePath() : null;
+        $this->app->singleton(LocalDispatcher::class, function () use ($basePath) {
+            return new LocalDispatcher($basePath);
+        });
 
         // StepFunctions 関連のバインディング（AWS SDK がインストールされている場合のみ）
         $this->registerStepFunctionsBindings();
@@ -155,7 +162,9 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
-            return new StepFunctionsDispatcher($client, $stateMachineArn, $clock);
+            $nameGenerator = new ExecutionNameGenerator();
+
+            return new StepFunctionsDispatcher($client, $stateMachineArn, $clock, $nameGenerator);
         });
     }
 

@@ -28,29 +28,14 @@ class GracefulScheduleWorkCommand extends Command
     /** @var bool */
     private $running = true;
 
-    /** @var ScheduleOrchestratorInterface */
-    private $orchestrator;
-
-    /** @var Schedule */
-    private $schedule;
-
-    /**
-     * @param ScheduleOrchestratorInterface $orchestrator
-     * @param Schedule $schedule
-     */
-    public function __construct(ScheduleOrchestratorInterface $orchestrator, Schedule $schedule)
-    {
-        parent::__construct();
-        $this->orchestrator = $orchestrator;
-        $this->schedule = $schedule;
-    }
-
     /**
      * Execute the console command.
      *
+     * @param ScheduleOrchestratorInterface $orchestrator
+     * @param Schedule $schedule
      * @return int
      */
-    public function handle()
+    public function handle(ScheduleOrchestratorInterface $orchestrator, Schedule $schedule)
     {
         $this->info('Running scheduled tasks.');
 
@@ -59,8 +44,8 @@ class GracefulScheduleWorkCommand extends Command
         /** @var Application $app */
         $app = $this->laravel;
 
-        $this->orchestrator->run(
-            $this->schedule,
+        $orchestrator->run(
+            $schedule,
             $app,
             function () {
                 return $this->running;

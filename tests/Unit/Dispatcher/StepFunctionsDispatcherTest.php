@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStepFunctionsClient;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
@@ -62,7 +63,8 @@ class StepFunctionsDispatcherTest extends TestCase
         return new StepFunctionsDispatcher(
             $this->client,
             $this->stateMachineArn,
-            $this->clock
+            $this->clock,
+            new ExecutionNameGenerator()
         );
     }
 
@@ -77,7 +79,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
-        $this->assertInstanceOf(StepFunctionsDispatchResult::class, $result);
+        $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
         $this->assertTrue($result->isStarted());
         $this->assertNull($result->getError());
     }
@@ -94,7 +96,7 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertInstanceOf(StepFunctionsDispatchResult::class, $result);
+        $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
         $this->assertTrue($result->isStarted());
         $this->assertTrue($result->wasAlreadyRunning());
         $this->assertNull($result->getError());
@@ -163,7 +165,7 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertInstanceOf(StepFunctionsDispatchResult::class, $result);
+        $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
         $this->assertFalse($result->isStarted());
         $this->assertFalse($result->wasAlreadyRunning());
         $this->assertStringContainsString('Connection refused', $result->getError());

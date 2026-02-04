@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
-use Symfony\Component\Process\Process;
 
 /**
- * LocalDispatcher 用の結果クラス
- *
- * Process オブジェクトを保持し、バックグラウンドプロセスの管理を可能にします。
+ * StepFunctionsDispatcher の失敗結果クラス
  */
-class LocalDispatchResult implements DispatchResultInterface
+class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
 {
-    /** @var Process|null */
-    private $process;
+    /** @var string */
+    private $executionName;
 
     /** @var string */
     private $eventIdentifier;
@@ -26,58 +23,40 @@ class LocalDispatchResult implements DispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
-    /** @var string|null */
+    /** @var string */
     private $error;
 
     /** @var \Throwable|null */
     private $exception;
 
     /**
-     * @param Process|null $process
+     * @param string $executionName
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param DateTimeImmutable $dispatchedAt
-     * @param string|null $error
+     * @param string $error
      * @param \Throwable|null $exception
+     * @param DateTimeImmutable|null $dispatchedAt
      */
     private function __construct(
-        $process,
+        string $executionName,
         string $eventIdentifier,
         string $eventCommand,
-        DateTimeImmutable $dispatchedAt,
-        $error,
-        $exception = null
+        string $error,
+        ?\Throwable $exception = null,
+        ?DateTimeImmutable $dispatchedAt = null
     ) {
-        $this->process = $process;
+        $this->executionName = $executionName;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
-        $this->dispatchedAt = $dispatchedAt;
         $this->error = $error;
         $this->exception = $exception;
-    }
-
-    /**
-     * 成功した場合の結果を作成
-     *
-     * @param Process $process
-     * @param string $identifier
-     * @param string $command
-     * @return self
-     */
-    public static function success(Process $process, string $identifier, string $command): self
-    {
-        return new self(
-            $process,
-            $identifier,
-            $command,
-            new DateTimeImmutable(),
-            null
-        );
+        $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
     }
 
     /**
      * 失敗した場合の結果を作成
      *
+     * @param string $executionName
      * @param string $identifier
      * @param string|null $command
      * @param string $error
@@ -85,16 +64,16 @@ class LocalDispatchResult implements DispatchResultInterface
      * @return self
      */
     public static function failed(
+        string $executionName,
         string $identifier,
         ?string $command,
         string $error,
         ?\Throwable $exception = null
     ): self {
         return new self(
-            null,
+            $executionName,
             $identifier,
             $command ?? '',
-            new DateTimeImmutable(),
             $error,
             $exception
         );
@@ -105,13 +84,11 @@ class LocalDispatchResult implements DispatchResultInterface
      */
     public function isStarted(): bool
     {
-        return $this->process !== null && $this->error === null;
+        return false;
     }
 
     /**
      * {@inheritdoc}
-     *
-     * @return string|null
      */
     public function getError(): ?string
     {
@@ -139,7 +116,7 @@ class LocalDispatchResult implements DispatchResultInterface
      */
     public function getDispatcherType(): string
     {
-        return 'local';
+        return 'stepfunctions';
     }
 
     /**
@@ -151,44 +128,32 @@ class LocalDispatchResult implements DispatchResultInterface
     }
 
     /**
-     * Process オブジェクトを取得
-     *
-     * @return Process|null
-     */
-    public function getProcess(): ?Process
-    {
-        return $this->process;
-    }
-
-    /**
-     * プロセスが実行中かどうか
-     *
-     * @return bool
-     */
-    public function isRunning(): bool
-    {
-        return $this->process !== null && $this->process->isRunning();
-    }
-
-    /**
-     * プロセスの終了コードを取得
-     *
-     * @return int|null
-     */
-    public function getExitCode(): ?int
-    {
-        if ($this->process === null) {
-            return null;
-        }
-
-        return $this->process->getExitCode();
-    }
-
-    /**
      * {@inheritdoc}
      */
     public function getException(): ?\Throwable
     {
         return $this->exception;
+    }
+
+    /**
+     * Execution Name を取得
+     *
+     * @return string
+     */
+    public function getExecutionName(): string
+    {
+        return $this->executionName;
+    }
+
+    /**
+     * 既に実行中だったかどうか
+     *
+     * 失敗時は常に false を返します。
+     *
+     * @return bool
+     */
+    public function wasAlreadyRunning(): bool
+    {
+        return false;
     }
 }

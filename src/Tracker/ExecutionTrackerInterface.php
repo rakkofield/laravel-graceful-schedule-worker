@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
-use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 
 /**
@@ -19,9 +19,9 @@ interface ExecutionTrackerInterface
      * タスクの実行を記録する
      *
      * @param Event $event 実行されたイベント
-     * @param Carbon $dueAt 実行予定時刻
+     * @param DateTimeInterface $dueAt 実行予定時刻
      */
-    public function markExecuted(Event $event, Carbon $dueAt): void;
+    public function markExecuted(Event $event, DateTimeInterface $dueAt): void;
 
     /**
      * リカバリすべき取りこぼしがあれば、その実行予定時刻を返す
@@ -34,11 +34,11 @@ interface ExecutionTrackerInterface
      * cron 式が不正な場合は例外を投げる。
      *
      * @param Event $event チェック対象のイベント
-     * @param Carbon $now 現在時刻
-     * @return Carbon|null リカバリすべき場合は missedDue、そうでなければ null
+     * @param DateTimeInterface $now 現在時刻
+     * @return DateTimeInterface|null リカバリすべき場合は missedDue、そうでなければ null
      * @throws \InvalidArgumentException cron 式が不正な場合
      */
-    public function getMissedDueIfRecoverable(Event $event, Carbon $now): ?Carbon;
+    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface;
 
     /**
      * 指定時刻に対するロックを取得する
@@ -46,16 +46,16 @@ interface ExecutionTrackerInterface
      * 複数 Worker が同じタスクを重複実行しないよう、排他ロックを取得する。
      *
      * @param Event $event 対象イベント
-     * @param Carbon $dueAt 実行予定時刻
+     * @param DateTimeInterface $dueAt 実行予定時刻
      * @return bool ロック取得成功なら true
      */
-    public function acquireLock(Event $event, Carbon $dueAt): bool;
+    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool;
 
     /**
      * 指定時刻に対するロックを解放する
      *
      * @param Event $event 対象イベント
-     * @param Carbon $dueAt 実行予定時刻
+     * @param DateTimeInterface $dueAt 実行予定時刻
      */
-    public function releaseLock(Event $event, Carbon $dueAt): void;
+    public function releaseLock(Event $event, DateTimeInterface $dueAt): void;
 }

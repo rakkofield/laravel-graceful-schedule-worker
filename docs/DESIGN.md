@@ -212,37 +212,62 @@ classDiagram
         +getDispatchedAt() DateTimeImmutable
     }
 
-    class LocalDispatchResult {
+    class StartedDispatchResultInterface {
+        <<interface>>
+        +isStarted() true
+        +getError() null
+    }
+
+    class FailedDispatchResultInterface {
+        <<interface>>
+        +isStarted() false
+        +getError() string
+    }
+
+    class StartedLocalDispatchResult {
         -process Process
         -eventIdentifier string
         -eventCommand string
         -dispatchedAt DateTimeImmutable
-        -error string
-        +isStarted() bool
+        +isStarted() true
         +getProcess() Process
         +isRunning() bool
         +getExitCode() int
-        +success(process, id, cmd) LocalDispatchResult
-        +failed(id, cmd, error) LocalDispatchResult
     }
 
-    class StepFunctionsDispatchResult {
+    class FailedLocalDispatchResult {
+        -eventIdentifier string
+        -eventCommand string
+        -error string
+        -exception Throwable
+        -dispatchedAt DateTimeImmutable
+        +isStarted() false
+        +getError() string
+    }
+
+    class StartedStepFunctionsDispatchResult {
         -executionArn string
         -executionName string
         -eventIdentifier string
         -eventCommand string
         -dispatchedAt DateTimeImmutable
+        +isStarted() true
+        +getExecutionArn() string
+        +getExecutionName() string
+    }
+
+    class FailedStepFunctionsDispatchResult {
+        -executionName string
+        -eventIdentifier string
+        -eventCommand string
         -error string
         -wasAlreadyRunning bool
         -exception Throwable
-        +isStarted() bool
-        +getExecutionArn() string
-        +getExecutionName() string
+        -dispatchedAt DateTimeImmutable
+        +isStarted() false
+        +getError() string
         +wasAlreadyRunning() bool
         +getException() Throwable
-        +success(arn, name, id, cmd) StepFunctionsDispatchResult
-        +alreadyRunning(name, id, cmd) StepFunctionsDispatchResult
-        +failed(name, id, cmd, error, exception) StepFunctionsDispatchResult
     }
 
     class ScheduleDispatcherInterface {
@@ -273,8 +298,7 @@ classDiagram
     class ExecutionTrackerInterface {
         <<interface>>
         +markExecuted(event, dueAt)
-        +wasMissed(event, now) bool
-        +getLastExecutedDue(event) Carbon
+        +getMissedDueIfRecoverable(event, now) DateTimeInterface
         +acquireLock(event, dueAt) bool
         +releaseLock(event, dueAt)
     }
@@ -283,8 +307,7 @@ classDiagram
         -cache Cache
         -prefix string
         +markExecuted(event, dueAt)
-        +wasMissed(event, now) bool
-        +getLastExecutedDue(event) Carbon
+        +getMissedDueIfRecoverable(event, now) DateTimeInterface
         +acquireLock(event, dueAt) bool
         +releaseLock(event, dueAt)
     }
@@ -306,8 +329,12 @@ classDiagram
     Event <|-- ClockAwareEvent
     ClockInterface <|.. SystemClock
     ClockInterface <|.. FixedClock
-    DispatchResultInterface <|.. LocalDispatchResult
-    DispatchResultInterface <|.. StepFunctionsDispatchResult
+    DispatchResultInterface <|-- StartedDispatchResultInterface
+    DispatchResultInterface <|-- FailedDispatchResultInterface
+    StartedDispatchResultInterface <|.. StartedLocalDispatchResult
+    StartedDispatchResultInterface <|.. StartedStepFunctionsDispatchResult
+    FailedDispatchResultInterface <|.. FailedLocalDispatchResult
+    FailedDispatchResultInterface <|.. FailedStepFunctionsDispatchResult
     ScheduleDispatcherInterface <|.. CompositeDispatcher
     ScheduleDispatcherInterface <|.. LocalDispatcher
     ScheduleDispatcherInterface <|.. StepFunctionsDispatcher
@@ -853,9 +880,51 @@ interface DispatchResultInterface
 }
 ```
 
-### LocalDispatchResult
+### StartedDispatchResultInterface / FailedDispatchResultInterface
 
-LocalDispatcher 用の結果クラスです。Process オブジェクトを保持し、バックグラウンドプロセスの管理を可能にします。
+成功/失敗を型で表現するサブインターフェースです。
+
+```php
+<?php
+
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+
+/**
+ * 成功したディスパッチ結果を表すインターフェース
+ */
+interface StartedDispatchResultInterface extends DispatchResultInterface
+{
+    /**
+     * @return true 常に true
+     */
+    public function isStarted(): bool;
+
+    /**
+     * @return null 成功時は常に null
+     */
+    public function getError(): ?string;
+}
+
+/**
+ * 失敗したディスパッチ結果を表すインターフェース
+ */
+interface FailedDispatchResultInterface extends DispatchResultInterface
+{
+    /**
+     * @return false 常に false
+     */
+    public function isStarted(): bool;
+
+    /**
+     * @return string 失敗時は常にエラーメッセージを返す
+     */
+    public function getError(): ?string;
+}
+```
+
+### LocalDispatcher 結果クラス
+
+LocalDispatcher 用の結果クラスです。成功時は Process オブジェクトを保持し、バックグラウンドプロセスの管理を可能にします。
 
 ```php
 <?php
@@ -864,9 +933,12 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use Symfony\Component\Process\Process;
 
-class LocalDispatchResult implements DispatchResultInterface
+/**
+ * 成功した LocalDispatcher の結果
+ */
+class StartedLocalDispatchResult implements StartedDispatchResultInterface
 {
-    /** @var Process|null */
+    /** @var Process */
     private $process;
 
     /** @var string */
@@ -878,25 +950,63 @@ class LocalDispatchResult implements DispatchResultInterface
     /** @var \DateTimeImmutable */
     private $dispatchedAt;
 
-    /** @var string|null */
-    private $error;
+    public function __construct(
+        Process $process,
+        string $eventIdentifier,
+        string $eventCommand,
+        ?\DateTimeImmutable $dispatchedAt = null
+    );
 
-    // DispatchResultInterface 実装
-    public function isStarted(): bool;
-    public function getError();  // ?string (PHP 7.2 互換)
+    // StartedDispatchResultInterface 実装
+    public function isStarted(): bool { return true; }
+    public function getError(): ?string { return null; }
     public function getEventIdentifier(): string;
     public function getEventCommand(): string;
     public function getDispatcherType(): string { return 'local'; }
     public function getDispatchedAt(): \DateTimeImmutable;
 
     // Local 固有メソッド
-    public function getProcess();  // ?Process (PHP 7.2 互換)
+    public function getProcess(): Process;
     public function isRunning(): bool;
-    public function getExitCode();  // ?int (PHP 7.2 互換)
+    public function getExitCode(): ?int;
+}
 
-    // ファクトリメソッド
-    public static function success(Process $process, string $identifier, string $command): self;
-    public static function failed(string $identifier, string $command, string $error): self;
+/**
+ * 失敗した LocalDispatcher の結果
+ */
+class FailedLocalDispatchResult implements FailedDispatchResultInterface
+{
+    /** @var string */
+    private $eventIdentifier;
+
+    /** @var string */
+    private $eventCommand;
+
+    /** @var string */
+    private $error;
+
+    /** @var \Throwable|null */
+    private $exception;
+
+    /** @var \DateTimeImmutable */
+    private $dispatchedAt;
+
+    public function __construct(
+        string $eventIdentifier,
+        string $eventCommand,
+        string $error,
+        ?\Throwable $exception = null,
+        ?\DateTimeImmutable $dispatchedAt = null
+    );
+
+    // FailedDispatchResultInterface 実装
+    public function isStarted(): bool { return false; }
+    public function getError(): ?string { return $this->error; }
+    public function getEventIdentifier(): string;
+    public function getEventCommand(): string;
+    public function getDispatcherType(): string { return 'local'; }
+    public function getDispatchedAt(): \DateTimeImmutable;
+    public function getException(): ?\Throwable;
 }
 ```
 
@@ -906,7 +1016,7 @@ class LocalDispatchResult implements DispatchResultInterface
 // イベントをディスパッチ
 $result = $dispatcher->dispatchEvent($event, $container);
 
-if ($result->isStarted()) {
+if ($result instanceof StartedLocalDispatchResult) {
     // ログ出力
     Log::info('Event dispatched', [
         'command' => $result->getEventCommand(),
@@ -915,10 +1025,11 @@ if ($result->isStarted()) {
         'at' => $result->getDispatchedAt(),
     ]);
 
-    // Local の場合はプロセス管理
-    if ($result instanceof LocalDispatchResult) {
-        $this->runningProcesses[] = $result;
-    }
+    // プロセス管理
+    $this->runningProcesses[] = $result;
+} elseif ($result->isStarted()) {
+    // StepFunctions の場合
+    Log::info('Event dispatched via Step Functions');
 } else {
     Log::error('Event dispatch failed', [
         'command' => $result->getEventCommand(),
@@ -927,18 +1038,21 @@ if ($result->isStarted()) {
 }
 ```
 
-### StepFunctionsDispatchResult
+### StepFunctionsDispatcher 結果クラス
 
-StepFunctionsDispatcher 用の結果クラスです。ExecutionArn を保持し、実行状態の追跡を可能にします。
+StepFunctionsDispatcher 用の結果クラスです。成功時は ExecutionArn を保持し、実行状態の追跡を可能にします。
 
 ```php
 <?php
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
-class StepFunctionsDispatchResult implements DispatchResultInterface
+/**
+ * 成功した StepFunctionsDispatcher の結果
+ */
+class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
 {
-    /** @var string|null */
+    /** @var string */
     private $executionArn;
 
     /** @var string */
@@ -953,7 +1067,42 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     /** @var \DateTimeImmutable */
     private $dispatchedAt;
 
-    /** @var string|null */
+    public function __construct(
+        string $executionArn,
+        string $executionName,
+        string $eventIdentifier,
+        string $eventCommand,
+        ?\DateTimeImmutable $dispatchedAt = null
+    );
+
+    // StartedDispatchResultInterface 実装
+    public function isStarted(): bool { return true; }
+    public function getError(): ?string { return null; }
+    public function getEventIdentifier(): string;
+    public function getEventCommand(): string;
+    public function getDispatcherType(): string { return 'stepfunctions'; }
+    public function getDispatchedAt(): \DateTimeImmutable;
+
+    // StepFunctions 固有メソッド
+    public function getExecutionArn(): string;
+    public function getExecutionName(): string;
+}
+
+/**
+ * 失敗した StepFunctionsDispatcher の結果
+ */
+class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
+{
+    /** @var string */
+    private $executionName;
+
+    /** @var string */
+    private $eventIdentifier;
+
+    /** @var string */
+    private $eventCommand;
+
+    /** @var string */
     private $error;
 
     /** @var bool */
@@ -962,39 +1111,31 @@ class StepFunctionsDispatchResult implements DispatchResultInterface
     /** @var \Throwable|null */
     private $exception;
 
-    // DispatchResultInterface 実装
-    public function isStarted(): bool;
-    public function getError();  // ?string (PHP 7.2 互換)
+    /** @var \DateTimeImmutable */
+    private $dispatchedAt;
+
+    public function __construct(
+        string $executionName,
+        string $eventIdentifier,
+        string $eventCommand,
+        string $error,
+        bool $wasAlreadyRunning = false,
+        ?\Throwable $exception = null,
+        ?\DateTimeImmutable $dispatchedAt = null
+    );
+
+    // FailedDispatchResultInterface 実装
+    public function isStarted(): bool { return false; }
+    public function getError(): ?string { return $this->error; }
     public function getEventIdentifier(): string;
     public function getEventCommand(): string;
     public function getDispatcherType(): string { return 'stepfunctions'; }
     public function getDispatchedAt(): \DateTimeImmutable;
-    public function getException();  // ?\Throwable (PHP 7.2 互換)
 
     // StepFunctions 固有メソッド
-    public function getExecutionArn();  // ?string (PHP 7.2 互換)
     public function getExecutionName(): string;
     public function wasAlreadyRunning(): bool;
-
-    // ファクトリメソッド
-    public static function success(
-        string $executionArn,
-        string $executionName,
-        string $identifier,
-        string $command
-    ): self;
-    public static function alreadyRunning(
-        string $executionName,
-        string $identifier,
-        string $command
-    ): self;
-    public static function failed(
-        string $executionName,
-        string $identifier,
-        ?string $command,
-        string $error,
-        \Throwable $exception = null
-    ): self;
+    public function getException(): ?\Throwable;
 }
 ```
 
@@ -1038,54 +1179,54 @@ interface ScheduleDispatcherInterface
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
-use Illuminate\Support\Carbon;
 
 interface ExecutionTrackerInterface
 {
     /**
      * タスクの実行を記録する
      *
-     * @param Event $event スケジュールイベント
-     * @param Carbon $dueAt 実行予定時刻
-     * @return void
+     * @param Event $event 実行されたイベント
+     * @param DateTimeInterface $dueAt 実行予定時刻
      */
-    public function markExecuted(Event $event, Carbon $dueAt): void;
+    public function markExecuted(Event $event, DateTimeInterface $dueAt): void;
 
     /**
-     * タスクが取りこぼされたかどうかを判定する
+     * リカバリすべき取りこぼしがあれば、その実行予定時刻を返す
      *
-     * @param Event $event スケジュールイベント
-     * @param Carbon $now 現在時刻
-     * @return bool 取りこぼされた場合は true
+     * 以下の条件をすべて満たす場合に missedDue を返す:
+     * - 前回の実行予定時刻より後の実行予定が存在する（取りこぼしあり）
+     * - grace period 内である（ClockAwareEvent の場合）
+     *
+     * 初回実行（実行記録なし）の場合は null を返す。
+     * cron 式が不正な場合は例外を投げる。
+     *
+     * @param Event $event チェック対象のイベント
+     * @param DateTimeInterface $now 現在時刻
+     * @return DateTimeInterface|null リカバリすべき場合は missedDue、そうでなければ null
+     * @throws \InvalidArgumentException cron 式が不正な場合
      */
-    public function wasMissed(Event $event, Carbon $now): bool;
+    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface;
 
     /**
-     * 最後に実行された予定時刻を取得する
+     * 指定時刻に対するロックを取得する
      *
-     * @param Event $event スケジュールイベント
-     * @return Carbon|null 最後の実行予定時刻（未実行の場合は null）
+     * 複数 Worker が同じタスクを重複実行しないよう、排他ロックを取得する。
+     *
+     * @param Event $event 対象イベント
+     * @param DateTimeInterface $dueAt 実行予定時刻
+     * @return bool ロック取得成功なら true
      */
-    public function getLastExecutedDue(Event $event): ?Carbon;
+    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool;
 
     /**
-     * 実行ロックを取得する（重複実行の防止）
+     * 指定時刻に対するロックを解放する
      *
-     * @param Event $event スケジュールイベント
-     * @param Carbon $dueAt 実行予定時刻
-     * @return bool ロック取得に成功した場合は true
+     * @param Event $event 対象イベント
+     * @param DateTimeInterface $dueAt 実行予定時刻
      */
-    public function acquireLock(Event $event, Carbon $dueAt): bool;
-
-    /**
-     * 実行ロックを解放する
-     *
-     * @param Event $event スケジュールイベント
-     * @param Carbon $dueAt 実行予定時刻
-     * @return void
-     */
-    public function releaseLock(Event $event, Carbon $dueAt): void;
+    public function releaseLock(Event $event, DateTimeInterface $dueAt): void;
 }
 ```
 
@@ -1370,13 +1511,24 @@ src/
 ├── Orchestrator/                        # 新規: Orchestrator レイヤー
 │   └── ScheduleOrchestratorInterface.php # スケジュール実行調整
 ├── Dispatcher/
-│   ├── DispatchResultInterface.php      # ディスパッチ結果インターフェース
-│   ├── LocalDispatchResult.php          # LocalDispatcher 用結果クラス
-│   ├── StepFunctionsDispatchResult.php  # StepFunctionsDispatcher 用結果クラス
-│   ├── ScheduleDispatcherInterface.php  # インターフェース
-│   ├── CompositeDispatcher.php          # Dispatcher委譲クラス
-│   ├── LocalDispatcher.php              # バックグラウンドプロセス起動
-│   └── StepFunctionsDispatcher.php      # AWS Step Functions 統合
+│   ├── DispatchResultInterface.php           # ディスパッチ結果基底インターフェース
+│   ├── StartedDispatchResultInterface.php    # 成功結果インターフェース
+│   ├── FailedDispatchResultInterface.php     # 失敗結果インターフェース
+│   ├── StartedLocalDispatchResult.php        # LocalDispatcher 成功結果
+│   ├── FailedLocalDispatchResult.php         # LocalDispatcher 失敗結果
+│   ├── StartedStepFunctionsDispatchResult.php # StepFunctionsDispatcher 成功結果
+│   ├── FailedStepFunctionsDispatchResult.php  # StepFunctionsDispatcher 失敗結果
+│   ├── ScheduleDispatcherInterface.php       # Dispatcher インターフェース
+│   ├── CompositeDispatcher.php               # Dispatcher委譲クラス
+│   ├── LocalDispatcher.php                   # バックグラウンドプロセス起動
+│   ├── StepFunctionsDispatcher.php           # AWS Step Functions 統合
+│   └── StepFunctions/                        # Step Functions 関連クラス
+│       ├── StepFunctionsClientInterface.php  # SfnClient 抽象化
+│       ├── AwsSfnClientAdapter.php           # AWS SDK アダプター
+│       ├── ExecutionNameGenerator.php        # Execution Name 生成
+│       ├── StartExecutionResult.php          # startExecution 結果
+│       ├── StepFunctionsException.php        # 基底例外
+│       └── ExecutionAlreadyExistsException.php # 重複実行例外
 ├── Tracker/
 │   ├── ExecutionTrackerInterface.php    # インターフェース
 │   └── CacheExecutionTracker.php        # Redis/Cache 実装（ロック機能追加）
@@ -1743,6 +1895,30 @@ docker compose up
 cd demo
 docker compose up -d
 ```
+
+---
+
+## Known Limitations
+
+### ClockAwareEvent での ManagesFrequencies の制限
+
+Laravel の `ManagesFrequencies` トレイトには `Carbon::now()` を直接使用しているメソッドがあり、
+`ClockAwareEvent` でも `ClockInterface` を使わずにシステム時刻を参照します。
+
+**影響を受けるメソッド**:
+
+| メソッド | 呼び出し元 | 問題 |
+|---------|-----------|------|
+| `inTimeInterval()` | `between()`, `unlessBetween()` | `Carbon::now()` を使用 |
+| `lastDayOfMonth()` | 直接呼び出し | `Carbon::now()->endOfMonth()->day` を使用 |
+
+**影響**:
+- `between()` / `unlessBetween()` を使った時間帯制限がテスト時に固定時刻を使わない
+- `lastDayOfMonth()` で月末実行するタスクがテスト時に固定時刻を使わない
+
+**回避策**:
+- これらのメソッドを使用するタスクのテストでは、実際のシステム時刻に依存することを考慮する
+- または、`ClockAwareEvent` でこれらのメソッドをオーバーライドして `ClockInterface` を使うように拡張する（将来の対応）
 
 ---
 

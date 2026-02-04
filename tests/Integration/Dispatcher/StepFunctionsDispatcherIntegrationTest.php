@@ -130,7 +130,12 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         ExecutionNameGenerator $nameGenerator = null
     ): StepFunctionsDispatcher {
         $adapter = new AwsSfnClientAdapter($this->sfnClient);
-        return new StepFunctionsDispatcher($adapter, self::$stateMachineArn, $this->clock, $nameGenerator);
+        return new StepFunctionsDispatcher(
+            $adapter,
+            self::$stateMachineArn,
+            $this->clock,
+            $nameGenerator ?? new ExecutionNameGenerator()
+        );
     }
 
     /**

@@ -11,11 +11,24 @@ use Symfony\Component\Process\Process;
 class LocalDispatcher implements ScheduleDispatcherInterface
 {
     /**
+     * @var string|null
+     */
+    private $basePath;
+
+    /**
+     * @param string|null $basePath プロセスの作業ディレクトリ（null の場合は現在のディレクトリ）
+     */
+    public function __construct(?string $basePath = null)
+    {
+        $this->basePath = $basePath;
+    }
+
+    /**
      * 単一イベントをディスパッチする
      *
      * Event をバックグラウンドプロセスとして実行します。
      * - beforeCallbacks を親プロセスで同期実行
-     * - runInBackground を強制 true にして buildCommand() を呼び出し
+     * - runInBackground を true に設定して buildCommand() を呼び出し
      *   （これにより schedule:finish が含まれ、afterCallbacks が動作する）
      * - Process::start() でバックグラウンド実行
      *
@@ -31,22 +44,21 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             // 1. beforeCallbacks を呼ぶ
             $event->callBeforeCallbacks($container);
 
-            // 2. runInBackground を強制的に true にして buildCommand を呼ぶ
+            // 2. runInBackground を true に設定して buildCommand を呼ぶ
             //    これにより schedule:finish が含まれ、afterCallbacks が動作する
-            $originalRunInBackground = $event->runInBackground;
+            //    （イベントは1回しかディスパッチされないため元に戻す必要はない）
             $event->runInBackground = true;
             $fullCommand = $event->buildCommand();
-            $event->runInBackground = $originalRunInBackground;
 
             // 3. Process::start() でバックグラウンド実行
-            $process = Process::fromShellCommandLine($fullCommand);
+            $process = Process::fromShellCommandline($fullCommand, $this->basePath);
             $process->start();
 
-            return LocalDispatchResult::success($process, $identifier, $fullCommand);
+            return new StartedLocalDispatchResult($process, $identifier, $fullCommand);
         } catch (\Exception $e) {
             $error = get_class($e) . ': ' . $e->getMessage();
 
-            return LocalDispatchResult::failed($identifier, $event->command, $error, $e);
+            return new FailedLocalDispatchResult($identifier, $event->command, $error, $e);
         }
     }
 }

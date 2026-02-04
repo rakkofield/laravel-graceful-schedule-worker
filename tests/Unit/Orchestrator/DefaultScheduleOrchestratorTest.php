@@ -10,7 +10,7 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
@@ -95,8 +95,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0); // テスト時はスリープを無効化
+        // テスト時はスリープを無効化（sleepMicroseconds = 0）
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         // shouldContinue は 1 回だけ true を返してからすぐ false を返す
         $callCount = 0;
@@ -121,8 +121,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([]);
 
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -146,8 +145,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event1, $event2, $event3]);
 
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -173,8 +171,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         // 最初から false を返す
         $shouldContinue = function () {
@@ -197,8 +194,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -225,8 +221,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -260,8 +255,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         });
 
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $spyLogger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $spyLogger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -287,15 +281,14 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('sleep 100');
         $this->schedule->setDueEvents([$event]);
 
-        // StubProcess を使用して LocalDispatchResult を作成
+        // StubProcess を使用して StartedLocalDispatchResult を作成
         $stubProcess = new StubProcess(true);
-        $localResult = LocalDispatchResult::success($stubProcess, $event->mutexName(), 'sleep 100');
+        $localResult = new StartedLocalDispatchResult($stubProcess, $event->mutexName(), 'sleep 100');
 
         $this->dispatcher->setResult($localResult);
 
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -323,8 +316,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         // 時刻を毎分0秒に固定（setUp で 12:00:00 に設定済み）
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         // shouldContinue で 3 回ループを回す
         $callCount = 0;
@@ -353,8 +345,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // 秒を 30 に設定（0 でないのでスキップされる）
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:30'));
         $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger, 0);
 
         // shouldContinue で 2 回ループを回す
         $callCount = 0;
@@ -390,8 +381,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -422,8 +412,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -449,8 +438,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -489,8 +477,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -525,8 +512,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -562,8 +548,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger);
-        $orchestrator->setSleepMicroseconds(0);
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -616,9 +601,9 @@ class DefaultScheduleOrchestratorTest extends TestCase
             $this->dispatcher,
             $this->clock,
             $tracker,
-            $spyLogger
+            $spyLogger,
+            0
         );
-        $orchestrator->setSleepMicroseconds(0);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {

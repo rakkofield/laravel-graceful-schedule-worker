@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
 
-use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
@@ -14,7 +14,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 class FakeExecutionTracker implements ExecutionTrackerInterface
 {
     /**
-     * @var array<string, Carbon>
+     * @var array<string, DateTimeInterface>
      */
     private $executed = [];
 
@@ -24,7 +24,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     private $locks = [];
 
     /**
-     * @var array<string, Carbon|null>
+     * @var array<string, DateTimeInterface|null>
      */
     private $recoverableResults = [];
 
@@ -36,7 +36,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function markExecuted(Event $event, Carbon $dueAt): void
+    public function markExecuted(Event $event, DateTimeInterface $dueAt): void
     {
         $this->executed[$event->mutexName()] = $dueAt;
     }
@@ -44,7 +44,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function getMissedDueIfRecoverable(Event $event, Carbon $now): ?Carbon
+    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface
     {
         return $this->recoverableResults[$event->mutexName()] ?? null;
     }
@@ -52,9 +52,9 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function acquireLock(Event $event, Carbon $dueAt): bool
+    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool
     {
-        $key = $event->mutexName() . ':' . $dueAt->timestamp;
+        $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
 
         // 特定のロック結果が設定されている場合はそれを返す
         if (isset($this->lockResults[$key])) {
@@ -72,9 +72,9 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function releaseLock(Event $event, Carbon $dueAt): void
+    public function releaseLock(Event $event, DateTimeInterface $dueAt): void
     {
-        $key = $event->mutexName() . ':' . $dueAt->timestamp;
+        $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
         unset($this->locks[$key]);
     }
 
@@ -82,9 +82,9 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
      * テスト用: リカバリ判定結果を設定
      *
      * @param string $mutexName
-     * @param Carbon|null $missedDue リカバリすべき場合は missedDue、そうでなければ null
+     * @param DateTimeInterface|null $missedDue リカバリすべき場合は missedDue、そうでなければ null
      */
-    public function setRecoverableResult(string $mutexName, ?Carbon $missedDue): void
+    public function setRecoverableResult(string $mutexName, ?DateTimeInterface $missedDue): void
     {
         $this->recoverableResults[$mutexName] = $missedDue;
     }
@@ -93,19 +93,19 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
      * テスト用: ロック取得結果を設定
      *
      * @param string $mutexName
-     * @param Carbon $dueAt
+     * @param DateTimeInterface $dueAt
      * @param bool $result
      */
-    public function setLockResult(string $mutexName, Carbon $dueAt, bool $result): void
+    public function setLockResult(string $mutexName, DateTimeInterface $dueAt, bool $result): void
     {
-        $key = $mutexName . ':' . $dueAt->timestamp;
+        $key = $mutexName . ':' . $dueAt->getTimestamp();
         $this->lockResults[$key] = $result;
     }
 
     /**
      * テスト用: 実行記録を取得
      *
-     * @return array<string, Carbon>
+     * @return array<string, DateTimeInterface>
      */
     public function getExecuted(): array
     {
@@ -126,9 +126,9 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
      * テスト用: 実行記録を設定
      *
      * @param string $mutexName
-     * @param Carbon $dueAt
+     * @param DateTimeInterface $dueAt
      */
-    public function setExecuted(string $mutexName, Carbon $dueAt): void
+    public function setExecuted(string $mutexName, DateTimeInterface $dueAt): void
     {
         $this->executed[$mutexName] = $dueAt;
     }
