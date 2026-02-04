@@ -15,6 +15,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeLockProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableGracefulScheduleWorkerProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
@@ -281,8 +282,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
      */
     public function testRegistersExecutionTrackerInterfaceWhenEnabled(): void
     {
-        // Setup cache mock
-        $cacheStore = new FakeCacheStore();
+        // Setup cache mock with LockProvider
+        $lockProvider = new FakeLockProvider();
+        $cacheStore = new FakeCacheStore($lockProvider);
         $this->app->singleton('cache', function () use ($cacheStore) {
             return new class ($cacheStore) {
                 /** @var FakeCacheStore */
@@ -340,8 +342,9 @@ class GracefulScheduleWorkerProviderTest extends TestCase
      */
     public function testOrchestratorReceivesTrackerWhenEnabled(): void
     {
-        // Setup cache mock
-        $cacheStore = new FakeCacheStore();
+        // Setup cache mock with LockProvider
+        $lockProvider = new FakeLockProvider();
+        $cacheStore = new FakeCacheStore($lockProvider);
         $this->app->singleton('cache', function () use ($cacheStore) {
             return new class ($cacheStore) {
                 /** @var FakeCacheStore */

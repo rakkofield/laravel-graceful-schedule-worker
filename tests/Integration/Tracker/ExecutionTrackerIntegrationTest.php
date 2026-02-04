@@ -97,7 +97,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
     {
         // 11:05 の時点でテスト開始（11:00 の取りこぼしを検出）
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 11:05:00'));
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
 
         // recoverable なイベントを作成（grace period 2時間）
         $event = $this->createEvent('echo test', $clock);
@@ -143,7 +143,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
     {
         // 14:05 の時点でテスト開始（grace period 2時間超過）
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 14:05:00'));
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
 
         // recoverable なイベントを作成（grace period 2時間）
         $event = $this->createEvent('echo test', $clock);
@@ -180,7 +180,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
     public function testNoDuplicateExecutionWithLock(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
 
         // イベントを作成
         $event = $this->createEvent('echo test', $clock);
@@ -228,7 +228,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
     public function testMultipleEventsAreTrackedIndependently(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
 
         // 2つのイベントを作成
         $event1 = $this->createEvent('echo test1', $clock);

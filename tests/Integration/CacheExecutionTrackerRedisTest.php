@@ -105,6 +105,16 @@ class CacheExecutionTrackerRedisTest extends TestCase
     }
 
     /**
+     * @param int $lockTtl
+     * @return CacheExecutionTracker
+     */
+    private function createTracker(int $lockTtl = 3600): CacheExecutionTracker
+    {
+        $store = $this->cache->getStore();
+        return new CacheExecutionTracker($this->cache, $store, $this->logger, $lockTtl);
+    }
+
+    /**
      * @param string $command
      * @return Event
      */
@@ -128,7 +138,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
      */
     public function testMarkExecutedStoresDataInRedis(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = $this->createTracker();
         $event = $this->createEvent('php artisan test:redis-task');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -145,7 +155,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
      */
     public function testAcquireLockReturnsTrueOnFirstCall(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = $this->createTracker();
         $event = $this->createEvent('php artisan test:redis-lock');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -159,7 +169,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
      */
     public function testSecondAcquireLockOnSameKeyFails(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = $this->createTracker();
         $event = $this->createEvent('php artisan test:redis-lock-conflict');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -175,7 +185,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
      */
     public function testAcquireLockSucceedsAfterReleaseLock(): void
     {
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = $this->createTracker();
         $event = $this->createEvent('php artisan test:redis-lock-release');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -192,7 +202,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     public function testGetMissedDueIfRecoverableRetrievesDataFromRedis(): void
     {
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 11:05:00'));
-        $tracker = new CacheExecutionTracker($this->cache, $this->logger);
+        $tracker = $this->createTracker();
         $event = $this->createClockAwareEvent('php artisan test:redis-missed', $clock);
         $event->cron('0 * * * *'); // 毎時0分
 
@@ -213,8 +223,9 @@ class CacheExecutionTrackerRedisTest extends TestCase
      */
     public function testConcurrentLockAcquisitionAcrossSeparateTrackersFails(): void
     {
-        $tracker1 = new CacheExecutionTracker($this->cache, $this->logger);
-        $tracker2 = new CacheExecutionTracker($this->createRedisCache(), $this->logger);
+        $tracker1 = $this->createTracker();
+        $cache2 = $this->createRedisCache();
+        $tracker2 = new CacheExecutionTracker($cache2, $cache2->getStore(), $this->logger);
         $event = $this->createEvent('php artisan test:concurrent');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -232,7 +243,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     public function testLockExpiresAfterTtlAllowingReAcquisition(): void
     {
         $shortTtl = 2; // 2秒
-        $tracker1 = new CacheExecutionTracker($this->cache, $this->logger, $shortTtl);
+        $tracker1 = $this->createTracker($shortTtl);
         $event = $this->createEvent('php artisan test:ttl-expiry');
         $dueAt = Carbon::parse('2024-01-15 10:00:00');
 
@@ -240,7 +251,8 @@ class CacheExecutionTrackerRedisTest extends TestCase
 
         sleep(3); // TTL より長く待機
 
-        $tracker2 = new CacheExecutionTracker($this->createRedisCache(), $this->logger);
+        $cache2 = $this->createRedisCache();
+        $tracker2 = new CacheExecutionTracker($cache2, $cache2->getStore(), $this->logger);
         $result = $tracker2->acquireLock($event, $dueAt);
 
         $this->assertTrue($result);

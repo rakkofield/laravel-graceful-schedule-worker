@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Providers;
 
 use Aws\Sfn\SfnClient;
+use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
@@ -189,6 +190,14 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var \Illuminate\Contracts\Cache\Repository $cache */
             $cache = $cacheFactory->store($storeName);
 
+            $store = $cache->getStore();
+            if (!$store instanceof LockProvider) {
+                throw new \RuntimeException(
+                    'ExecutionTracker requires a cache driver that implements LockProvider (e.g., Redis, Memcached). ' .
+                    'Current driver does not support distributed locking.'
+                );
+            }
+
             /** @var int $lockTtl */
             $lockTtl = $config->get('graceful-scheduler.tracker.lock_ttl', 3600);
 
@@ -196,7 +205,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var \Psr\Log\LoggerInterface $logger */
             $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
 
-            return new CacheExecutionTracker($cache, $logger, $lockTtl);
+            return new CacheExecutionTracker($cache, $store, $logger, $lockTtl);
         });
     }
 

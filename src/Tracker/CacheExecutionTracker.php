@@ -29,6 +29,11 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     private $cache;
 
     /**
+     * @var LockProvider
+     */
+    private $lockProvider;
+
+    /**
      * @var int
      */
     private $lockTtl;
@@ -45,12 +50,14 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
     /**
      * @param Repository $cache
+     * @param LockProvider $lockProvider
      * @param LoggerInterface $logger
      * @param int $lockTtl ロックの TTL（秒）
      * @throws InvalidArgumentException lockTtl が正の整数でない場合
      */
     public function __construct(
         Repository $cache,
+        LockProvider $lockProvider,
         LoggerInterface $logger,
         int $lockTtl = 3600
     ) {
@@ -58,6 +65,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
             throw new InvalidArgumentException('lockTtl must be a positive integer');
         }
         $this->cache = $cache;
+        $this->lockProvider = $lockProvider;
         $this->logger = $logger;
         $this->lockTtl = $lockTtl;
     }
@@ -125,25 +133,14 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     public function acquireLock(Event $event, Carbon $dueAt): bool
     {
         $key = $this->getLockKey($event, $dueAt);
-        $store = $this->cache->getStore();
+        $lock = $this->lockProvider->lock($key, $this->lockTtl);
 
-        if ($store instanceof LockProvider) {
-            $lock = $store->lock($key, $this->lockTtl);
-            if ($lock->get()) {
-                $this->acquiredLocks[$key] = $lock;
-                return true;
-            }
-            return false;
+        if ($lock->get()) {
+            $this->acquiredLocks[$key] = $lock;
+            return true;
         }
 
-        // フォールバック: has() + put()
-        // 注意: この操作はアトミックではないため、競合状態が発生する可能性があります。
-        // 分散環境では LockProvider をサポートするキャッシュドライバ（Redis等）の使用を推奨します。
-        if ($this->cache->has($key)) {
-            return false;
-        }
-        $this->cache->put($key, true, $this->lockTtl);
-        return true;
+        return false;
     }
 
     /**
@@ -156,11 +153,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         if (isset($this->acquiredLocks[$key])) {
             $this->acquiredLocks[$key]->release();
             unset($this->acquiredLocks[$key]);
-            return;
         }
-
-        // フォールバック
-        $this->cache->forget($key);
     }
 
     /**
