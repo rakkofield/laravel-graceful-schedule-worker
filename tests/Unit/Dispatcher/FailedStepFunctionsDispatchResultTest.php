@@ -26,7 +26,6 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
         $this->assertSame('Connection refused', $result->getError());
-        $this->assertFalse($result->wasAlreadyRunning());
     }
 
     /**

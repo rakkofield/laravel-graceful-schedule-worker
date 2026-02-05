@@ -76,14 +76,14 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 'input' => $input,
             ]);
 
-            return StartedStepFunctionsDispatchResult::success(
+            return new StartedStepFunctionsDispatchResult(
                 $result->getExecutionArn(),
                 $executionName,
                 $mutexName,
                 (string) $command
             );
         } catch (ExecutionAlreadyExistsException $e) {
-            return StartedStepFunctionsDispatchResult::alreadyRunning(
+            return new AlreadyRunningStepFunctionsDispatchResult(
                 $executionName,
                 $mutexName,
                 (string) $command

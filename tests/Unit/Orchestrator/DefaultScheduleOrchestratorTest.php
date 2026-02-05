@@ -10,6 +10,7 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeAlreadyRunningDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
@@ -644,5 +645,79 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         // markExecuted が呼ばれていないことを確認
         $this->assertEmpty($tracker->getExecuted());
+    }
+
+    /**
+     * @testdox T3.27 AlreadyRunningDispatchResultInterface でも markExecuted が呼ばれる
+     */
+    public function testMarksExecutedOnAlreadyRunningResult(): void
+    {
+        $tracker = new FakeExecutionTracker();
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        // 既に実行中の結果を返すように設定
+        $result = FakeAlreadyRunningDispatchResult::create($event->mutexName(), 'echo test', 'stepfunctions');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // ディスパッチが呼ばれたことを確認
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+
+        // 実行が記録されていることを確認（AlreadyRunning でも markExecuted される）
+        $executed = $tracker->getExecuted();
+        $this->assertArrayHasKey($event->mutexName(), $executed);
+    }
+
+    /**
+     * @testdox T3.28 Recovery でも AlreadyRunningDispatchResultInterface で markExecuted が呼ばれる
+     */
+    public function testMarksExecutedOnAlreadyRunningResultInRecovery(): void
+    {
+        $tracker = new FakeExecutionTracker();
+
+        // リカバリ対象のイベントを設定
+        $event = $this->createClockAwareEvent('echo test');
+        $event->cron('0 * * * *');
+        $event->enableRecovery();
+
+        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+
+        // FakeExecutionTracker でリカバリ対象を設定
+        $tracker->setRecoverableResult($event->mutexName(), $missedDue);
+
+        // 既に実行中の結果を返すように設定
+        $result = FakeAlreadyRunningDispatchResult::create($event->mutexName(), 'echo test', 'stepfunctions');
+        $this->dispatcher->setResult($result);
+
+        // スケジュールにイベントを追加（due ではない）
+        $this->schedule->setDueEvents([]);
+        $this->schedule->addEvent($event);
+
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // リカバリでディスパッチされることを確認
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+
+        // 実行が記録されていることを確認（AlreadyRunning でも markExecuted される）
+        $executed = $tracker->getExecuted();
+        $this->assertArrayHasKey($event->mutexName(), $executed);
     }
 }

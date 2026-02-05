@@ -212,7 +212,12 @@ classDiagram
 
     class StartedDispatchResultInterface {
         <<interface>>
-        %% マーカーインターフェース
+        %% マーカーインターフェース（新規開始）
+    }
+
+    class AlreadyRunningDispatchResultInterface {
+        <<interface>>
+        %% マーカーインターフェース（既存実行）
     }
 
     class FailedDispatchResultInterface {
@@ -247,10 +252,16 @@ classDiagram
         -eventIdentifier string
         -eventCommand string
         -dispatchedAt DateTimeImmutable
-        -wasAlreadyRunning bool
         +getExecutionArn() string
         +getExecutionName() string
-        +wasAlreadyRunning() bool
+    }
+
+    class AlreadyRunningStepFunctionsDispatchResult {
+        -executionName string
+        -eventIdentifier string
+        -eventCommand string
+        -dispatchedAt DateTimeImmutable
+        +getExecutionName() string
     }
 
     class FailedStepFunctionsDispatchResult {
@@ -258,11 +269,9 @@ classDiagram
         -eventIdentifier string
         -eventCommand string
         -error string
-        -wasAlreadyRunning bool
         -exception Throwable
         -dispatchedAt DateTimeImmutable
         +getError() string
-        +wasAlreadyRunning() bool
         +getException() Throwable
     }
 
@@ -326,9 +335,11 @@ classDiagram
     ClockInterface <|.. SystemClock
     ClockInterface <|.. FixedClock
     DispatchResultInterface <|-- StartedDispatchResultInterface
+    DispatchResultInterface <|-- AlreadyRunningDispatchResultInterface
     DispatchResultInterface <|-- FailedDispatchResultInterface
     StartedDispatchResultInterface <|.. StartedLocalDispatchResult
     StartedDispatchResultInterface <|.. StartedStepFunctionsDispatchResult
+    AlreadyRunningDispatchResultInterface <|.. AlreadyRunningStepFunctionsDispatchResult
     FailedDispatchResultInterface <|.. FailedLocalDispatchResult
     FailedDispatchResultInterface <|.. FailedStepFunctionsDispatchResult
     ScheduleDispatcherInterface <|.. CompositeDispatcher
@@ -862,9 +873,9 @@ interface DispatchResultInterface
 }
 ```
 
-### StartedDispatchResultInterface / FailedDispatchResultInterface
+### StartedDispatchResultInterface / AlreadyRunningDispatchResultInterface / FailedDispatchResultInterface
 
-成功/失敗を型で表現するサブインターフェースです。`instanceof` 演算子で型安全に判定できます。
+結果の種類を型で表現するサブインターフェースです。`instanceof` 演算子で型安全に判定できます。
 
 ```php
 <?php
@@ -874,9 +885,22 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 /**
  * 成功したディスパッチ結果を表すマーカーインターフェース
  *
- * instanceof StartedDispatchResultInterface で成功を判定
+ * instanceof StartedDispatchResultInterface で新規開始を判定
  */
 interface StartedDispatchResultInterface extends DispatchResultInterface
+{
+    // マーカーインターフェース（メソッドなし）
+}
+
+/**
+ * 既に実行中のタスクに対するディスパッチ結果を表すマーカーインターフェース
+ *
+ * Step Functions の ExecutionAlreadyExists など、
+ * 重複実行を検出した場合に使用します。
+ *
+ * instanceof AlreadyRunningDispatchResultInterface で既存実行を判定
+ */
+interface AlreadyRunningDispatchResultInterface extends DispatchResultInterface
 {
     // マーカーインターフェース（メソッドなし）
 }
@@ -1019,7 +1043,7 @@ if ($result instanceof StartedLocalDispatchResult) {
 
 ### StepFunctionsDispatcher 結果クラス
 
-StepFunctionsDispatcher 用の結果クラスです。成功時は ExecutionArn を保持し、実行状態の追跡を可能にします。
+StepFunctionsDispatcher 用の結果クラスです。新規開始時は `StartedStepFunctionsDispatchResult`、既存実行時は `AlreadyRunningStepFunctionsDispatchResult`、失敗時は `FailedStepFunctionsDispatchResult` を使用します。
 
 ```php
 <?php
@@ -1028,12 +1052,10 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 /**
  * 成功した StepFunctionsDispatcher の結果
- *
- * ExecutionAlreadyExists は正常系として扱われ、このクラスで表現されます。
  */
 class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
 {
-    /** @var string|null */
+    /** @var string */
     private $executionArn;
 
     /** @var string */
@@ -1048,22 +1070,13 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     /** @var \DateTimeImmutable */
     private $dispatchedAt;
 
-    /** @var bool */
-    private $wasAlreadyRunning;
-
-    // ファクトリメソッド
-    public static function success(
+    public function __construct(
         string $executionArn,
         string $executionName,
-        string $identifier,
-        string $command
-    ): self;
-
-    public static function alreadyRunning(
-        string $executionName,
-        string $identifier,
-        string $command
-    ): self;
+        string $eventIdentifier,
+        string $eventCommand,
+        ?\DateTimeImmutable $dispatchedAt = null
+    );
 
     // DispatchResultInterface 実装
     public function getEventIdentifier(): string;
@@ -1072,9 +1085,44 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     public function getDispatchedAt(): \DateTimeImmutable;
 
     // StepFunctions 固有メソッド
-    public function getExecutionArn(): ?string;  // 既存実行時は null
+    public function getExecutionArn(): string;
     public function getExecutionName(): string;
-    public function wasAlreadyRunning(): bool;   // ExecutionAlreadyExists だった場合 true
+}
+
+/**
+ * 既に実行中の StepFunctionsDispatcher の結果
+ *
+ * ExecutionAlreadyExists が発生した場合に使用します。
+ */
+class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatchResultInterface
+{
+    /** @var string */
+    private $executionName;
+
+    /** @var string */
+    private $eventIdentifier;
+
+    /** @var string */
+    private $eventCommand;
+
+    /** @var \DateTimeImmutable */
+    private $dispatchedAt;
+
+    public function __construct(
+        string $executionName,
+        string $eventIdentifier,
+        string $eventCommand,
+        ?\DateTimeImmutable $dispatchedAt = null
+    );
+
+    // DispatchResultInterface 実装
+    public function getEventIdentifier(): string;
+    public function getEventCommand(): string;
+    public function getDispatcherType(): string { return 'stepfunctions'; }
+    public function getDispatchedAt(): \DateTimeImmutable;
+
+    // StepFunctions 固有メソッド
+    public function getExecutionName(): string;
 }
 
 /**
@@ -1119,7 +1167,6 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
 
     // StepFunctions 固有メソッド
     public function getExecutionName(): string;
-    public function wasAlreadyRunning(): bool { return false; }
 }
 ```
 
@@ -1495,13 +1542,15 @@ src/
 ├── Orchestrator/                        # 新規: Orchestrator レイヤー
 │   └── ScheduleOrchestratorInterface.php # スケジュール実行調整
 ├── Dispatcher/
-│   ├── DispatchResultInterface.php           # ディスパッチ結果基底インターフェース
-│   ├── StartedDispatchResultInterface.php    # 成功結果インターフェース
-│   ├── FailedDispatchResultInterface.php     # 失敗結果インターフェース
-│   ├── StartedLocalDispatchResult.php        # LocalDispatcher 成功結果
-│   ├── FailedLocalDispatchResult.php         # LocalDispatcher 失敗結果
-│   ├── StartedStepFunctionsDispatchResult.php # StepFunctionsDispatcher 成功結果
-│   ├── FailedStepFunctionsDispatchResult.php  # StepFunctionsDispatcher 失敗結果
+│   ├── DispatchResultInterface.php                  # ディスパッチ結果基底インターフェース
+│   ├── StartedDispatchResultInterface.php           # 成功結果インターフェース（新規開始）
+│   ├── AlreadyRunningDispatchResultInterface.php    # 既存実行インターフェース
+│   ├── FailedDispatchResultInterface.php            # 失敗結果インターフェース
+│   ├── StartedLocalDispatchResult.php               # LocalDispatcher 成功結果
+│   ├── FailedLocalDispatchResult.php                # LocalDispatcher 失敗結果
+│   ├── StartedStepFunctionsDispatchResult.php       # StepFunctionsDispatcher 成功結果
+│   ├── AlreadyRunningStepFunctionsDispatchResult.php # StepFunctionsDispatcher 既存実行結果
+│   ├── FailedStepFunctionsDispatchResult.php        # StepFunctionsDispatcher 失敗結果
 │   ├── ScheduleDispatcherInterface.php       # Dispatcher インターフェース
 │   ├── CompositeDispatcher.php               # Dispatcher委譲クラス
 │   ├── LocalDispatcher.php                   # バックグラウンドプロセス起動
@@ -2019,6 +2068,6 @@ protected function schedule(ClockAwareSchedule $schedule)
 
 ---
 
-**Last Updated**: 2026-01-31
-**Version**: 3.2.0 (DispatchResultInterface導入、LocalDispatcherバックグラウンド実行対応)
+**Last Updated**: 2026-02-05
+**Version**: 3.3.0 (AlreadyRunningDispatchResultInterface導入、重複コード集約)
 **Author**: Laravel Graceful Schedule Worker Team

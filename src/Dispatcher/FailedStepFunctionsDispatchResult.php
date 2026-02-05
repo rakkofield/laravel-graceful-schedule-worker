@@ -136,16 +136,4 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
     {
         return $this->executionName;
     }
-
-    /**
-     * 既に実行中だったかどうか
-     *
-     * 失敗時は常に false を返します。
-     *
-     * @return bool
-     */
-    public function wasAlreadyRunning(): bool
-    {
-        return false;
-    }
 }

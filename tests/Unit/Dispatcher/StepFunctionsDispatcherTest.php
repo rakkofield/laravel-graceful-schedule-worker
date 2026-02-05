@@ -84,7 +84,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.2 ExecutionAlreadyExists で StartedDispatchResultInterface と wasAlreadyRunning=true
+     * @testdox T5.2 ExecutionAlreadyExists で AlreadyRunningDispatchResultInterface を返す
      */
     public function testReturnsAlreadyRunningOnExecutionAlreadyExists(): void
     {
@@ -95,9 +95,8 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
-        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
-        $this->assertTrue($result->wasAlreadyRunning());
+        $this->assertInstanceOf(AlreadyRunningStepFunctionsDispatchResult::class, $result);
+        $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result);
     }
 
     /**
@@ -165,7 +164,6 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
-        $this->assertFalse($result->wasAlreadyRunning());
         $this->assertStringContainsString('Connection refused', $result->getError());
     }
 

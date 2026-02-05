@@ -7,15 +7,12 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use DateTimeImmutable;
 
 /**
- * StepFunctionsDispatcher の成功結果クラス
+ * StepFunctionsDispatcher で既に実行中の場合の結果クラス
  *
- * Execution 情報を保持し、Step Functions の実行状態を管理します。
+ * ExecutionAlreadyExists が発生した場合に使用します。
  */
-class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
+class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatchResultInterface
 {
-    /** @var string */
-    private $executionArn;
-
     /** @var string */
     private $executionName;
 
@@ -29,20 +26,17 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     private $dispatchedAt;
 
     /**
-     * @param string $executionArn
      * @param string $executionName
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable|null $dispatchedAt
      */
     public function __construct(
-        string $executionArn,
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
         ?DateTimeImmutable $dispatchedAt = null
     ) {
-        $this->executionArn = $executionArn;
         $this->executionName = $executionName;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
@@ -79,16 +73,6 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
-    }
-
-    /**
-     * Execution ARN を取得
-     *
-     * @return string
-     */
-    public function getExecutionArn(): string
-    {
-        return $this->executionArn;
     }
 
     /**

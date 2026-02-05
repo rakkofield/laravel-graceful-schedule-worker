@@ -172,7 +172,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
 
         $result1 = $dispatcher1->dispatchEvent($event, $this->app);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
-        $this->assertFalse($result1->wasAlreadyRunning());
+        $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result1);
 
         // 2回目の実行（同じ Execution Name だが異なる時刻 = 異なる input）
         // AWS/moto の仕様: 同じ name + 同じ input = べき等動作（成功）
@@ -182,8 +182,8 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $dispatcher2 = $this->createDispatcher($nameGenerator);
 
         $result2 = $dispatcher2->dispatchEvent($event, $this->app);
-        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result2);
-        $this->assertTrue($result2->wasAlreadyRunning());
+        $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result2);
+        $this->assertInstanceOf(AlreadyRunningStepFunctionsDispatchResult::class, $result2);
     }
 
     /**

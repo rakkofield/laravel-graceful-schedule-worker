@@ -2,51 +2,54 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
 
 use DateTimeImmutable;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\AlreadyRunningDispatchResultInterface;
 
-/**
- * StepFunctionsDispatcher の成功結果クラス
- *
- * Execution 情報を保持し、Step Functions の実行状態を管理します。
- */
-class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
+class FakeAlreadyRunningDispatchResult implements AlreadyRunningDispatchResultInterface
 {
-    /** @var string */
-    private $executionArn;
-
-    /** @var string */
-    private $executionName;
-
     /** @var string */
     private $eventIdentifier;
 
     /** @var string */
     private $eventCommand;
 
+    /** @var string */
+    private $dispatcherType;
+
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
     /**
-     * @param string $executionArn
-     * @param string $executionName
      * @param string $eventIdentifier
      * @param string $eventCommand
+     * @param string $dispatcherType
      * @param DateTimeImmutable|null $dispatchedAt
      */
     public function __construct(
-        string $executionArn,
-        string $executionName,
         string $eventIdentifier,
         string $eventCommand,
+        string $dispatcherType,
         ?DateTimeImmutable $dispatchedAt = null
     ) {
-        $this->executionArn = $executionArn;
-        $this->executionName = $executionName;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
+        $this->dispatcherType = $dispatcherType;
         $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
+    }
+
+    /**
+     * Create an already running result.
+     *
+     * @param string $identifier
+     * @param string $command
+     * @param string $type
+     * @return self
+     */
+    public static function create(string $identifier, string $command, string $type = 'fake'): self
+    {
+        return new self($identifier, $command, $type);
     }
 
     /**
@@ -70,7 +73,7 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
      */
     public function getDispatcherType(): string
     {
-        return 'stepfunctions';
+        return $this->dispatcherType;
     }
 
     /**
@@ -79,25 +82,5 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
-    }
-
-    /**
-     * Execution ARN を取得
-     *
-     * @return string
-     */
-    public function getExecutionArn(): string
-    {
-        return $this->executionArn;
-    }
-
-    /**
-     * Execution Name を取得
-     *
-     * @return string
-     */
-    public function getExecutionName(): string
-    {
-        return $this->executionName;
     }
 }
