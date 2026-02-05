@@ -82,7 +82,11 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     public function cleanup(): void
     {
         foreach ($this->dispatchers as $dispatcher) {
-            $dispatcher->cleanup();
+            try {
+                $dispatcher->cleanup();
+            } catch (\Exception $e) {
+                // 1つのディスパッチャーの失敗が他に影響しないようにする
+            }
         }
     }
 
@@ -92,7 +96,11 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     public function stopAll(): void
     {
         foreach ($this->dispatchers as $dispatcher) {
-            $dispatcher->stopAll();
+            try {
+                $dispatcher->stopAll();
+            } catch (\Exception $e) {
+                // 1つのディスパッチャーの失敗が他に影響しないようにする
+            }
         }
     }
 }

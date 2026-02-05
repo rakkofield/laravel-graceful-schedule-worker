@@ -91,9 +91,15 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     public function stopAll(): void
     {
         foreach ($this->runningProcesses as $result) {
-            $process = $result->getProcess();
-            if ($process->isRunning()) {
-                $process->stop();
+            try {
+                $process = $result->getProcess();
+                if ($process->isRunning()) {
+                    $process->stop();
+                }
+            } catch (\Exception $e) {
+                // 1つのプロセスの停止失敗が他のプロセスの停止を阻害しないようにする
+                // エラーはログに記録されるべきだが、Dispatcher はロガーを持たないため
+                // 例外を無視してすべてのプロセスに対して停止を試みる
             }
         }
         $this->runningProcesses = [];

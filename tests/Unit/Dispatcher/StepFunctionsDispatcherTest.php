@@ -239,4 +239,32 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertNotNull($result->getException());
         $this->assertSame('Connection refused', $result->getException()->getMessage());
     }
+
+    /**
+     * @testdox T5.12 cleanup が例外をスローしない（no-op）
+     */
+    public function testCleanupIsNoOp(): void
+    {
+        $dispatcher = $this->createDispatcher();
+
+        // 例外がスローされないことを確認
+        $dispatcher->cleanup();
+
+        // no-op なので特にアサーションはないが、例外が発生しないことを確認
+        $this->assertTrue(true);
+    }
+
+    /**
+     * @testdox T5.13 stopAll が例外をスローしない（no-op）
+     */
+    public function testStopAllIsNoOp(): void
+    {
+        $dispatcher = $this->createDispatcher();
+
+        // 例外がスローされないことを確認
+        $dispatcher->stopAll();
+
+        // no-op なので特にアサーションはないが、例外が発生しないことを確認
+        $this->assertTrue(true);
+    }
 }

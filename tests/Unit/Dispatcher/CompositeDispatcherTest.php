@@ -13,6 +13,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\ThrowingFakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 class CompositeDispatcherTest extends TestCase
@@ -218,5 +219,111 @@ class CompositeDispatcherTest extends TestCase
             ['local' => $localDispatcher],
             'nonexistent'
         );
+    }
+
+    /**
+     * @testdox T2.18 cleanup が全子ディスパッチャーに委譲される
+     */
+    public function testCleanupDelegatesToAllChildDispatchers(): void
+    {
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
+
+        $localDispatcher = new FakeDispatcher($localResult);
+        $sfnDispatcher = new FakeDispatcher($sfnResult);
+
+        $dispatcher = new CompositeDispatcher(
+            [
+                'local' => $localDispatcher,
+                'stepfunctions' => $sfnDispatcher,
+            ],
+            'local'
+        );
+
+        $dispatcher->cleanup();
+
+        $this->assertEquals(1, $localDispatcher->getCleanupCallCount());
+        $this->assertEquals(1, $sfnDispatcher->getCleanupCallCount());
+    }
+
+    /**
+     * @testdox T2.19 stopAll が全子ディスパッチャーに委譲される
+     */
+    public function testStopAllDelegatesToAllChildDispatchers(): void
+    {
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
+
+        $localDispatcher = new FakeDispatcher($localResult);
+        $sfnDispatcher = new FakeDispatcher($sfnResult);
+
+        $dispatcher = new CompositeDispatcher(
+            [
+                'local' => $localDispatcher,
+                'stepfunctions' => $sfnDispatcher,
+            ],
+            'local'
+        );
+
+        $dispatcher->stopAll();
+
+        $this->assertEquals(1, $localDispatcher->getStopAllCallCount());
+        $this->assertEquals(1, $sfnDispatcher->getStopAllCallCount());
+    }
+
+    /**
+     * @testdox T2.20 cleanup が1つの子で例外が発生しても他の子に委譲される
+     */
+    public function testCleanupContinuesWhenChildThrows(): void
+    {
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
+
+        $throwingDispatcher = new ThrowingFakeDispatcher($localResult);
+        $throwingDispatcher->willThrowOnCleanup(new \RuntimeException('Cleanup failed'));
+        $normalDispatcher = new FakeDispatcher($sfnResult);
+
+        $dispatcher = new CompositeDispatcher(
+            [
+                'local' => $throwingDispatcher,
+                'stepfunctions' => $normalDispatcher,
+            ],
+            'local'
+        );
+
+        // 例外がスローされないこと
+        $dispatcher->cleanup();
+
+        // 両方の cleanup が呼ばれていること
+        $this->assertEquals(1, $throwingDispatcher->getCleanupCallCount());
+        $this->assertEquals(1, $normalDispatcher->getCleanupCallCount());
+    }
+
+    /**
+     * @testdox T2.21 stopAll が1つの子で例外が発生しても他の子に委譲される
+     */
+    public function testStopAllContinuesWhenChildThrows(): void
+    {
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
+
+        $throwingDispatcher = new ThrowingFakeDispatcher($localResult);
+        $throwingDispatcher->willThrowOnStopAll(new \RuntimeException('StopAll failed'));
+        $normalDispatcher = new FakeDispatcher($sfnResult);
+
+        $dispatcher = new CompositeDispatcher(
+            [
+                'local' => $throwingDispatcher,
+                'stepfunctions' => $normalDispatcher,
+            ],
+            'local'
+        );
+
+        // 例外がスローされないこと
+        $dispatcher->stopAll();
+
+        // 両方の stopAll が呼ばれていること
+        $this->assertEquals(1, $throwingDispatcher->getStopAllCallCount());
+        $this->assertEquals(1, $normalDispatcher->getStopAllCallCount());
     }
 }
