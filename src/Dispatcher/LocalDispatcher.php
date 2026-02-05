@@ -16,6 +16,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $basePath;
 
     /**
+     * @var array<StartedLocalDispatchResult>
+     */
+    private $runningProcesses = [];
+
+    /**
      * @param string|null $basePath プロセスの作業ディレクトリ（null の場合は現在のディレクトリ）
      */
     public function __construct(?string $basePath = null)
@@ -54,11 +59,43 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $process = Process::fromShellCommandline($fullCommand, $this->basePath);
             $process->start();
 
-            return new StartedLocalDispatchResult($process, $identifier, $fullCommand);
+            $result = new StartedLocalDispatchResult($process, $identifier, $fullCommand);
+            $this->runningProcesses[] = $result;
+
+            return $result;
         } catch (\Exception $e) {
             $error = get_class($e) . ': ' . $e->getMessage();
 
             return new FailedLocalDispatchResult($identifier, $event->command, $error, $e);
         }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function cleanup(): void
+    {
+        $this->runningProcesses = array_values(
+            array_filter(
+                $this->runningProcesses,
+                function (StartedLocalDispatchResult $result) {
+                    return $result->isRunning();
+                }
+            )
+        );
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function stopAll(): void
+    {
+        foreach ($this->runningProcesses as $result) {
+            $process = $result->getProcess();
+            if ($process->isRunning()) {
+                $process->stop();
+            }
+        }
+        $this->runningProcesses = [];
     }
 }

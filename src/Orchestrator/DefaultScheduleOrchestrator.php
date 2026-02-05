@@ -15,7 +15,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FailedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedDispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
@@ -37,9 +36,6 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 
     /** @var LoggerInterface */
     private $logger;
-
-    /** @var array<StartedLocalDispatchResult> */
-    private $runningProcesses = [];
 
     /** @var int スリープ時間（マイクロ秒） */
     private $sleepMicroseconds = 100000;
@@ -105,11 +101,11 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
             }
 
             // 完了したプロセスをクリーンアップ
-            $this->cleanupCompletedProcesses();
+            $this->dispatcher->cleanup();
         }
 
         // 終了時に実行中のプロセスを停止
-        $this->stopRunningProcesses();
+        $this->dispatcher->stopAll();
 
         return true;
     }
@@ -133,12 +129,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 
         $result = $this->dispatcher->dispatchEvent($event, $container);
 
-        // StartedLocalDispatchResult の場合はプロセスを追跡
-        if ($result instanceof StartedLocalDispatchResult) {
-            $this->tracker->markExecuted($event, $now);
-            $this->runningProcesses[] = $result;
-        } elseif ($result instanceof StartedDispatchResultInterface) {
-            // StepFunctions などその他の成功ケース
+        if ($result instanceof StartedDispatchResultInterface) {
             $this->tracker->markExecuted($event, $now);
         } elseif ($result instanceof FailedDispatchResultInterface) {
             $this->handleDispatchFailure($event, $result);
@@ -214,10 +205,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 
         $result = $this->dispatcher->dispatchEvent($event, $container);
 
-        if ($result instanceof StartedLocalDispatchResult) {
-            $this->tracker->markExecuted($event, $missedDue);
-            $this->runningProcesses[] = $result;
-        } elseif ($result instanceof StartedDispatchResultInterface) {
+        if ($result instanceof StartedDispatchResultInterface) {
             $this->tracker->markExecuted($event, $missedDue);
         } elseif ($result instanceof FailedDispatchResultInterface) {
             $this->handleDispatchFailure($event, $result);
@@ -239,39 +227,6 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     private function getCurrentTime(): \DateTimeImmutable
     {
         return $this->clock->now();
-    }
-
-    /**
-     * 完了したプロセスを配列から削除
-     *
-     * @return void
-     */
-    private function cleanupCompletedProcesses(): void
-    {
-        $this->runningProcesses = array_values(
-            array_filter(
-                $this->runningProcesses,
-                function (StartedLocalDispatchResult $result) {
-                    return $result->isRunning();
-                }
-            )
-        );
-    }
-
-    /**
-     * 実行中のプロセスを停止
-     *
-     * @return void
-     */
-    private function stopRunningProcesses(): void
-    {
-        foreach ($this->runningProcesses as $result) {
-            $process = $result->getProcess();
-            if ($process->isRunning()) {
-                $process->stop();
-            }
-        }
-        $this->runningProcesses = [];
     }
 
     /**

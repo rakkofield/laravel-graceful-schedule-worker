@@ -17,6 +17,12 @@ class FakeDispatcher implements ScheduleDispatcherInterface
     /** @var array<array{event: Event, container: Container}> */
     private $dispatched = [];
 
+    /** @var int */
+    private $cleanupCallCount = 0;
+
+    /** @var int */
+    private $stopAllCallCount = 0;
+
     /**
      * @param DispatchResultInterface $resultToReturn
      */
@@ -77,5 +83,43 @@ class FakeDispatcher implements ScheduleDispatcherInterface
     public function reset(): void
     {
         $this->dispatched = [];
+        $this->cleanupCallCount = 0;
+        $this->stopAllCallCount = 0;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function cleanup(): void
+    {
+        $this->cleanupCallCount++;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function stopAll(): void
+    {
+        $this->stopAllCallCount++;
+    }
+
+    /**
+     * Get the number of times cleanup() was called.
+     *
+     * @return int
+     */
+    public function getCleanupCallCount(): int
+    {
+        return $this->cleanupCallCount;
+    }
+
+    /**
+     * Get the number of times stopAll() was called.
+     *
+     * @return int
+     */
+    public function getStopAllCallCount(): int
+    {
+        return $this->stopAllCallCount;
     }
 }

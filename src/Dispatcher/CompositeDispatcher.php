@@ -75,4 +75,24 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
         }
         return $this->defaultType;
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function cleanup(): void
+    {
+        foreach ($this->dispatchers as $dispatcher) {
+            $dispatcher->cleanup();
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function stopAll(): void
+    {
+        foreach ($this->dispatchers as $dispatcher) {
+            $dispatcher->stopAll();
+        }
+    }
 }

@@ -100,4 +100,24 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
             );
         }
     }
+
+    /**
+     * {@inheritdoc}
+     *
+     * Step Functions はリモート実行のため、ローカルでの cleanup は不要
+     */
+    public function cleanup(): void
+    {
+        // no-op: Step Functions はリモートで実行されるため
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * Step Functions はリモート実行のため、ローカルでの stopAll は不要
+     */
+    public function stopAll(): void
+    {
+        // no-op: Step Functions はリモートで実行されるため
+    }
 }

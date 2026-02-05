@@ -17,4 +17,18 @@ interface ScheduleDispatcherInterface
      * @return DispatchResultInterface ディスパッチ結果
      */
     public function dispatchEvent(Event $event, Container $container): DispatchResultInterface;
+
+    /**
+     * 完了したプロセスをクリーンアップする
+     *
+     * @return void
+     */
+    public function cleanup(): void;
+
+    /**
+     * 全プロセスを停止する
+     *
+     * @return void
+     */
+    public function stopAll(): void;
 }

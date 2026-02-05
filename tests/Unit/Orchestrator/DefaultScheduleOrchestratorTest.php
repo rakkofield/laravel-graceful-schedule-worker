@@ -10,7 +10,6 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
@@ -20,7 +19,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
@@ -275,18 +273,15 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox stopRunningProcesses stops all running processes
+     * @testdox stopAll is called on dispatcher when orchestrator stops
      */
-    public function testStopRunningProcessesStopsAllProcesses(): void
+    public function testStopAllIsCalledOnDispatcherWhenOrchestratorStops(): void
     {
-        $event = $this->createEvent('sleep 100');
+        $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        // StubProcess を使用して StartedLocalDispatchResult を作成
-        $stubProcess = new StubProcess(true);
-        $localResult = new StartedLocalDispatchResult($stubProcess, $event->mutexName(), 'sleep 100');
-
-        $this->dispatcher->setResult($localResult);
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
 
         $tracker = new NullExecutionTracker();
         $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
@@ -299,9 +294,35 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         $orchestrator->run($this->schedule, $this->app, $shouldContinue);
 
-        // run() 終了後、プロセスが停止されていることを確認
-        $this->assertTrue($stubProcess->wasStopped());
-        $this->assertFalse($stubProcess->isRunning());
+        // run() 終了後、dispatcher の stopAll() が呼ばれることを確認
+        $this->assertSame(1, $this->dispatcher->getStopAllCallCount());
+    }
+
+    /**
+     * @testdox cleanup is called on dispatcher in each loop iteration
+     */
+    public function testCleanupIsCalledOnDispatcherInEachLoopIteration(): void
+    {
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $tracker = new NullExecutionTracker();
+        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+
+        // 3回ループする
+        $callCount = 0;
+        $shouldContinue = function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 3;
+        };
+
+        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+
+        // 各ループで cleanup() が呼ばれることを確認（3回）
+        $this->assertSame(3, $this->dispatcher->getCleanupCallCount());
     }
 
     /**
