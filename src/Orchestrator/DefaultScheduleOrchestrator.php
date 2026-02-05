@@ -227,11 +227,12 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         }
 
         // 予期しない結果型 - これはバグを示す
-        $this->logger->error('[GracefulScheduleWorker] Unexpected dispatch result type', [
-            'event' => $event->mutexName(),
-            'result_class' => get_class($result),
-            'dispatcher_type' => $result->getDispatcherType(),
-        ]);
+        throw new \LogicException(sprintf(
+            'Unexpected dispatch result type: %s (dispatcher: %s, event: %s)',
+            get_class($result),
+            $result->getDispatcherType(),
+            $event->mutexName()
+        ));
     }
 
     /**
