@@ -28,20 +28,6 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.21
-     */
-    public function testIsStartedReturnsTrue(): void
-    {
-        $process = Process::fromShellCommandLine('echo test');
-        $process->start();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
-
-        $this->assertTrue($result->isStarted());
-        $this->assertNull($result->getError());
-        $process->wait();
-    }
-
-    /**
      * @testdox T2.22
      */
     public function testStoresProcess(): void
@@ -162,19 +148,6 @@ class StartedLocalDispatchResultTest extends TestCase
 
         $this->assertNull($result->getExitCode());
         $process->stop(0);
-    }
-
-    /**
-     * @testdox T2.38 getException() always returns null
-     */
-    public function testGetExceptionReturnsNull(): void
-    {
-        $process = Process::fromShellCommandLine('echo test');
-        $process->start();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test');
-
-        $this->assertNull($result->getException());
-        $process->wait();
     }
 
     /**

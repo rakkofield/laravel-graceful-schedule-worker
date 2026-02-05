@@ -13,9 +13,9 @@ use PHPUnit\Framework\TestCase;
 class StartedStepFunctionsDispatchResultTest extends TestCase
 {
     /**
-     * @testdox T5.1 success() で isStarted が true を返す
+     * @testdox T5.1 success() で StartedDispatchResultInterface を返す
      */
-    public function testSuccessReturnsIsStartedTrue(): void
+    public function testSuccessReturnsStartedDispatchResultInterface(): void
     {
         $result = StartedStepFunctionsDispatchResult::success(
             'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
@@ -25,15 +25,13 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
         );
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
-        $this->assertTrue($result->isStarted());
-        $this->assertNull($result->getError());
         $this->assertFalse($result->wasAlreadyRunning());
     }
 
     /**
-     * @testdox T5.2 alreadyRunning() で isStarted が true、wasAlreadyRunning が true を返す
+     * @testdox T5.2 alreadyRunning() で wasAlreadyRunning が true を返す
      */
-    public function testAlreadyRunningReturnsIsStartedTrueAndWasAlreadyRunningTrue(): void
+    public function testAlreadyRunningReturnsWasAlreadyRunningTrue(): void
     {
         $result = StartedStepFunctionsDispatchResult::alreadyRunning(
             'exec-1',
@@ -41,8 +39,7 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
             'php artisan schedule:run'
         );
 
-        $this->assertTrue($result->isStarted());
-        $this->assertNull($result->getError());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertTrue($result->wasAlreadyRunning());
         $this->assertNull($result->getExecutionArn());
     }
@@ -140,34 +137,5 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
         $this->assertInstanceOf(DateTimeImmutable::class, $result->getDispatchedAt());
         $this->assertGreaterThanOrEqual($before, $result->getDispatchedAt());
         $this->assertLessThanOrEqual($after, $result->getDispatchedAt());
-    }
-
-    /**
-     * @testdox T5.11 success() で getException() が null を返す
-     */
-    public function testSuccessReturnsNullException(): void
-    {
-        $result = StartedStepFunctionsDispatchResult::success(
-            'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
-            'exec-1',
-            'framework/schedule-mutex',
-            'php artisan schedule:run'
-        );
-
-        $this->assertNull($result->getException());
-    }
-
-    /**
-     * @testdox T5.12 alreadyRunning() で getException() が null を返す
-     */
-    public function testAlreadyRunningReturnsNullException(): void
-    {
-        $result = StartedStepFunctionsDispatchResult::alreadyRunning(
-            'exec-1',
-            'framework/schedule-mutex',
-            'php artisan schedule:run'
-        );
-
-        $this->assertNull($result->getException());
     }
 }

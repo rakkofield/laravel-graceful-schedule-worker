@@ -24,16 +24,6 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.23
-     */
-    public function testIsStartedReturnsFalse(): void
-    {
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', 'Something went wrong');
-
-        $this->assertFalse($result->isStarted());
-    }
-
-    /**
      * @testdox T2.24
      */
     public function testStoresErrorMessage(): void

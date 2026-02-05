@@ -10,16 +10,16 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 interface FailedDispatchResultInterface extends DispatchResultInterface
 {
     /**
-     * ディスパッチが開始されたかどうか
-     *
-     * @return false 常に false
-     */
-    public function isStarted(): bool;
-
-    /**
      * エラーメッセージを取得
      *
-     * @return string 失敗時は常にエラーメッセージを返す
+     * @return string エラーメッセージ
      */
-    public function getError(): ?string;
+    public function getError(): string;
+
+    /**
+     * 発生した例外を取得
+     *
+     * @return \Throwable|null 例外
+     */
+    public function getException(): ?\Throwable;
 }

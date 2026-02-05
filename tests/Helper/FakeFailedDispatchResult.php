@@ -2,20 +2,21 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
 
 use DateTimeImmutable;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FailedDispatchResultInterface;
 
-/**
- * LocalDispatcher の失敗結果クラス
- */
-class FailedLocalDispatchResult implements FailedDispatchResultInterface
+class FakeFailedDispatchResult implements FailedDispatchResultInterface
 {
     /** @var string */
     private $eventIdentifier;
 
     /** @var string */
     private $eventCommand;
+
+    /** @var string */
+    private $dispatcherType;
 
     /** @var DateTimeImmutable */
     private $dispatchedAt;
@@ -30,6 +31,7 @@ class FailedLocalDispatchResult implements FailedDispatchResultInterface
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param string $error
+     * @param string $dispatcherType
      * @param \Throwable|null $exception
      * @param DateTimeImmutable|null $dispatchedAt
      */
@@ -37,22 +39,36 @@ class FailedLocalDispatchResult implements FailedDispatchResultInterface
         string $eventIdentifier,
         string $eventCommand,
         string $error,
+        string $dispatcherType,
         ?\Throwable $exception = null,
         ?DateTimeImmutable $dispatchedAt = null
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->error = $error;
+        $this->dispatcherType = $dispatcherType;
         $this->exception = $exception;
         $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
     }
 
     /**
-     * {@inheritdoc}
+     * Create a failed result.
+     *
+     * @param string $identifier
+     * @param string $command
+     * @param string $error
+     * @param string $type
+     * @param \Throwable|null $exception
+     * @return self
      */
-    public function getError(): string
-    {
-        return $this->error;
+    public static function create(
+        string $identifier,
+        string $command,
+        string $error,
+        string $type = 'fake',
+        ?\Throwable $exception = null
+    ): self {
+        return new self($identifier, $command, $error, $type, $exception);
     }
 
     /**
@@ -76,7 +92,7 @@ class FailedLocalDispatchResult implements FailedDispatchResultInterface
      */
     public function getDispatcherType(): string
     {
-        return 'local';
+        return $this->dispatcherType;
     }
 
     /**
@@ -85,6 +101,14 @@ class FailedLocalDispatchResult implements FailedDispatchResultInterface
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getError(): string
+    {
+        return $this->error;
     }
 
     /**

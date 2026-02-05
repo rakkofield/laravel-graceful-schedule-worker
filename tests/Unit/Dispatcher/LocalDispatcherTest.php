@@ -67,14 +67,14 @@ class LocalDispatcherTest extends TestCase
     /**
      * @testdox T2.2
      */
-    public function testReturnsStartedTrueOnSuccess(): void
+    public function testReturnsStartedDispatchResultInterfaceOnSuccess(): void
     {
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertTrue($result->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
     }
 
     /**
@@ -127,7 +127,8 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertTrue($result->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
+        $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
         $this->assertNotNull($result->getProcess());
 
         $result->getProcess()->wait();
@@ -149,19 +150,6 @@ class LocalDispatcherTest extends TestCase
 
         $this->assertGreaterThanOrEqual($before, $dispatchedAt);
         $this->assertLessThanOrEqual($after, $dispatchedAt);
-    }
-
-    /**
-     * @testdox T2.8
-     */
-    public function testReturnsNoErrorOnSuccess(): void
-    {
-        $dispatcher = new LocalDispatcher();
-        $event = $this->createEvent('echo test');
-
-        $result = $dispatcher->dispatchEvent($event, $this->app);
-
-        $this->assertNull($result->getError());
     }
 
     /**
@@ -247,8 +235,7 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertFalse($result->isStarted());
-        $this->assertNotNull($result->getError());
+        $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
         $this->assertStringContainsString('RuntimeException', $result->getError());
         $this->assertStringContainsString('Test exception', $result->getError());
     }

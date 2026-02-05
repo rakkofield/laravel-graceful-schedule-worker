@@ -47,22 +47,6 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     /**
      * {@inheritdoc}
      */
-    public function isStarted(): bool
-    {
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getError(): ?string
-    {
-        return null;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function getEventIdentifier(): string
     {
         return $this->eventIdentifier;
@@ -90,14 +74,6 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getException(): ?\Throwable
-    {
-        return null;
     }
 
     /**

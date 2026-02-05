@@ -148,8 +148,8 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertTrue($result->isStarted());
-        $this->assertNull($result->getError());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
+        $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
         $this->assertNotNull($result->getExecutionArn());
         $this->assertStringContainsString('arn:aws:states:', $result->getExecutionArn());
     }
@@ -171,7 +171,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $event = $this->createEvent($uniqueCommand);
 
         $result1 = $dispatcher1->dispatchEvent($event, $this->app);
-        $this->assertTrue($result1->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
         $this->assertFalse($result1->wasAlreadyRunning());
 
         // 2回目の実行（同じ Execution Name だが異なる時刻 = 異なる input）
@@ -182,7 +182,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $dispatcher2 = $this->createDispatcher($nameGenerator);
 
         $result2 = $dispatcher2->dispatchEvent($event, $this->app);
-        $this->assertTrue($result2->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result2);
         $this->assertTrue($result2->wasAlreadyRunning());
     }
 
@@ -196,7 +196,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
-        $this->assertTrue($result->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $executionArn = $result->getExecutionArn();
         $this->assertNotNull($executionArn);
 

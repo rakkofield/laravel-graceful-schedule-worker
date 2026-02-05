@@ -13,10 +13,11 @@ use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeExecutionTracker;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeFailedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
@@ -59,7 +60,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->eventMutex = new FakeEventMutex();
         $this->schedulingMutex = new FakeSchedulingMutex();
 
-        $defaultResult = FakeDispatchResult::success('test-id', 'echo test', 'fake');
+        $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->dispatcher = new FakeDispatcher($defaultResult);
         $this->schedule = new SpySchedule($this->eventMutex, $this->schedulingMutex);
         $this->app = new FakeApplication();
@@ -91,7 +92,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         $tracker = new NullExecutionTracker();
@@ -217,7 +218,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'local');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'local');
         $this->dispatcher->setResult($result);
 
         $tracker = new NullExecutionTracker();
@@ -244,7 +245,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         // 失敗した結果を返すように設定
-        $result = FakeDispatchResult::failed($event->mutexName(), 'echo test', 'Connection refused', 'fake');
+        $result = FakeFailedDispatchResult::create($event->mutexName(), 'echo test', 'Connection refused', 'fake');
         $this->dispatcher->setResult($result);
 
         // ログをキャプチャするために SpyLogger を使用
@@ -311,7 +312,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         // 時刻を毎分0秒に固定（setUp で 12:00:00 に設定済み）
@@ -339,7 +340,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         // 秒を 30 に設定（0 でないのでスキップされる）
@@ -378,7 +379,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
@@ -409,7 +410,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $dueAt = Carbon::parse('2024-01-15 12:00:00');
         $tracker->setLockResult($event->mutexName(), $dueAt, false);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
@@ -435,7 +436,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
@@ -474,7 +475,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $missedDue = Carbon::parse('2024-01-15 11:00:00');
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
@@ -509,7 +510,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // 取りこぼしなし（null を返す）
         $tracker->setRecoverableResult($event->mutexName(), null);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
@@ -545,7 +546,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $missedDue = Carbon::parse('2024-01-15 11:00:00');
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
@@ -580,7 +581,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
         // ディスパッチ失敗を設定
-        $failedResult = FakeDispatchResult::failed($event->mutexName(), 'echo test', 'Dispatch failed', 'fake');
+        $failedResult = FakeFailedDispatchResult::create($event->mutexName(), 'echo test', 'Dispatch failed', 'fake');
         $this->dispatcher->setResult($failedResult);
 
         // スケジュールにイベントを追加（due ではない）

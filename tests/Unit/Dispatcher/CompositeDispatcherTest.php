@@ -10,8 +10,8 @@ use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
@@ -64,8 +64,8 @@ class CompositeDispatcherTest extends TestCase
      */
     public function testDelegatesToEventSpecifiedDispatcher(): void
     {
-        $localResult = FakeDispatchResult::success('local-id', 'cmd', 'local');
-        $sfnResult = FakeDispatchResult::success('sfn-id', 'cmd', 'stepfunctions');
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
 
         $localDispatcher = new FakeDispatcher($localResult);
         $sfnDispatcher = new FakeDispatcher($sfnResult);
@@ -83,7 +83,7 @@ class CompositeDispatcherTest extends TestCase
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
-        $this->assertTrue($result->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertSame('stepfunctions', $result->getDispatcherType());
         $this->assertEquals(1, $sfnDispatcher->getDispatchCount());
         $this->assertEquals(0, $localDispatcher->getDispatchCount());
@@ -94,8 +94,8 @@ class CompositeDispatcherTest extends TestCase
      */
     public function testUsesDefaultWhenNoEventSetting(): void
     {
-        $localResult = FakeDispatchResult::success('local-id', 'cmd', 'local');
-        $sfnResult = FakeDispatchResult::success('sfn-id', 'cmd', 'stepfunctions');
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
 
         $localDispatcher = new FakeDispatcher($localResult);
         $sfnDispatcher = new FakeDispatcher($sfnResult);
@@ -113,7 +113,7 @@ class CompositeDispatcherTest extends TestCase
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
-        $this->assertTrue($result->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertSame('local', $result->getDispatcherType());
         $this->assertEquals(1, $localDispatcher->getDispatchCount());
         $this->assertEquals(0, $sfnDispatcher->getDispatchCount());
@@ -124,8 +124,8 @@ class CompositeDispatcherTest extends TestCase
      */
     public function testUsesDefaultWhenDispatcherTypeIsNull(): void
     {
-        $localResult = FakeDispatchResult::success('local-id', 'cmd', 'local');
-        $sfnResult = FakeDispatchResult::success('sfn-id', 'cmd', 'stepfunctions');
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
 
         $localDispatcher = new FakeDispatcher($localResult);
         $sfnDispatcher = new FakeDispatcher($sfnResult);
@@ -143,7 +143,7 @@ class CompositeDispatcherTest extends TestCase
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
-        $this->assertTrue($result->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertSame('local', $result->getDispatcherType());
         $this->assertEquals(1, $localDispatcher->getDispatchCount());
         $this->assertEquals(0, $sfnDispatcher->getDispatchCount());
@@ -154,7 +154,7 @@ class CompositeDispatcherTest extends TestCase
      */
     public function testThrowsOnUnknownType(): void
     {
-        $localResult = FakeDispatchResult::success('local-id', 'cmd', 'local');
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
         $localDispatcher = new FakeDispatcher($localResult);
 
         $dispatcher = new CompositeDispatcher(
@@ -175,7 +175,7 @@ class CompositeDispatcherTest extends TestCase
      */
     public function testReceivesDefaultTypeViaConstructor(): void
     {
-        $localResult = FakeDispatchResult::success('local-id', 'cmd', 'local');
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
         $localDispatcher = new FakeDispatcher($localResult);
 
         $dispatcher = new CompositeDispatcher(
@@ -206,7 +206,7 @@ class CompositeDispatcherTest extends TestCase
      */
     public function testThrowsWhenDefaultTypeNotInDispatchers(): void
     {
-        $localResult = FakeDispatchResult::success('local-id', 'cmd', 'local');
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
         $localDispatcher = new FakeDispatcher($localResult);
 
         $this->expectException(\InvalidArgumentException::class);

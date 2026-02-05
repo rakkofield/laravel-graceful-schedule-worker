@@ -12,10 +12,10 @@ use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeLockProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
@@ -68,7 +68,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $this->cache = new FakeCacheStore($this->lockProvider);
         $this->logger = new NullLogger();
 
-        $defaultResult = FakeDispatchResult::success('test-id', 'echo test', 'fake');
+        $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->dispatcher = new FakeDispatcher($defaultResult);
         $this->schedule = new SpySchedule($this->eventMutex, $this->schedulingMutex);
         $this->app = new FakeApplication();
@@ -110,7 +110,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $this->schedule->setDueEvents([]); // due events は空
         $this->schedule->addEvent($event);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         // sleepMicroseconds = 0 でテスト時はスリープを無効化
@@ -156,7 +156,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         // sleepMicroseconds = 0 でテスト時はスリープを無効化
@@ -188,7 +188,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
 
         $this->schedule->setDueEvents([$event]);
 
-        $result = FakeDispatchResult::success($event->mutexName(), 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         // 最初の Orchestrator がロックを取得して実行（sleepMicroseconds = 0）
@@ -237,7 +237,7 @@ class ExecutionTrackerIntegrationTest extends TestCase
 
         $this->schedule->setDueEvents([$event1, $event2]);
 
-        $result = FakeDispatchResult::success('test-id', 'echo test', 'fake');
+        $result = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
         // sleepMicroseconds = 0 でテスト時はスリープを無効化

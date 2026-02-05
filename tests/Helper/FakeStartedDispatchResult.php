@@ -5,16 +5,10 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
 
 use DateTimeImmutable;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedDispatchResultInterface;
 
-class FakeDispatchResult implements DispatchResultInterface
+class FakeStartedDispatchResult implements StartedDispatchResultInterface
 {
-    /** @var bool */
-    private $started;
-
-    /** @var string|null */
-    private $error;
-
     /** @var string */
     private $eventIdentifier;
 
@@ -28,23 +22,17 @@ class FakeDispatchResult implements DispatchResultInterface
     private $dispatchedAt;
 
     /**
-     * @param bool $started
-     * @param string|null $error
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param string $dispatcherType
      * @param DateTimeImmutable|null $dispatchedAt
      */
     public function __construct(
-        bool $started,
-        ?string $error,
         string $eventIdentifier,
         string $eventCommand,
         string $dispatcherType,
         ?DateTimeImmutable $dispatchedAt = null
     ) {
-        $this->started = $started;
-        $this->error = $error;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->dispatcherType = $dispatcherType;
@@ -59,39 +47,9 @@ class FakeDispatchResult implements DispatchResultInterface
      * @param string $type
      * @return self
      */
-    public static function success(string $identifier, string $command, string $type = 'fake'): self
+    public static function create(string $identifier, string $command, string $type = 'fake'): self
     {
-        return new self(true, null, $identifier, $command, $type);
-    }
-
-    /**
-     * Create a failed result.
-     *
-     * @param string $identifier
-     * @param string $command
-     * @param string $error
-     * @param string $type
-     * @return self
-     */
-    public static function failed(string $identifier, string $command, string $error, string $type = 'fake'): self
-    {
-        return new self(false, $error, $identifier, $command, $type);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function isStarted(): bool
-    {
-        return $this->started;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getError(): ?string
-    {
-        return $this->error;
+        return new self($identifier, $command, $type);
     }
 
     /**
@@ -124,15 +82,5 @@ class FakeDispatchResult implements DispatchResultInterface
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * FakeDispatchResult では例外は保持しません。
-     */
-    public function getException(): ?\Throwable
-    {
-        return null;
     }
 }

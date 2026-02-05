@@ -80,12 +80,11 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
-        $this->assertTrue($result->isStarted());
-        $this->assertNull($result->getError());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
     }
 
     /**
-     * @testdox T5.2 ExecutionAlreadyExists で isStarted=true, wasAlreadyRunning=true
+     * @testdox T5.2 ExecutionAlreadyExists で StartedDispatchResultInterface と wasAlreadyRunning=true
      */
     public function testReturnsAlreadyRunningOnExecutionAlreadyExists(): void
     {
@@ -97,9 +96,8 @@ class StepFunctionsDispatcherTest extends TestCase
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
-        $this->assertTrue($result->isStarted());
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertTrue($result->wasAlreadyRunning());
-        $this->assertNull($result->getError());
     }
 
     /**
@@ -154,7 +152,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.6 一般エラー時に isStarted=false, getError() でメッセージ
+     * @testdox T5.6 一般エラー時に FailedDispatchResultInterface と getError() でメッセージ
      */
     public function testReturnsFailedOnGeneralError(): void
     {
@@ -166,7 +164,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $result = $dispatcher->dispatchEvent($event, $this->app);
 
         $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
-        $this->assertFalse($result->isStarted());
+        $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
         $this->assertFalse($result->wasAlreadyRunning());
         $this->assertStringContainsString('Connection refused', $result->getError());
     }
@@ -240,18 +238,5 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->assertNotNull($result->getException());
         $this->assertSame('Connection refused', $result->getException()->getMessage());
-    }
-
-    /**
-     * @testdox T5.12 成功時は getException() が null を返す
-     */
-    public function testReturnsNullExceptionOnSuccess(): void
-    {
-        $dispatcher = $this->createDispatcher();
-        $event = $this->createEvent('php artisan report:daily');
-
-        $result = $dispatcher->dispatchEvent($event, $this->app);
-
-        $this->assertNull($result->getException());
     }
 }

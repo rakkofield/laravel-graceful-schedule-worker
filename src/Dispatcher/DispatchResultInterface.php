@@ -15,20 +15,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 interface DispatchResultInterface
 {
     /**
-     * ディスパッチが開始されたかどうか
-     *
-     * @return bool 開始された場合は true
-     */
-    public function isStarted(): bool;
-
-    /**
-     * エラーメッセージを取得
-     *
-     * @return string|null エラーメッセージ（成功時は null）
-     */
-    public function getError(): ?string;
-
-    /**
      * イベントの識別子を取得（mutex name）
      *
      * @return string イベント識別子
@@ -58,11 +44,4 @@ interface DispatchResultInterface
      * @return \DateTimeImmutable ディスパッチ時刻
      */
     public function getDispatchedAt(): \DateTimeImmutable;
-
-    /**
-     * 発生した例外を取得
-     *
-     * @return \Throwable|null 例外（成功時は null）
-     */
-    public function getException(): ?\Throwable;
 }

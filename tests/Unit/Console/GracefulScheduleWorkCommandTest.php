@@ -13,9 +13,9 @@ use Illuminate\Contracts\Foundation\Application;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
@@ -67,7 +67,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
     public function testOutputsRunningMessageWhenStarted(): void
     {
         $schedule = new Schedule();
-        $fakeResult = FakeDispatchResult::success('test-id', 'echo test', 'fake');
+        $fakeResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $dispatcher = new FakeDispatcher($fakeResult);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $tracker = new NullExecutionTracker();

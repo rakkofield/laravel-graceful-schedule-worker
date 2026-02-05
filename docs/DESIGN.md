@@ -204,8 +204,6 @@ classDiagram
     %% Dispatcher パターン
     class DispatchResultInterface {
         <<interface>>
-        +isStarted() bool
-        +getError() string
         +getEventIdentifier() string
         +getEventCommand() string
         +getDispatcherType() string
@@ -214,14 +212,13 @@ classDiagram
 
     class StartedDispatchResultInterface {
         <<interface>>
-        +isStarted() true
-        +getError() null
+        %% マーカーインターフェース
     }
 
     class FailedDispatchResultInterface {
         <<interface>>
-        +isStarted() false
         +getError() string
+        +getException() Throwable
     }
 
     class StartedLocalDispatchResult {
@@ -229,7 +226,6 @@ classDiagram
         -eventIdentifier string
         -eventCommand string
         -dispatchedAt DateTimeImmutable
-        +isStarted() true
         +getProcess() Process
         +isRunning() bool
         +getExitCode() int
@@ -241,8 +237,8 @@ classDiagram
         -error string
         -exception Throwable
         -dispatchedAt DateTimeImmutable
-        +isStarted() false
         +getError() string
+        +getException() Throwable
     }
 
     class StartedStepFunctionsDispatchResult {
@@ -251,9 +247,10 @@ classDiagram
         -eventIdentifier string
         -eventCommand string
         -dispatchedAt DateTimeImmutable
-        +isStarted() true
+        -wasAlreadyRunning bool
         +getExecutionArn() string
         +getExecutionName() string
+        +wasAlreadyRunning() bool
     }
 
     class FailedStepFunctionsDispatchResult {
@@ -264,7 +261,6 @@ classDiagram
         -wasAlreadyRunning bool
         -exception Throwable
         -dispatchedAt DateTimeImmutable
-        +isStarted() false
         +getError() string
         +wasAlreadyRunning() bool
         +getException() Throwable
@@ -837,20 +833,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 interface DispatchResultInterface
 {
     /**
-     * ディスパッチが開始されたかどうか
-     *
-     * @return bool 開始された場合は true
-     */
-    public function isStarted(): bool;
-
-    /**
-     * エラーメッセージを取得
-     *
-     * @return string|null エラーメッセージ（成功時は null）
-     */
-    public function getError();
-
-    /**
      * イベントの識別子を取得（mutex name）
      *
      * @return string イベント識別子
@@ -882,7 +864,7 @@ interface DispatchResultInterface
 
 ### StartedDispatchResultInterface / FailedDispatchResultInterface
 
-成功/失敗を型で表現するサブインターフェースです。
+成功/失敗を型で表現するサブインターフェースです。`instanceof` 演算子で型安全に判定できます。
 
 ```php
 <?php
@@ -890,35 +872,35 @@ interface DispatchResultInterface
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 /**
- * 成功したディスパッチ結果を表すインターフェース
+ * 成功したディスパッチ結果を表すマーカーインターフェース
+ *
+ * instanceof StartedDispatchResultInterface で成功を判定
  */
 interface StartedDispatchResultInterface extends DispatchResultInterface
 {
-    /**
-     * @return true 常に true
-     */
-    public function isStarted(): bool;
-
-    /**
-     * @return null 成功時は常に null
-     */
-    public function getError(): ?string;
+    // マーカーインターフェース（メソッドなし）
 }
 
 /**
  * 失敗したディスパッチ結果を表すインターフェース
+ *
+ * instanceof FailedDispatchResultInterface で失敗を判定
  */
 interface FailedDispatchResultInterface extends DispatchResultInterface
 {
     /**
-     * @return false 常に false
+     * エラーメッセージを取得
+     *
+     * @return string エラーメッセージ
      */
-    public function isStarted(): bool;
+    public function getError(): string;
 
     /**
-     * @return string 失敗時は常にエラーメッセージを返す
+     * 元の例外を取得
+     *
+     * @return \Throwable|null 例外オブジェクト（存在する場合）
      */
-    public function getError(): ?string;
+    public function getException(): ?\Throwable;
 }
 ```
 
@@ -957,9 +939,7 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
         ?\DateTimeImmutable $dispatchedAt = null
     );
 
-    // StartedDispatchResultInterface 実装
-    public function isStarted(): bool { return true; }
-    public function getError(): ?string { return null; }
+    // DispatchResultInterface 実装
     public function getEventIdentifier(): string;
     public function getEventCommand(): string;
     public function getDispatcherType(): string { return 'local'; }
@@ -1000,13 +980,12 @@ class FailedLocalDispatchResult implements FailedDispatchResultInterface
     );
 
     // FailedDispatchResultInterface 実装
-    public function isStarted(): bool { return false; }
-    public function getError(): ?string { return $this->error; }
+    public function getError(): string { return $this->error; }
+    public function getException(): ?\Throwable;
     public function getEventIdentifier(): string;
     public function getEventCommand(): string;
     public function getDispatcherType(): string { return 'local'; }
     public function getDispatchedAt(): \DateTimeImmutable;
-    public function getException(): ?\Throwable;
 }
 ```
 
@@ -1027,10 +1006,10 @@ if ($result instanceof StartedLocalDispatchResult) {
 
     // プロセス管理
     $this->runningProcesses[] = $result;
-} elseif ($result->isStarted()) {
-    // StepFunctions の場合
-    Log::info('Event dispatched via Step Functions');
-} else {
+} elseif ($result instanceof StartedDispatchResultInterface) {
+    // StepFunctions など他の成功ケース
+    Log::info('Event dispatched via ' . $result->getDispatcherType());
+} elseif ($result instanceof FailedDispatchResultInterface) {
     Log::error('Event dispatch failed', [
         'command' => $result->getEventCommand(),
         'error' => $result->getError(),
@@ -1049,10 +1028,12 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 /**
  * 成功した StepFunctionsDispatcher の結果
+ *
+ * ExecutionAlreadyExists は正常系として扱われ、このクラスで表現されます。
  */
 class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
 {
-    /** @var string */
+    /** @var string|null */
     private $executionArn;
 
     /** @var string */
@@ -1067,25 +1048,33 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     /** @var \DateTimeImmutable */
     private $dispatchedAt;
 
-    public function __construct(
+    /** @var bool */
+    private $wasAlreadyRunning;
+
+    // ファクトリメソッド
+    public static function success(
         string $executionArn,
         string $executionName,
-        string $eventIdentifier,
-        string $eventCommand,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
+        string $identifier,
+        string $command
+    ): self;
 
-    // StartedDispatchResultInterface 実装
-    public function isStarted(): bool { return true; }
-    public function getError(): ?string { return null; }
+    public static function alreadyRunning(
+        string $executionName,
+        string $identifier,
+        string $command
+    ): self;
+
+    // DispatchResultInterface 実装
     public function getEventIdentifier(): string;
     public function getEventCommand(): string;
     public function getDispatcherType(): string { return 'stepfunctions'; }
     public function getDispatchedAt(): \DateTimeImmutable;
 
     // StepFunctions 固有メソッド
-    public function getExecutionArn(): string;
+    public function getExecutionArn(): ?string;  // 既存実行時は null
     public function getExecutionName(): string;
+    public function wasAlreadyRunning(): bool;   // ExecutionAlreadyExists だった場合 true
 }
 
 /**
@@ -1105,28 +1094,24 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
     /** @var string */
     private $error;
 
-    /** @var bool */
-    private $wasAlreadyRunning;
-
     /** @var \Throwable|null */
     private $exception;
 
     /** @var \DateTimeImmutable */
     private $dispatchedAt;
 
-    public function __construct(
+    // ファクトリメソッド
+    public static function failed(
         string $executionName,
-        string $eventIdentifier,
-        string $eventCommand,
+        string $identifier,
+        ?string $command,
         string $error,
-        bool $wasAlreadyRunning = false,
-        ?\Throwable $exception = null,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
+        ?\Throwable $exception = null
+    ): self;
 
     // FailedDispatchResultInterface 実装
-    public function isStarted(): bool { return false; }
-    public function getError(): ?string { return $this->error; }
+    public function getError(): string { return $this->error; }
+    public function getException(): ?\Throwable;
     public function getEventIdentifier(): string;
     public function getEventCommand(): string;
     public function getDispatcherType(): string { return 'stepfunctions'; }
@@ -1134,8 +1119,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
 
     // StepFunctions 固有メソッド
     public function getExecutionName(): string;
-    public function wasAlreadyRunning(): bool;
-    public function getException(): ?\Throwable;
+    public function wasAlreadyRunning(): bool { return false; }
 }
 ```
 

@@ -82,15 +82,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
     /**
      * {@inheritdoc}
      */
-    public function isStarted(): bool
-    {
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getError(): ?string
+    public function getError(): string
     {
         return $this->error;
     }

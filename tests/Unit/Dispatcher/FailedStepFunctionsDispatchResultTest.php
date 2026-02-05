@@ -13,9 +13,9 @@ use PHPUnit\Framework\TestCase;
 class FailedStepFunctionsDispatchResultTest extends TestCase
 {
     /**
-     * @testdox T5.3 failed() で isStarted が false を返す
+     * @testdox T5.3 failed() で FailedDispatchResultInterface を返す
      */
-    public function testFailedReturnsIsStartedFalse(): void
+    public function testFailedReturnsFailedDispatchResultInterface(): void
     {
         $result = FailedStepFunctionsDispatchResult::failed(
             'exec-1',
@@ -25,7 +25,6 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
         );
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
-        $this->assertFalse($result->isStarted());
         $this->assertSame('Connection refused', $result->getError());
         $this->assertFalse($result->wasAlreadyRunning());
     }
