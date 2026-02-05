@@ -12,8 +12,9 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FailedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
@@ -136,11 +137,18 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         if ($result instanceof StartedLocalDispatchResult) {
             $this->tracker->markExecuted($event, $now);
             $this->runningProcesses[] = $result;
-        } elseif ($result->isStarted()) {
+        } elseif ($result instanceof StartedDispatchResultInterface) {
             // StepFunctions などその他の成功ケース
             $this->tracker->markExecuted($event, $now);
-        } else {
+        } elseif ($result instanceof FailedDispatchResultInterface) {
             $this->handleDispatchFailure($event, $result);
+        } else {
+            // 予期しない結果型 - これはバグを示す
+            $this->logger->error('[GracefulScheduleWorker] Unexpected dispatch result type', [
+                'event' => $event->mutexName(),
+                'result_class' => get_class($result),
+                'dispatcher_type' => $result->getDispatcherType(),
+            ]);
         }
     }
 
@@ -209,10 +217,17 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         if ($result instanceof StartedLocalDispatchResult) {
             $this->tracker->markExecuted($event, $missedDue);
             $this->runningProcesses[] = $result;
-        } elseif ($result->isStarted()) {
+        } elseif ($result instanceof StartedDispatchResultInterface) {
             $this->tracker->markExecuted($event, $missedDue);
-        } else {
+        } elseif ($result instanceof FailedDispatchResultInterface) {
             $this->handleDispatchFailure($event, $result);
+        } else {
+            // 予期しない結果型 - これはバグを示す
+            $this->logger->error('[GracefulScheduleWorker] Unexpected dispatch result type', [
+                'event' => $event->mutexName(),
+                'result_class' => get_class($result),
+                'dispatcher_type' => $result->getDispatcherType(),
+            ]);
         }
     }
 
@@ -263,17 +278,24 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      * ディスパッチ失敗時のハンドリング
      *
      * @param \Illuminate\Console\Scheduling\Event $event
-     * @param DispatchResultInterface $result
+     * @param FailedDispatchResultInterface $result
      * @return void
      */
     private function handleDispatchFailure(
         \Illuminate\Console\Scheduling\Event $event,
-        DispatchResultInterface $result
+        FailedDispatchResultInterface $result
     ): void {
-        $this->logger->error('[GracefulScheduleWorker] Failed to dispatch event', [
+        $context = [
             'event' => $event->mutexName(),
             'dispatcher_type' => $result->getDispatcherType(),
             'error' => $result->getError(),
-        ]);
+        ];
+
+        $exception = $result->getException();
+        if ($exception !== null) {
+            $context['exception'] = $exception;
+        }
+
+        $this->logger->error('[GracefulScheduleWorker] Failed to dispatch event', $context);
     }
 }

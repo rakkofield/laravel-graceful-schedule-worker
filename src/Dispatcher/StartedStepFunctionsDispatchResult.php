@@ -82,7 +82,7 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     /**
      * 既に実行中の場合の結果を作成
      *
-     * ExecutionAlreadyExists は正常系として扱い、isStarted は true を返します。
+     * ExecutionAlreadyExists は正常系として扱い、StartedDispatchResultInterface を実装します。
      *
      * @param string $executionName
      * @param string $identifier
@@ -101,22 +101,6 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
             $command,
             true
         );
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function isStarted(): bool
-    {
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getError(): ?string
-    {
-        return null;
     }
 
     /**
@@ -149,14 +133,6 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getException(): ?\Throwable
-    {
-        return null;
     }
 
     /**
