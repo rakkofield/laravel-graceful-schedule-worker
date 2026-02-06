@@ -17,13 +17,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
  * - ロック取得（重複実行防止）
  * - 実行記録（markExecuted）
  * - 失敗時のログ出力
- * - キャッシュ接続失敗時の fail-open/fail-close ハンドリング
  */
 class TrackingDispatcher implements ScheduleDispatcherInterface
 {
-    public const FAIL_MODE_OPEN = 'open';
-    public const FAIL_MODE_CLOSE = 'close';
-
     /** @var ScheduleDispatcherInterface */
     private $inner;
 
@@ -33,25 +29,19 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     /** @var LoggerInterface */
     private $logger;
 
-    /** @var string fail-open or fail-close */
-    private $failMode;
-
     /**
      * @param ScheduleDispatcherInterface $inner 内部ディスパッチャー
      * @param ExecutionTrackerInterface $tracker 実行トラッカー
      * @param LoggerInterface $logger ロガー
-     * @param string $failMode 'open' or 'close'（デフォルト: 'open'）
      */
     public function __construct(
         ScheduleDispatcherInterface $inner,
         ExecutionTrackerInterface $tracker,
-        LoggerInterface $logger,
-        string $failMode = self::FAIL_MODE_OPEN
+        LoggerInterface $logger
     ) {
         $this->inner = $inner;
         $this->tracker = $tracker;
         $this->logger = $logger;
-        $this->failMode = $failMode;
     }
 
     /**
@@ -59,12 +49,8 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
-        // 1. ロック取得（キャッシュ接続失敗時は fail_mode に応じて処理）
-        try {
-            $lockAcquired = $this->tracker->acquireLock($event, $dueAt);
-        } catch (\Exception $e) {
-            return $this->handleCacheFailure($event, $container, $dueAt, $e, 'acquireLock');
-        }
+        // 1. ロック取得（キャッシュ接続失敗時は例外が伝播しワーカーが停止する）
+        $lockAcquired = $this->tracker->acquireLock($event, $dueAt);
 
         if (!$lockAcquired) {
             $this->logger->debug('[GracefulScheduleWorker] Lock not acquired, skipping dispatch', [
@@ -82,20 +68,19 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         // 2. 内部 Dispatcher に委譲
         $result = $this->inner->dispatchEvent($event, $container, $dueAt);
 
-        // 3. 結果に応じたトラッキング（キャッシュ接続失敗時は fail_mode に応じて処理）
+        // 3. 結果に応じたトラッキング
         try {
             $this->handleResult($result, $event, $dueAt);
         } catch (\LogicException $e) {
             // LogicException はプログラミングエラーなのでそのまま再スロー
             throw $e;
         } catch (\Exception $e) {
-            // キャッシュ接続失敗時のハンドリング（markExecuted の失敗等）
+            // markExecuted の失敗はディスパッチ自体には影響しないので warning で継続
             $this->logger->warning('[GracefulScheduleWorker] Failed to track execution result', [
                 'event' => $event->mutexName(),
                 'error' => $e->getMessage(),
                 'exception' => $e,
             ]);
-            // markExecuted の失敗はディスパッチ自体には影響しないので、結果はそのまま返す
         }
 
         return $result;
@@ -115,59 +100,6 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     public function stopAll(): void
     {
         $this->inner->stopAll();
-    }
-
-    /**
-     * キャッシュ接続失敗時のハンドリング
-     *
-     * fail-open: ロック/トラッキングなしで実行を継続（重複実行の可能性あり）
-     * fail-close: 例外を再スローしてワーカーを停止
-     *
-     * @param Event $event
-     * @param Container $container
-     * @param DateTimeInterface $dueAt
-     * @param \Exception $exception
-     * @param string $operation 失敗した操作名
-     * @return DispatchResultInterface
-     * @throws \RuntimeException fail-close モードの場合
-     */
-    private function handleCacheFailure(
-        Event $event,
-        Container $container,
-        DateTimeInterface $dueAt,
-        \Exception $exception,
-        string $operation
-    ): DispatchResultInterface {
-        if ($this->failMode === self::FAIL_MODE_CLOSE) {
-            $this->logger->error('[GracefulScheduleWorker] Cache connection failure in fail-close mode, stopping', [
-                'event' => $event->mutexName(),
-                'operation' => $operation,
-                'error' => $exception->getMessage(),
-                'exception' => $exception,
-            ]);
-
-            throw new \RuntimeException(
-                sprintf(
-                    'Cache connection failure during %s for event %s: %s',
-                    $operation,
-                    $event->mutexName(),
-                    $exception->getMessage()
-                ),
-                0,
-                $exception
-            );
-        }
-
-        // fail-open: ログ警告を出して実行を継続
-        $message = '[GracefulScheduleWorker] Cache connection failure in fail-open mode, continuing without tracking';
-        $this->logger->warning($message, [
-            'event' => $event->mutexName(),
-            'operation' => $operation,
-            'error' => $exception->getMessage(),
-            'exception' => $exception,
-        ]);
-
-        return $this->inner->dispatchEvent($event, $container, $dueAt);
     }
 
     /**

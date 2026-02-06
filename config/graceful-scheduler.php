@@ -43,7 +43,6 @@ return [
         'enabled' => env('SCHEDULE_TRACKER_ENABLED', false),
         'store' => env('SCHEDULE_TRACKER_STORE'), // redis, dynamodb, etc.
         'prefix' => env('SCHEDULE_TRACKER_PREFIX', 'schedule:executed:'),
-        'fail_mode' => env('SCHEDULE_TRACKER_FAIL_MODE', 'open'),  // 'open' or 'close'
         'lock_ttl' => env('SCHEDULE_TRACKER_LOCK_TTL', 3600),      // ロックのTTL（秒）
     ],
 ];

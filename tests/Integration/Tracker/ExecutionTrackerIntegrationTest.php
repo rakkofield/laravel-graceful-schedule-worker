@@ -18,9 +18,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeLockProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\ThrowingFakeExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
@@ -312,99 +310,5 @@ class ExecutionTrackerIntegrationTest extends TestCase
         // cleanup もループ中に呼ばれていないことを確認（ループに入っていないため）
         // shouldContinue が false なのでループに入らない
         $this->assertSame(0, $this->dispatcher->getCleanupCallCount());
-    }
-
-    /**
-     * @testdox T5.6 Cache connection failure with fail-open continues execution
-     */
-    public function testCacheConnectionFailureWithFailOpen(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        $spyLogger = new SpyLogger();
-
-        // キャッシュ接続失敗をシミュレートする Tracker
-        $throwingTracker = new ThrowingFakeExecutionTracker(
-            new \RuntimeException('Redis connection refused')
-        );
-
-        $event = $this->createEvent('echo test', $clock);
-        $event->cron('0 * * * *');
-
-        $this->schedule->setDueEvents([$event]);
-
-        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
-        $this->dispatcher->setResult($result);
-
-        // fail-open モードの TrackingDispatcher
-        $trackingDispatcher = new TrackingDispatcher(
-            $this->dispatcher,
-            $throwingTracker,
-            $spyLogger,
-            TrackingDispatcher::FAIL_MODE_OPEN
-        );
-
-        $orchestrator = new DefaultScheduleOrchestrator($trackingDispatcher, $clock, $throwingTracker, $spyLogger, 0);
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        // fail-open: 例外がスローされずに実行が継続する
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
-
-        // タスクが実行されていることを確認（ロック/トラッキングなしで）
-        $this->assertSame(1, $this->dispatcher->getDispatchCount());
-
-        // 警告ログが出力されていることを確認
-        $this->assertTrue(
-            $spyLogger->hasLogContaining('warning', 'Cache connection failure in fail-open mode'),
-            'Expected warning log about cache connection failure in fail-open mode'
-        );
-    }
-
-    /**
-     * @testdox T5.7 Cache connection failure with fail-close stops worker
-     */
-    public function testCacheConnectionFailureWithFailClose(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        $spyLogger = new SpyLogger();
-
-        // キャッシュ接続失敗をシミュレートする Tracker
-        $throwingTracker = new ThrowingFakeExecutionTracker(
-            new \RuntimeException('Redis connection refused')
-        );
-
-        $event = $this->createEvent('echo test', $clock);
-        $event->cron('0 * * * *');
-
-        $this->schedule->setDueEvents([$event]);
-
-        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
-        $this->dispatcher->setResult($result);
-
-        // fail-close モードの TrackingDispatcher
-        $trackingDispatcher = new TrackingDispatcher(
-            $this->dispatcher,
-            $throwingTracker,
-            $spyLogger,
-            TrackingDispatcher::FAIL_MODE_CLOSE
-        );
-
-        $orchestrator = new DefaultScheduleOrchestrator($trackingDispatcher, $clock, $throwingTracker, $spyLogger, 0);
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        // fail-close: RuntimeException がスローされる
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Cache connection failure during acquireLock');
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
     }
 }

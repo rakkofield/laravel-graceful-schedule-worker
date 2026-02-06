@@ -1520,8 +1520,6 @@ interface ExecutionTrackerInterface
 | T5.3 | no_recovery_after_grace_period | 猶予期間超過でスキップ |
 | T5.4 | no_duplicate_execution_with_lock | ロックで重複防止 |
 | T5.5 | graceful_shutdown_waits_for_running | 実行中タスク完了を待機 |
-| T5.6 | cache_connection_failure_with_fail_open | キャッシュ接続失敗時にfail-openで継続 |
-| T5.7 | cache_connection_failure_with_fail_close | キャッシュ接続失敗時にfail-closeで停止 |
 
 ---
 
@@ -1647,27 +1645,10 @@ interface ExecutionTrackerInterface
 - タイムアウト発生時は実行失敗としてログに記録
 - 次回のリカバリチェックで再実行を試みる
 
-### Redis/Cache接続失敗時のフォールバック
+### Redis/Cache接続失敗時の動作
 
-**fail-open モード (デフォルト推奨)**:
-- キャッシュ接続失敗時もスケジュール実行を継続
-- ExecutionTracker の機能は無効化されるが、タスク実行は継続
-- 重複実行の可能性があることをログに警告
-- 用途: ダウンタイムを最小化したい本番環境
-
-**fail-close モード**:
-- キャッシュ接続失敗時は即座にエラーを返してワーカーを停止
-- 重複実行を確実に防止したい場合に使用
-- 用途: 冪等性を保証できないタスクが含まれる環境
-
-**設定例**:
-```php
-'tracker' => [
-    'enabled' => env('SCHEDULE_TRACKER_ENABLED', false),
-    'fail_mode' => env('SCHEDULE_TRACKER_FAIL_MODE', 'open'),  // 'open' or 'close'
-    'store' => env('SCHEDULE_TRACKER_STORE', 'redis'),
-],
-```
+キャッシュ接続失敗時は例外がそのまま伝播し、ワーカーが停止します。
+これにより、キャッシュ障害時のトラッキングなし実行（重複実行リスク）を防ぎます。
 
 ### ロック取得タイムアウト時の動作
 
@@ -1815,7 +1796,6 @@ return [
         'enabled' => env('SCHEDULE_TRACKER_ENABLED', false),
         'store' => env('SCHEDULE_TRACKER_STORE'), // redis, dynamodb, etc.
         'prefix' => env('SCHEDULE_TRACKER_PREFIX', 'schedule:executed:'),
-        'fail_mode' => env('SCHEDULE_TRACKER_FAIL_MODE', 'open'),  // 'open' or 'close'
         'lock_ttl' => env('SCHEDULE_TRACKER_LOCK_TTL', 3600),      // ロックのTTL（秒）
     ],
 ];

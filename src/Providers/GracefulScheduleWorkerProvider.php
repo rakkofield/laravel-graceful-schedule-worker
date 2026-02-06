@@ -108,16 +108,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var \Psr\Log\LoggerInterface $logger */
             $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
 
-            // fail_mode を設定から取得（デフォルト: 'open'）
-            $failMode = TrackingDispatcher::FAIL_MODE_OPEN;
-            if ($app->bound('config')) {
-                /** @var ConfigRepository $config */
-                $config = $app->make('config');
-                /** @var string $failMode */
-                $failMode = $config->get('graceful-scheduler.tracker.fail_mode', TrackingDispatcher::FAIL_MODE_OPEN);
-            }
-
-            return new TrackingDispatcher($compositeDispatcher, $tracker, $logger, $failMode);
+            return new TrackingDispatcher($compositeDispatcher, $tracker, $logger);
         });
 
         // ScheduleOrchestratorInterface を登録
