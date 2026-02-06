@@ -22,6 +22,12 @@ class StubProcess extends Process
     /** @var int|null */
     private $exitCode = null;
 
+    /** @var array<int> */
+    private $receivedSignals = [];
+
+    /** @var bool */
+    private $terminateOnSignal = false;
+
     /**
      * @param bool $running 初期状態での running フラグ
      */
@@ -79,5 +85,36 @@ class StubProcess extends Process
     public function wasStopped(): bool
     {
         return $this->stopped;
+    }
+
+    /**
+     * @param int $signal
+     * @return void
+     */
+    public function signal(int $signal): void
+    {
+        $this->receivedSignals[] = $signal;
+
+        if ($this->terminateOnSignal && $signal === SIGTERM) {
+            $this->running = false;
+            $this->exitCode = 143;
+        }
+    }
+
+    /**
+     * @return array<int>
+     */
+    public function getReceivedSignals(): array
+    {
+        return $this->receivedSignals;
+    }
+
+    /**
+     * @param bool $terminate
+     * @return void
+     */
+    public function setTerminateOnSignal(bool $terminate): void
+    {
+        $this->terminateOnSignal = $terminate;
     }
 }

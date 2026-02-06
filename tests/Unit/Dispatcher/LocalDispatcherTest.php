@@ -9,8 +9,11 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyCallbackEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableLocalDispatcher;
 
 class LocalDispatcherTest extends TestCase
 {
@@ -358,5 +361,102 @@ class LocalDispatcherTest extends TestCase
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
 
         $result->getProcess()->wait();
+    }
+
+    private function createStubResult(StubProcess $process, string $identifier = 'test'): StartedLocalDispatchResult
+    {
+        return new StartedLocalDispatchResult($process, $identifier, 'echo stub');
+    }
+
+    /**
+     * @testdox T2.21 stopAll sends SIGTERM to all running processes
+     */
+    public function testStopAllSendsSignalToAllProcesses(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), 0.1);
+
+        $proc1 = new StubProcess(true);
+        $proc1->setTerminateOnSignal(true);
+        $proc2 = new StubProcess(true);
+        $proc2->setTerminateOnSignal(true);
+
+        $dispatcher->addRunningProcess($this->createStubResult($proc1, 'event1'));
+        $dispatcher->addRunningProcess($this->createStubResult($proc2, 'event2'));
+
+        $dispatcher->stopAll();
+
+        $this->assertContains(SIGTERM, $proc1->getReceivedSignals());
+        $this->assertContains(SIGTERM, $proc2->getReceivedSignals());
+    }
+
+    /**
+     * @testdox T2.22 stopAll sends SIGKILL to processes that don't stop after SIGTERM
+     */
+    public function testStopAllSendsKillToProcessesThatDontStop(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), 0.05);
+
+        $proc = new StubProcess(true);
+        // terminateOnSignal = false → SIGTERM を無視する
+        $proc->setTerminateOnSignal(false);
+
+        $dispatcher->addRunningProcess($this->createStubResult($proc, 'event1'));
+
+        $dispatcher->stopAll();
+
+        $this->assertContains(SIGTERM, $proc->getReceivedSignals());
+        $this->assertContains(SIGKILL, $proc->getReceivedSignals());
+    }
+
+    /**
+     * @testdox T2.23 stopAll handles signal exception gracefully
+     */
+    public function testStopAllHandlesSignalExceptionGracefully(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), 0.05);
+
+        // signal() で例外を投げるプロセス（無名クラスで StubProcess を拡張）
+        $throwingProc = new class (true) extends StubProcess {
+            public function signal(int $signal): void
+            {
+                parent::signal($signal);
+                throw new \RuntimeException('Signal failed');
+            }
+        };
+
+        $normalProc = new StubProcess(true);
+        $normalProc->setTerminateOnSignal(true);
+
+        $dispatcher->addRunningProcess($this->createStubResult($throwingProc, 'throwing'));
+        $dispatcher->addRunningProcess($this->createStubResult($normalProc, 'normal'));
+
+        // 例外なく完了する
+        $dispatcher->stopAll();
+
+        // 正常なプロセスには SIGTERM が送信されている
+        $this->assertContains(SIGTERM, $normalProc->getReceivedSignals());
+    }
+
+    /**
+     * @testdox T2.24 stopAll skips signal for non-running processes
+     */
+    public function testStopAllSkipsSignalForNonRunningProcesses(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), 0.05);
+
+        $runningProc = new StubProcess(true);
+        $runningProc->setTerminateOnSignal(true);
+
+        $stoppedProc = new StubProcess(false); // 既に停止済み
+
+        $dispatcher->addRunningProcess($this->createStubResult($runningProc, 'running'));
+        $dispatcher->addRunningProcess($this->createStubResult($stoppedProc, 'stopped'));
+
+        $dispatcher->stopAll();
+
+        // running プロセスには SIGTERM が送信される
+        $this->assertContains(SIGTERM, $runningProc->getReceivedSignals());
+        // 停止済みプロセスにはシグナルが送信されない
+        $this->assertEmpty($stoppedProc->getReceivedSignals());
     }
 }

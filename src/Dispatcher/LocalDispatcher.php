@@ -26,16 +26,23 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     /**
      * @var array<StartedLocalDispatchResult>
      */
-    private $runningProcesses = [];
+    protected $runningProcesses = [];
+
+    /**
+     * @var float
+     */
+    private $stopTimeout;
 
     /**
      * @param string|null $basePath プロセスの作業ディレクトリ（null の場合は現在のディレクトリ）
      * @param LoggerInterface|null $logger ロガー（null の場合は NullLogger）
+     * @param float $stopTimeout stopAll() での SIGTERM→SIGKILL 待機タイムアウト（秒）
      */
-    public function __construct(?string $basePath = null, ?LoggerInterface $logger = null)
+    public function __construct(?string $basePath = null, ?LoggerInterface $logger = null, float $stopTimeout = 10.0)
     {
         $this->basePath = $basePath;
         $this->logger = $logger ?? new NullLogger();
+        $this->stopTimeout = $stopTimeout;
     }
 
     /**
@@ -108,21 +115,54 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     public function stopAll(): void
     {
+        // Phase 1: 全 running プロセスに SIGTERM を一斉送信
         foreach ($this->runningProcesses as $result) {
             try {
                 $process = $result->getProcess();
                 if ($process->isRunning()) {
-                    $process->stop();
+                    $process->signal(SIGTERM);
                 }
             } catch (\Exception $e) {
-                // 1つのプロセスの停止失敗が他のプロセスの停止を阻害しないようにする
-                $this->logger->warning('[GracefulScheduleWorker] Failed to stop process', [
+                $this->logger->warning('[GracefulScheduleWorker] Failed to send SIGTERM', [
                     'event' => $result->getEventIdentifier(),
                     'error' => $e->getMessage(),
                     'exception' => $e,
                 ]);
             }
         }
+
+        // Phase 2: タイムアウトまでポーリングで全プロセスの終了を待機
+        $deadline = microtime(true) + $this->stopTimeout;
+        while (microtime(true) < $deadline) {
+            $allStopped = true;
+            foreach ($this->runningProcesses as $result) {
+                if ($result->isRunning()) {
+                    $allStopped = false;
+                    break;
+                }
+            }
+            if ($allStopped) {
+                break;
+            }
+            usleep(10000); // 10ms
+        }
+
+        // Phase 3: まだ running なプロセスに SIGKILL を送信
+        foreach ($this->runningProcesses as $result) {
+            try {
+                $process = $result->getProcess();
+                if ($process->isRunning()) {
+                    $process->signal(SIGKILL);
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning('[GracefulScheduleWorker] Failed to send SIGKILL', [
+                    'event' => $result->getEventIdentifier(),
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+            }
+        }
+
         $this->runningProcesses = [];
     }
 }
