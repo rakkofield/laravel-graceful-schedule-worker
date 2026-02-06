@@ -66,7 +66,14 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $event->runInBackground = true;
             $fullCommand = $event->buildCommand();
 
-            // 3. Process::start() でバックグラウンド実行
+            // 3. buildCommand() が付与する末尾の & を除去する
+            //    Process::start() が非同期実行を提供するため & は不要。
+            //    & があると proc_terminate 時に bash の termsig_handler が
+            //    killpg(0, SIGTERM) でプロセスグループ全体に SIGTERM を伝播させ、
+            //    親プロセスが巻き込まれる問題がある。
+            $fullCommand = (string) preg_replace('/\s+&\s*$/', '', $fullCommand);
+
+            // 4. Process::start() でバックグラウンド実行
             $process = Process::fromShellCommandline($fullCommand, $this->basePath);
             $process->start();
 
