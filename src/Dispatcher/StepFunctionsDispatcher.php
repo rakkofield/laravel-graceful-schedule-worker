@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
@@ -24,38 +24,31 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /** @var string */
     private $stateMachineArn;
 
-    /** @var ClockInterface */
-    private $clock;
-
     /** @var ExecutionNameGenerator */
     private $nameGenerator;
 
     /**
      * @param StepFunctionsClientInterface $client
      * @param string $stateMachineArn
-     * @param ClockInterface $clock
      * @param ExecutionNameGenerator $nameGenerator
      */
     public function __construct(
         StepFunctionsClientInterface $client,
         string $stateMachineArn,
-        ClockInterface $clock,
         ExecutionNameGenerator $nameGenerator
     ) {
         $this->client = $client;
         $this->stateMachineArn = $stateMachineArn;
-        $this->clock = $clock;
         $this->nameGenerator = $nameGenerator;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function dispatchEvent(Event $event, Container $container): DispatchResultInterface
+    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
         $mutexName = $event->mutexName();
         $command = $event->command;
-        $dueAt = $this->clock->now();
         $timestamp = $dueAt->format('Y-m-d\TH-i-s');
         $executionName = $this->nameGenerator->generate($mutexName, $timestamp);
 

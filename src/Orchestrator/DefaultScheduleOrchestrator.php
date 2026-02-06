@@ -12,11 +12,7 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\AlreadyRunningDispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FailedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
@@ -24,6 +20,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
  * デフォルトのスケジュールオーケストレーター
  *
  * Dispatcher パターンを使用してスケジュールされたイベントを実行します。
+ *
+ * 責務:
+ * - スケジュール判定（毎分0秒のチェック）
+ * - リカバリ検出（getMissedDueIfRecoverable）
+ * - dueAt 決定
+ *
+ * ロック取得・実行記録・失敗ハンドリングは TrackingDispatcher が担当
  */
 class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 {
@@ -45,7 +48,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     /**
      * @param ScheduleDispatcherInterface $dispatcher
      * @param ClockInterface $clock 時刻プロバイダ
-     * @param ExecutionTrackerInterface $tracker 実行トラッカー
+     * @param ExecutionTrackerInterface $tracker 実行トラッカー（リカバリ検出に使用）
      * @param LoggerInterface $logger ロガー
      * @param int $sleepMicroseconds スリープ時間（マイクロ秒）
      */
@@ -98,7 +101,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 $nowCarbon = Carbon::instance($now);
 
                 foreach ($events as $event) {
-                    $this->dispatchEventWithTracking($event, $container, $nowCarbon);
+                    $this->dispatcher->dispatchEvent($event, $container, $nowCarbon);
                 }
             }
 
@@ -110,27 +113,6 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         $this->dispatcher->stopAll();
 
         return true;
-    }
-
-    /**
-     * トラッキング付きでイベントをディスパッチ
-     *
-     * @param Event $event
-     * @param Container $container
-     * @param Carbon $now
-     * @return void
-     */
-    private function dispatchEventWithTracking(Event $event, Container $container, Carbon $now): void
-    {
-        if (!$this->tracker->acquireLock($event, $now)) {
-            $this->logger->debug('[GracefulScheduleWorker] Lock not acquired, skipping event', [
-                'event' => $event->mutexName(),
-            ]);
-            return;
-        }
-
-        $result = $this->dispatcher->dispatchEvent($event, $container);
-        $this->handleDispatchResult($result, $event, $now);
     }
 
     /**
@@ -181,58 +163,13 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         // ログ出力用に Carbon に変換
         $missedDueCarbon = $missedDue instanceof Carbon ? $missedDue : Carbon::instance($missedDue);
 
-        if (!$this->tracker->acquireLock($event, $missedDue)) {
-            $this->logger->debug('[GracefulScheduleWorker] Recovery lock not acquired, another worker is recovering', [
-                'event' => $event->mutexName(),
-                'missedDue' => $missedDueCarbon->toDateTimeString(),
-            ]);
-            return;
-        }
         $this->logger->info('[GracefulScheduleWorker] Recovering missed event', [
             'event' => $event->mutexName(),
             'due' => $missedDueCarbon->toDateTimeString(),
         ]);
 
-        $result = $this->dispatcher->dispatchEvent($event, $container);
-        $this->handleDispatchResult($result, $event, $missedDue);
-    }
-
-    /**
-     * ディスパッチ結果を処理
-     *
-     * @param DispatchResultInterface $result
-     * @param Event $event
-     * @param DateTimeInterface $dueAt
-     * @return void
-     */
-    private function handleDispatchResult(
-        DispatchResultInterface $result,
-        Event $event,
-        DateTimeInterface $dueAt
-    ): void {
-        if ($result instanceof StartedDispatchResultInterface) {
-            $this->tracker->markExecuted($event, $dueAt);
-            return;
-        }
-
-        if ($result instanceof AlreadyRunningDispatchResultInterface) {
-            // 既存実行は成功として扱い、実行済みとしてマーク
-            $this->tracker->markExecuted($event, $dueAt);
-            return;
-        }
-
-        if ($result instanceof FailedDispatchResultInterface) {
-            $this->handleDispatchFailure($event, $result);
-            return;
-        }
-
-        // 予期しない結果型 - これはバグを示す
-        throw new \LogicException(sprintf(
-            'Unexpected dispatch result type: %s (dispatcher: %s, event: %s)',
-            get_class($result),
-            $result->getDispatcherType(),
-            $event->mutexName()
-        ));
+        // TrackingDispatcher がロック取得・結果処理を担当
+        $this->dispatcher->dispatchEvent($event, $container, $missedDue);
     }
 
     /**
@@ -243,30 +180,5 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     private function getCurrentTime(): \DateTimeImmutable
     {
         return $this->clock->now();
-    }
-
-    /**
-     * ディスパッチ失敗時のハンドリング
-     *
-     * @param \Illuminate\Console\Scheduling\Event $event
-     * @param FailedDispatchResultInterface $result
-     * @return void
-     */
-    private function handleDispatchFailure(
-        \Illuminate\Console\Scheduling\Event $event,
-        FailedDispatchResultInterface $result
-    ): void {
-        $context = [
-            'event' => $event->mutexName(),
-            'dispatcher_type' => $result->getDispatcherType(),
-            'error' => $result->getError(),
-        ];
-
-        $exception = $result->getException();
-        if ($exception !== null) {
-            $context['exception'] = $exception;
-        }
-
-        $this->logger->error('[GracefulScheduleWorker] Failed to dispatch event', $context);
     }
 }

@@ -13,7 +13,6 @@ use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedExecutionNameGenerator;
 
 /**
@@ -33,14 +32,14 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     /** @var FakeEventMutex */
     private $mutex;
 
-    /** @var FixedClock */
-    private $clock;
-
     /** @var SfnClient|null */
     private $sfnClient;
 
     /** @var string */
     private $endpoint;
+
+    /** @var DateTimeImmutable */
+    private $dueAt;
 
     public static function setUpBeforeClass(): void
     {
@@ -68,7 +67,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $this->app->bind(EventMutex::class, function () {
             return $this->mutex;
         });
-        $this->clock = new FixedClock(new DateTimeImmutable());
+        $this->dueAt = new DateTimeImmutable();
 
         $this->sfnClient = new SfnClient([
             'region' => 'ap-northeast-1',
@@ -133,7 +132,6 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         return new StepFunctionsDispatcher(
             $adapter,
             self::$stateMachineArn,
-            $this->clock,
             $nameGenerator ?? new ExecutionNameGenerator()
         );
     }
@@ -146,7 +144,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
@@ -165,23 +163,22 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $nameGenerator = new FixedExecutionNameGenerator($fixedName);
 
         // 1回目の実行
-        $this->clock = new FixedClock($uniqueTime);
+        $dueAt1 = $uniqueTime;
         $dispatcher1 = $this->createDispatcher($nameGenerator);
         $uniqueCommand = 'php artisan test:duplicate-' . $uniqueTime->format('U.u');
         $event = $this->createEvent($uniqueCommand);
 
-        $result1 = $dispatcher1->dispatchEvent($event, $this->app);
+        $result1 = $dispatcher1->dispatchEvent($event, $this->app, $dueAt1);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result1);
 
         // 2回目の実行（同じ Execution Name だが異なる時刻 = 異なる input）
         // AWS/moto の仕様: 同じ name + 同じ input = べき等動作（成功）
         //                  同じ name + 異なる input = ExecutionAlreadyExists
-        $differentTime = $uniqueTime->modify('+1 second');
-        $this->clock = new FixedClock($differentTime);
+        $dueAt2 = $uniqueTime->modify('+1 second');
         $dispatcher2 = $this->createDispatcher($nameGenerator);
 
-        $result2 = $dispatcher2->dispatchEvent($event, $this->app);
+        $result2 = $dispatcher2->dispatchEvent($event, $this->app, $dueAt2);
         $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result2);
         $this->assertInstanceOf(AlreadyRunningStepFunctionsDispatchResult::class, $result2);
     }
@@ -194,7 +191,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan test:execution');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $executionArn = $result->getExecutionArn();

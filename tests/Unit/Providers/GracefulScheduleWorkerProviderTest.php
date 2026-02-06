@@ -10,9 +10,9 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeLockProvider;
@@ -213,7 +213,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     /**
      * @testdox T3.7
      */
-    public function testRegistersScheduleDispatcherInterfaceAsComposite(): void
+    public function testRegistersScheduleDispatcherInterfaceAsTrackingDispatcher(): void
     {
         $this->provider->register();
 
@@ -221,7 +221,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $this->assertTrue($this->app->isShared(ScheduleDispatcherInterface::class));
 
         $dispatcher = $this->app->make(ScheduleDispatcherInterface::class);
-        $this->assertInstanceOf(CompositeDispatcher::class, $dispatcher);
+        $this->assertInstanceOf(TrackingDispatcher::class, $dispatcher);
     }
 
     /**
@@ -240,14 +240,14 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     /**
      * @testdox T3.9
      */
-    public function testCompositeDispatcherUsesConfigForDefaultType(): void
+    public function testScheduleDispatcherInterfaceReturnsTrackingDispatcher(): void
     {
         $this->app->make('config')->set('graceful-scheduler.dispatch', 'local');
 
         $this->provider->register();
 
         $dispatcher = $this->app->make(ScheduleDispatcherInterface::class);
-        $this->assertInstanceOf(CompositeDispatcher::class, $dispatcher);
+        $this->assertInstanceOf(TrackingDispatcher::class, $dispatcher);
     }
 
     /**

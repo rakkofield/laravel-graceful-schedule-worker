@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 
@@ -14,9 +15,14 @@ interface ScheduleDispatcherInterface
      *
      * @param Event $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
+     * @param DateTimeInterface $dueAt 実行予定時刻
      * @return DispatchResultInterface ディスパッチ結果
      */
-    public function dispatchEvent(Event $event, Container $container): DispatchResultInterface;
+    public function dispatchEvent(
+        Event $event,
+        Container $container,
+        DateTimeInterface $dueAt
+    ): DispatchResultInterface;
 
     /**
      * 完了したプロセスをクリーンアップする

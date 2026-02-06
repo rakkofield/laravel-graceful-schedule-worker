@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
@@ -23,6 +24,11 @@ class LocalDispatcherTest extends TestCase
      */
     private $mutex;
 
+    /**
+     * @var DateTimeImmutable
+     */
+    private $dueAt;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,6 +38,7 @@ class LocalDispatcherTest extends TestCase
         $this->app->bind(EventMutex::class, function () {
             return $this->mutex;
         });
+        $this->dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
     }
 
     protected function tearDown(): void
@@ -58,7 +65,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
@@ -72,7 +79,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
     }
@@ -85,7 +92,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertSame($event->mutexName(), $result->getEventIdentifier());
     }
@@ -98,7 +105,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         // buildCommand() により元のコマンドが含まれたフルコマンドが返される
         $this->assertStringContainsString('php artisan report:daily', $result->getEventCommand());
@@ -112,7 +119,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertSame('local', $result->getDispatcherType());
     }
@@ -125,7 +132,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('sleep 0.1');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
@@ -143,7 +150,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
 
         $before = new \DateTimeImmutable();
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
         $after = new \DateTimeImmutable();
 
         $dispatchedAt = $result->getDispatchedAt();
@@ -160,7 +167,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('sleep 2');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertTrue($result->isRunning());
 
@@ -175,7 +182,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createSpyEvent('echo test');
 
-        $dispatcher->dispatchEvent($event, $this->app);
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertTrue($event->wasBeforeCallbacksCalled());
     }
@@ -188,7 +195,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         // buildCommand() が呼ばれると schedule:finish が含まれる
         $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
@@ -203,7 +210,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $event->runInBackground = false;
 
-        $dispatcher->dispatchEvent($event, $this->app);
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         // runInBackground は true に変更される（イベントは1回しかディスパッチされないため復元不要）
         $this->assertTrue($event->runInBackground);
@@ -218,7 +225,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $event->sendOutputTo('/tmp/test-output.log');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         // buildCommand() により出力リダイレクトが含まれる
         $this->assertStringContainsString('/tmp/test-output.log', $result->getEventCommand());
@@ -233,7 +240,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createSpyEvent('echo test');
         $event->throwOnBeforeCallback(new \RuntimeException('Test exception'));
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
         $this->assertStringContainsString('RuntimeException', $result->getError());
@@ -252,7 +259,7 @@ class LocalDispatcherTest extends TestCase
         $this->expectException(\Error::class);
         $this->expectExceptionMessage('Test error');
 
-        $dispatcher->dispatchEvent($event, $this->app);
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
     }
 
     /**
@@ -264,14 +271,14 @@ class LocalDispatcherTest extends TestCase
 
         // 即座に完了するプロセスをディスパッチ
         $event1 = $this->createEvent('echo test1');
-        $result1 = $dispatcher->dispatchEvent($event1, $this->app);
+        $result1 = $dispatcher->dispatchEvent($event1, $this->app, $this->dueAt);
 
         // プロセスの完了を待つ
         $result1->getProcess()->wait();
 
         // 長時間実行するプロセスをディスパッチ
         $event2 = $this->createEvent('sleep 10');
-        $result2 = $dispatcher->dispatchEvent($event2, $this->app);
+        $result2 = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
 
         // cleanup を呼ぶ
         $dispatcher->cleanup();
@@ -293,10 +300,10 @@ class LocalDispatcherTest extends TestCase
 
         // 複数のプロセスをディスパッチ
         $event1 = $this->createEvent('sleep 10');
-        $result1 = $dispatcher->dispatchEvent($event1, $this->app);
+        $result1 = $dispatcher->dispatchEvent($event1, $this->app, $this->dueAt);
 
         $event2 = $this->createEvent('sleep 10');
-        $result2 = $dispatcher->dispatchEvent($event2, $this->app);
+        $result2 = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
 
         // 両方とも実行中であることを確認
         $this->assertTrue($result1->isRunning());
@@ -319,7 +326,7 @@ class LocalDispatcherTest extends TestCase
 
         // 即座に完了するプロセスをディスパッチ
         $event = $this->createEvent('echo test');
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         // プロセスの完了を待つ
         $result->getProcess()->wait();
@@ -340,14 +347,14 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
 
         $event = $this->createEvent('sleep 5');
-        $dispatcher->dispatchEvent($event, $this->app);
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         // stopAll で停止されることで、内部リストに追加されていることを間接的に確認
         $dispatcher->stopAll();
 
         // 再度ディスパッチしても問題ないことを確認（内部リストがクリアされている）
         $event2 = $this->createEvent('echo test');
-        $result = $dispatcher->dispatchEvent($event2, $this->app);
+        $result = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
 
         $result->getProcess()->wait();
