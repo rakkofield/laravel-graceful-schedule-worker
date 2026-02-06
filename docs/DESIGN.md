@@ -226,6 +226,19 @@ classDiagram
         +getException() Throwable
     }
 
+    class SkippedDispatchResultInterface {
+        <<interface>>
+        +getReason() string
+    }
+
+    class SkippedDispatchResult {
+        -eventIdentifier string
+        -eventCommand string
+        -reason string
+        -dispatchedAt DateTimeImmutable
+        +getReason() string
+    }
+
     class StartedLocalDispatchResult {
         -process Process
         -eventIdentifier string
@@ -277,7 +290,18 @@ classDiagram
 
     class ScheduleDispatcherInterface {
         <<interface>>
-        +dispatchEvent(event, container) DispatchResultInterface
+        +dispatchEvent(event, container, dueAt) DispatchResultInterface
+        +cleanup() void
+        +stopAll() void
+    }
+
+    class TrackingDispatcher {
+        -inner ScheduleDispatcherInterface
+        -tracker ExecutionTrackerInterface
+        -logger LoggerInterface
+        +dispatchEvent(event, container, dueAt) DispatchResultInterface
+        +cleanup() void
+        +stopAll() void
     }
 
     class CompositeDispatcher {
@@ -337,14 +361,18 @@ classDiagram
     DispatchResultInterface <|-- StartedDispatchResultInterface
     DispatchResultInterface <|-- AlreadyRunningDispatchResultInterface
     DispatchResultInterface <|-- FailedDispatchResultInterface
+    DispatchResultInterface <|-- SkippedDispatchResultInterface
     StartedDispatchResultInterface <|.. StartedLocalDispatchResult
     StartedDispatchResultInterface <|.. StartedStepFunctionsDispatchResult
     AlreadyRunningDispatchResultInterface <|.. AlreadyRunningStepFunctionsDispatchResult
     FailedDispatchResultInterface <|.. FailedLocalDispatchResult
     FailedDispatchResultInterface <|.. FailedStepFunctionsDispatchResult
+    SkippedDispatchResultInterface <|.. SkippedDispatchResult
+    ScheduleDispatcherInterface <|.. TrackingDispatcher
     ScheduleDispatcherInterface <|.. CompositeDispatcher
     ScheduleDispatcherInterface <|.. LocalDispatcher
     ScheduleDispatcherInterface <|.. StepFunctionsDispatcher
+    TrackingDispatcher --> ScheduleDispatcherInterface : decorates
     ExecutionTrackerInterface <|.. CacheExecutionTracker
 
     %% 依存関係
@@ -380,23 +408,31 @@ classDiagram
 sequenceDiagram
     participant Cmd as Command
     participant Orch as Orchestrator
-    participant Disp as CompositeDispatcher
-    participant Local as LocalDispatcher
+    participant TDisp as TrackingDispatcher
     participant Track as ExecutionTrackerInterface
+    participant Comp as CompositeDispatcher
+    participant Local as LocalDispatcher
 
     Cmd->>Orch: run(schedule, app, shouldContinue)
 
     loop 毎分
         Orch->>Orch: dueEvents取得
         loop 各dueEvent
-            Orch->>Track: acquireLock(event, dueAt)
-            Track-->>Orch: true
-            Orch->>Disp: dispatchEvent(event, container)
-            Disp->>Disp: resolveDispatcherType(event)
-            Disp->>Local: dispatchEvent(event, container)
-            Local-->>Disp: DispatchResult
-            Disp-->>Orch: DispatchResult
-            Orch->>Track: markExecuted(event, dueAt)
+            Orch->>TDisp: dispatchEvent(event, container, dueAt)
+            TDisp->>Track: acquireLock(event, dueAt)
+            alt ロック取得成功
+                Track-->>TDisp: true
+                TDisp->>Comp: dispatchEvent(event, container, dueAt)
+                Comp->>Comp: resolveDispatcherType(event)
+                Comp->>Local: dispatchEvent(event, container, dueAt)
+                Local-->>Comp: StartedDispatchResult
+                Comp-->>TDisp: StartedDispatchResult
+                TDisp->>Track: markExecuted(event, dueAt)
+                TDisp-->>Orch: StartedDispatchResult
+            else ロック取得失敗
+                Track-->>TDisp: false
+                TDisp-->>Orch: SkippedDispatchResult
+            end
         end
         Orch->>Orch: checkMissedExecutions()
     end
@@ -410,28 +446,29 @@ sequenceDiagram
 sequenceDiagram
     participant Orch as Orchestrator
     participant Track as ExecutionTrackerInterface
-    participant Event as ClockAwareEvent
-    participant Disp as Dispatcher
+    participant TDisp as TrackingDispatcher
+    participant Comp as CompositeDispatcher
 
-    Orch->>Track: wasMissed(event, now)
-    Track-->>Orch: true
+    Note over Orch: getMissedDueIfRecoverable で<br/>リカバリ対象を判定
+    Orch->>Track: getMissedDueIfRecoverable(event, now)
+    Track-->>Orch: missedDue or null
 
-    Orch->>Event: isRecoverable()
-    Event-->>Orch: true
-
-    Orch->>Event: getGracePeriod()
-    Event-->>Orch: PT60M
-
-    Orch->>Orch: isWithinGracePeriod(missedDue, now)?
-
-    alt 猶予期間内
-        Orch->>Track: acquireLock(event, missedDue)
-        Track-->>Orch: true
-        Orch->>Disp: dispatchEvent(event, container)
-        Disp-->>Orch: DispatchResult
-        Orch->>Track: markExecuted(event, missedDue)
-    else 猶予期間超過
-        Orch->>Orch: skip (log warning)
+    alt missedDue が存在（リカバリ対象）
+        Orch->>TDisp: dispatchEvent(event, container, missedDue)
+        Note over TDisp: TrackingDispatcher が<br/>ロック取得・記録を担当
+        TDisp->>Track: acquireLock(event, missedDue)
+        alt ロック取得成功
+            Track-->>TDisp: true
+            TDisp->>Comp: dispatchEvent(event, container, missedDue)
+            Comp-->>TDisp: DispatchResult
+            TDisp->>Track: markExecuted(event, missedDue)
+            TDisp-->>Orch: DispatchResult
+        else ロック取得失敗
+            Track-->>TDisp: false
+            TDisp-->>Orch: SkippedDispatchResult
+        end
+    else リカバリ対象なし
+        Orch->>Orch: skip
     end
 ```
 
@@ -440,10 +477,13 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Orch as Orchestrator
+    participant TDisp as TrackingDispatcher
     participant Event as ClockAwareEvent
     participant Comp as CompositeDispatcher
 
-    Orch->>Comp: dispatchEvent(event, app)
+    Orch->>TDisp: dispatchEvent(event, app, dueAt)
+    Note over TDisp: acquireLock 後に委譲
+    TDisp->>Comp: dispatchEvent(event, app, dueAt)
     Comp->>Event: getDispatcherType()
 
     alt イベント指定あり
@@ -453,7 +493,7 @@ sequenceDiagram
         Comp->>Comp: use defaultType("local")
     end
 
-    Comp->>Comp: dispatchers[type].dispatchEvent()
+    Comp->>Comp: dispatchers[type].dispatchEvent(event, app, dueAt)
 ```
 
 #### レイヤー構成
@@ -463,11 +503,18 @@ sequenceDiagram
 | レイヤー | オブジェクト | 責務 |
 |---------|-------------|------|
 | **スケジューリング層** | `ClockAwareSchedule`, `ClockAwareEvent` | Laravel の `Schedule` / `Event` を継承し、Clock 注入と Grace Period 管理を提供 |
-| **調整層** | `ScheduleOrchestratorInterface` | 毎分のループ制御、イベントごとのDispatcher選択、ExecutionTracker連携(オプション)、取りこぼしチェック・リカバリ |
+| **調整層** | `ScheduleOrchestratorInterface` | 毎分のループ制御、イベントごとのDispatcher呼び出し、取りこぼしチェック（`getMissedDueIfRecoverable`）、dueAt の決定 |
 | **時刻抽象層** | `ClockInterface`, `SystemClock`, `FixedClock` | 時刻取得の抽象化により、テスト時の時刻固定を実現 |
-| **ディスパッチ層** | `ScheduleDispatcherInterface`, `LocalDispatcher`, `StepFunctionsDispatcher` | タスク実行方法の抽象化（ローカルプロセス / AWS Step Functions） |
+| **ディスパッチ層** | `ScheduleDispatcherInterface`, `TrackingDispatcher`, `CompositeDispatcher`, `LocalDispatcher`, `StepFunctionsDispatcher` | タスク実行方法の抽象化。`TrackingDispatcher` はロック取得・実行記録を担当するデコレーター |
 | **トラッキング層** | `ExecutionTrackerInterface`, `CacheExecutionTracker` | 実行履歴の追跡、取りこぼし検出、ロック機構による重複実行防止 |
 | **インフラ層** | `GracefulScheduleWorkCommand`, `GracefulScheduleWorkerProvider` | Artisan コマンドと DI コンテナへの登録 |
+
+#### Orchestrator と TrackingDispatcher の責務分担
+
+| コンポーネント | 責務 |
+|--------------|------|
+| **Orchestrator** | スケジュール判定（毎分0秒のチェック）、リカバリ検出（`getMissedDueIfRecoverable`）、`dueAt` 決定、Dispatcher 呼び出し |
+| **TrackingDispatcher** | ロック取得（`acquireLock`）、実行記録（`markExecuted`）、失敗時のログ出力、内部 Dispatcher への委譲 |
 
 #### 主要な依存関係
 
@@ -744,6 +791,7 @@ interface ScheduleOrchestratorInterface
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -789,9 +837,10 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
      *
      * @param Event $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
+     * @param DateTimeInterface $dueAt 実行予定時刻
      * @return DispatchResultInterface ディスパッチ結果
      */
-    public function dispatchEvent(Event $event, Container $container): DispatchResultInterface
+    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
         $type = $this->resolveDispatcherType($event);
 
@@ -799,7 +848,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
             throw new \InvalidArgumentException("Unknown dispatcher type: {$type}");
         }
 
-        return $this->dispatchers[$type]->dispatchEvent($event, $container);
+        return $this->dispatchers[$type]->dispatchEvent($event, $container, $dueAt);
     }
 
     /**
@@ -815,19 +864,32 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
         }
         return $this->defaultType;
     }
+
+    public function cleanup(): void;
+    public function stopAll(): void;
 }
 ```
 
 **ServiceProvider での DI**:
 
 ```php
-$this->app->singleton(ScheduleDispatcherInterface::class, function ($app) {
+// CompositeDispatcher を別名で登録
+$this->app->singleton(CompositeDispatcher::class, function ($app) {
     return new CompositeDispatcher(
         [
             'local' => $app->make(LocalDispatcher::class),
             'stepfunctions' => $app->make(StepFunctionsDispatcher::class),
         ],
-        config('graceful-scheduler.dispatch', 'local')  // ここだけconfig参照
+        config('graceful-scheduler.dispatch', 'local')
+    );
+});
+
+// ScheduleDispatcherInterface は TrackingDispatcher でラップ
+$this->app->singleton(ScheduleDispatcherInterface::class, function ($app) {
+    return new TrackingDispatcher(
+        $app->make(CompositeDispatcher::class),
+        $app->make(ExecutionTrackerInterface::class),
+        $app->make(LoggerInterface::class)
     );
 });
 ```
@@ -1179,6 +1241,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 
@@ -1189,17 +1252,122 @@ interface ScheduleDispatcherInterface
      *
      * @param Event $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
+     * @param DateTimeInterface $dueAt 実行予定時刻（トラッキングやリカバリに使用）
      * @return DispatchResultInterface ディスパッチ結果
      */
-    public function dispatchEvent(Event $event, Container $container): DispatchResultInterface;
+    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface;
+
+    /**
+     * 完了したプロセスのクリーンアップを行う
+     */
+    public function cleanup(): void;
+
+    /**
+     * 全ての実行中プロセスを停止する
+     */
+    public function stopAll(): void;
 }
 ```
 
 **実装例**:
 
+- `TrackingDispatcher`: ロック取得・実行記録を行うデコレーター
 - `CompositeDispatcher`: 複数のDispatcherを保持し、イベントのtypeに応じて委譲
 - `LocalDispatcher`: バックグラウンドプロセスとして起動（Process::start()）
 - `StepFunctionsDispatcher`: AWS Step Functions 経由で実行
+
+### SkippedDispatchResultInterface
+
+ロック取得失敗などでスキップされた結果を表すインターフェースです。
+
+```php
+<?php
+
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+
+/**
+ * スキップされたディスパッチ結果を表すインターフェース
+ *
+ * ロック取得失敗などで実際にはディスパッチされなかった場合に使用します。
+ *
+ * instanceof SkippedDispatchResultInterface でスキップを判定
+ */
+interface SkippedDispatchResultInterface extends DispatchResultInterface
+{
+    /**
+     * スキップされた理由を取得
+     *
+     * @return string 理由（例: 'lock_not_acquired'）
+     */
+    public function getReason(): string;
+}
+```
+
+### TrackingDispatcher
+
+トラッキングロジック（ロック取得、実行記録）を担当するデコレーターです。
+
+```php
+<?php
+
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+
+use DateTimeInterface;
+use Illuminate\Console\Scheduling\Event;
+use Illuminate\Container\Container;
+use Psr\Log\LoggerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
+
+/**
+ * トラッキングロジックを担当するデコレーター
+ *
+ * 責務:
+ * - ロック取得（acquireLock）
+ * - 実行記録（markExecuted）
+ * - 失敗時のログ出力
+ * - 内部 Dispatcher への委譲
+ */
+class TrackingDispatcher implements ScheduleDispatcherInterface
+{
+    /** @var ScheduleDispatcherInterface */
+    private $inner;
+
+    /** @var ExecutionTrackerInterface */
+    private $tracker;
+
+    /** @var LoggerInterface */
+    private $logger;
+
+    public function __construct(
+        ScheduleDispatcherInterface $inner,
+        ExecutionTrackerInterface $tracker,
+        LoggerInterface $logger
+    );
+
+    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
+    {
+        // 1. ロック取得
+        if (!$this->tracker->acquireLock($event, $dueAt)) {
+            return new SkippedDispatchResult(
+                $event->mutexName(),
+                (string) $event->command,
+                'lock_not_acquired'
+            );
+        }
+
+        // 2. 内部 Dispatcher に委譲
+        $result = $this->inner->dispatchEvent($event, $container, $dueAt);
+
+        // 3. 結果に応じたトラッキング
+        $this->handleResult($result, $event, $dueAt);
+
+        return $result;
+    }
+
+    public function cleanup(): void;
+    public function stopAll(): void;
+}
+```
 
 ### ExecutionTrackerInterface
 
@@ -1546,12 +1714,15 @@ src/
 │   ├── StartedDispatchResultInterface.php           # 成功結果インターフェース（新規開始）
 │   ├── AlreadyRunningDispatchResultInterface.php    # 既存実行インターフェース
 │   ├── FailedDispatchResultInterface.php            # 失敗結果インターフェース
+│   ├── SkippedDispatchResultInterface.php           # スキップ結果インターフェース
+│   ├── SkippedDispatchResult.php                    # スキップ結果実装
 │   ├── StartedLocalDispatchResult.php               # LocalDispatcher 成功結果
 │   ├── FailedLocalDispatchResult.php                # LocalDispatcher 失敗結果
 │   ├── StartedStepFunctionsDispatchResult.php       # StepFunctionsDispatcher 成功結果
 │   ├── AlreadyRunningStepFunctionsDispatchResult.php # StepFunctionsDispatcher 既存実行結果
 │   ├── FailedStepFunctionsDispatchResult.php        # StepFunctionsDispatcher 失敗結果
 │   ├── ScheduleDispatcherInterface.php       # Dispatcher インターフェース
+│   ├── TrackingDispatcher.php                # トラッキングデコレーター
 │   ├── CompositeDispatcher.php               # Dispatcher委譲クラス
 │   ├── LocalDispatcher.php                   # バックグラウンドプロセス起動
 │   ├── StepFunctionsDispatcher.php           # AWS Step Functions 統合
@@ -1583,6 +1754,8 @@ tests/
 ├── Dispatcher/
 │   ├── LocalDispatchResultTest.php
 │   ├── StepFunctionsDispatchResultTest.php
+│   ├── SkippedDispatchResultTest.php
+│   ├── TrackingDispatcherTest.php
 │   ├── CompositeDispatcherTest.php
 │   ├── LocalDispatcherTest.php
 │   └── StepFunctionsDispatcherTest.php
@@ -2068,6 +2241,6 @@ protected function schedule(ClockAwareSchedule $schedule)
 
 ---
 
-**Last Updated**: 2026-02-05
-**Version**: 3.3.0 (AlreadyRunningDispatchResultInterface導入、重複コード集約)
+**Last Updated**: 2026-02-06
+**Version**: 3.4.0 (TrackingDispatcher導入、dueAtパラメータ追加、Orchestrator簡略化)
 **Author**: Laravel Graceful Schedule Worker Team

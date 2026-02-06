@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\Process\Process;
 
 class LocalDispatcher implements ScheduleDispatcherInterface
@@ -16,16 +19,23 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $basePath;
 
     /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    /**
      * @var array<StartedLocalDispatchResult>
      */
     private $runningProcesses = [];
 
     /**
      * @param string|null $basePath プロセスの作業ディレクトリ（null の場合は現在のディレクトリ）
+     * @param LoggerInterface|null $logger ロガー（null の場合は NullLogger）
      */
-    public function __construct(?string $basePath = null)
+    public function __construct(?string $basePath = null, ?LoggerInterface $logger = null)
     {
         $this->basePath = $basePath;
+        $this->logger = $logger ?? new NullLogger();
     }
 
     /**
@@ -39,9 +49,10 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      *
      * @param Event $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
+     * @param DateTimeInterface $dueAt 実行予定時刻（LocalDispatcher では未使用）
      * @return DispatchResultInterface ディスパッチ結果
      */
-    public function dispatchEvent(Event $event, Container $container): DispatchResultInterface
+    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
         $identifier = $event->mutexName();
 
@@ -98,8 +109,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 }
             } catch (\Exception $e) {
                 // 1つのプロセスの停止失敗が他のプロセスの停止を阻害しないようにする
-                // エラーはログに記録されるべきだが、Dispatcher はロガーを持たないため
-                // 例外を無視してすべてのプロセスに対して停止を試みる
+                $this->logger->warning('[GracefulScheduleWorker] Failed to stop process', [
+                    'event' => $result->getEventIdentifier(),
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
             }
         }
         $this->runningProcesses = [];

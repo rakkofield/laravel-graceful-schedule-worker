@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
@@ -19,12 +22,16 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /** @var string DIで注入（config参照はServiceProviderのみ） */
     private $defaultType;
 
+    /** @var LoggerInterface */
+    private $logger;
+
     /**
      * @param array<string, ScheduleDispatcherInterface> $dispatchers
      * @param string $defaultType
+     * @param LoggerInterface|null $logger ロガー（null の場合は NullLogger）
      * @throws \InvalidArgumentException dispatchers が空または defaultType が存在しない場合
      */
-    public function __construct(array $dispatchers, string $defaultType)
+    public function __construct(array $dispatchers, string $defaultType, ?LoggerInterface $logger = null)
     {
         if (empty($dispatchers)) {
             throw new \InvalidArgumentException('Dispatchers array cannot be empty');
@@ -39,6 +46,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
 
         $this->dispatchers = $dispatchers;
         $this->defaultType = $defaultType;
+        $this->logger = $logger ?? new NullLogger();
     }
 
     /**
@@ -46,9 +54,10 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
      *
      * @param Event $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
+     * @param DateTimeInterface $dueAt 実行予定時刻
      * @return DispatchResultInterface ディスパッチ結果
      */
-    public function dispatchEvent(Event $event, Container $container): DispatchResultInterface
+    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
         $type = $this->resolveDispatcherType($event);
 
@@ -59,7 +68,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
             );
         }
 
-        return $this->dispatchers[$type]->dispatchEvent($event, $container);
+        return $this->dispatchers[$type]->dispatchEvent($event, $container, $dueAt);
     }
 
     /**
@@ -81,11 +90,16 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
      */
     public function cleanup(): void
     {
-        foreach ($this->dispatchers as $dispatcher) {
+        foreach ($this->dispatchers as $type => $dispatcher) {
             try {
                 $dispatcher->cleanup();
             } catch (\Exception $e) {
                 // 1つのディスパッチャーの失敗が他に影響しないようにする
+                $this->logger->warning('[GracefulScheduleWorker] Failed to cleanup dispatcher', [
+                    'dispatcher' => $type,
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
             }
         }
     }
@@ -95,11 +109,16 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
      */
     public function stopAll(): void
     {
-        foreach ($this->dispatchers as $dispatcher) {
+        foreach ($this->dispatchers as $type => $dispatcher) {
             try {
                 $dispatcher->stopAll();
             } catch (\Exception $e) {
                 // 1つのディスパッチャーの失敗が他に影響しないようにする
+                $this->logger->warning('[GracefulScheduleWorker] Failed to stop dispatcher', [
+                    'dispatcher' => $type,
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
             }
         }
     }

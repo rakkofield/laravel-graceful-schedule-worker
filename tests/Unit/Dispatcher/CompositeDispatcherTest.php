@@ -13,6 +13,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\ThrowingFakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
@@ -28,6 +29,9 @@ class CompositeDispatcherTest extends TestCase
      */
     private $mutex;
 
+    /** @var DateTimeImmutable */
+    private $dueAt;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -37,6 +41,7 @@ class CompositeDispatcherTest extends TestCase
         $this->app->bind(EventMutex::class, function () {
             return $this->mutex;
         });
+        $this->dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
     }
 
     protected function tearDown(): void
@@ -81,7 +86,7 @@ class CompositeDispatcherTest extends TestCase
 
         $event = $this->createClockAwareEvent('echo test', 'stepfunctions');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
@@ -111,7 +116,7 @@ class CompositeDispatcherTest extends TestCase
 
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
@@ -141,7 +146,7 @@ class CompositeDispatcherTest extends TestCase
 
         $event = $this->createClockAwareEvent('echo test', null);
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
@@ -168,7 +173,7 @@ class CompositeDispatcherTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Unknown dispatcher type: unknown. Available types: local');
 
-        $dispatcher->dispatchEvent($event, $this->app);
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
     }
 
     /**
@@ -186,7 +191,7 @@ class CompositeDispatcherTest extends TestCase
 
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app);
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
     }
@@ -325,5 +330,69 @@ class CompositeDispatcherTest extends TestCase
         // 両方の stopAll が呼ばれていること
         $this->assertEquals(1, $throwingDispatcher->getStopAllCallCount());
         $this->assertEquals(1, $normalDispatcher->getStopAllCallCount());
+    }
+
+    /**
+     * @testdox T2.22 cleanup で例外発生時にログが出力される
+     */
+    public function testCleanupLogsWarningWhenChildThrows(): void
+    {
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
+
+        $throwingDispatcher = new ThrowingFakeDispatcher($localResult);
+        $throwingDispatcher->willThrowOnCleanup(new \RuntimeException('Cleanup failed'));
+        $normalDispatcher = new FakeDispatcher($sfnResult);
+
+        $logger = new SpyLogger();
+        $dispatcher = new CompositeDispatcher(
+            [
+                'local' => $throwingDispatcher,
+                'stepfunctions' => $normalDispatcher,
+            ],
+            'local',
+            $logger
+        );
+
+        $dispatcher->cleanup();
+
+        // ログが出力されること
+        $warningLogs = $logger->getLogsByLevel('warning');
+        $this->assertCount(1, $warningLogs);
+        $this->assertStringContainsString('Failed to cleanup dispatcher', $warningLogs[0]['message']);
+        $this->assertSame('local', $warningLogs[0]['context']['dispatcher']);
+        $this->assertSame('Cleanup failed', $warningLogs[0]['context']['error']);
+    }
+
+    /**
+     * @testdox T2.23 stopAll で例外発生時にログが出力される
+     */
+    public function testStopAllLogsWarningWhenChildThrows(): void
+    {
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
+
+        $throwingDispatcher = new ThrowingFakeDispatcher($localResult);
+        $throwingDispatcher->willThrowOnStopAll(new \RuntimeException('StopAll failed'));
+        $normalDispatcher = new FakeDispatcher($sfnResult);
+
+        $logger = new SpyLogger();
+        $dispatcher = new CompositeDispatcher(
+            [
+                'local' => $throwingDispatcher,
+                'stepfunctions' => $normalDispatcher,
+            ],
+            'local',
+            $logger
+        );
+
+        $dispatcher->stopAll();
+
+        // ログが出力されること
+        $warningLogs = $logger->getLogsByLevel('warning');
+        $this->assertCount(1, $warningLogs);
+        $this->assertStringContainsString('Failed to stop dispatcher', $warningLogs[0]['message']);
+        $this->assertSame('local', $warningLogs[0]['context']['dispatcher']);
+        $this->assertSame('StopAll failed', $warningLogs[0]['context']['error']);
     }
 }

@@ -20,6 +20,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClient
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
@@ -49,8 +50,12 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
         // テスト等で Container のみの場合は basePath は null
         // @phpstan-ignore function.alreadyNarrowedType (テストでは Container を使うため)
         $basePath = method_exists($this->app, 'basePath') ? $this->app->basePath() : null;
-        $this->app->singleton(LocalDispatcher::class, function () use ($basePath) {
-            return new LocalDispatcher($basePath);
+        $this->app->singleton(LocalDispatcher::class, function (Container $app) use ($basePath) {
+            // Logger を取得（Laravel の log サービスから、なければ NullLogger）
+            /** @var \Psr\Log\LoggerInterface $logger */
+            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+
+            return new LocalDispatcher($basePath, $logger);
         });
 
         // StepFunctions 関連のバインディング（AWS SDK がインストールされている場合のみ）
@@ -59,8 +64,8 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
         // ExecutionTrackerInterface を登録（常に登録、設定に応じて実装を切り替え）
         $this->registerTrackerBindings();
 
-        // CompositeDispatcher を ScheduleDispatcherInterface として登録
-        $this->app->singleton(ScheduleDispatcherInterface::class, function (Container $app) {
+        // CompositeDispatcher を登録（内部で使用）
+        $this->app->singleton(CompositeDispatcher::class, function (Container $app) {
             // Containerから設定を取得（デフォルト: 'local'）
             $defaultType = 'local';
             if ($app->bound('config')) {
@@ -84,7 +89,26 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
                 $dispatchers['stepfunctions'] = $stepFunctionsDispatcher;
             }
 
-            return new CompositeDispatcher($dispatchers, $defaultType);
+            // Logger を取得（Laravel の log サービスから、なければ NullLogger）
+            /** @var \Psr\Log\LoggerInterface $logger */
+            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+
+            return new CompositeDispatcher($dispatchers, $defaultType, $logger);
+        });
+
+        // TrackingDispatcher を ScheduleDispatcherInterface として登録
+        // CompositeDispatcher をラップし、ロック取得・実行記録・失敗ハンドリングを追加
+        $this->app->singleton(ScheduleDispatcherInterface::class, function (Container $app) {
+            /** @var CompositeDispatcher $compositeDispatcher */
+            $compositeDispatcher = $app->make(CompositeDispatcher::class);
+            /** @var ExecutionTrackerInterface $tracker */
+            $tracker = $app->make(ExecutionTrackerInterface::class);
+
+            // Logger を取得（Laravel の log サービスから、なければ NullLogger）
+            /** @var \Psr\Log\LoggerInterface $logger */
+            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+
+            return new TrackingDispatcher($compositeDispatcher, $tracker, $logger);
         });
 
         // ScheduleOrchestratorInterface を登録
@@ -159,12 +183,10 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
 
             /** @var StepFunctionsClientInterface $client */
             $client = $app->make(StepFunctionsClientInterface::class);
-            /** @var ClockInterface $clock */
-            $clock = $app->make(ClockInterface::class);
 
             $nameGenerator = new ExecutionNameGenerator();
 
-            return new StepFunctionsDispatcher($client, $stateMachineArn, $clock, $nameGenerator);
+            return new StepFunctionsDispatcher($client, $stateMachineArn, $nameGenerator);
         });
     }
 
