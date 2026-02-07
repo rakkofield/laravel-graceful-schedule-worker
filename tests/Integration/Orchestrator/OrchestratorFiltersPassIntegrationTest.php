@@ -10,6 +10,7 @@ use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\AdvancingClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
@@ -20,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 
@@ -241,5 +243,63 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
         $dispatched = $this->innerDispatcher->getDispatched();
         $this->assertStringContainsString('echo maintenance-ok', (string) $dispatched[0]['event']->command);
+    }
+
+    /**
+     * @testdox TI.10 Evaluation time consistency: dueEvents and filtersPass use the same frozen time
+     */
+    public function testEvaluationTimeConsistency(): void
+    {
+        // AdvancingClock: now() を呼ぶたびに 1 秒進む
+        // 12:00:00 からスタート。freeze なしなら dueEvents と between で異なる時刻になりうる。
+        $advancingClock = new AdvancingClock(
+            new DateTimeImmutable('2024-01-15 12:00:00'),
+            1
+        );
+
+        $schedule = new ClockAwareSchedule($advancingClock);
+
+        // between('11:59', '12:01') → 12:00:00 は範囲内
+        // AdvancingClock で freeze なしなら between 評価時に clock が進んでしまう可能性がある
+        $capturedTimes = [];
+        $schedule->exec('echo consistency-test')
+            ->everyMinute()
+            ->when(function () use ($schedule, &$capturedTimes) {
+                // when() filter 内で event の clock の now() を記録
+                $events = $schedule->events();
+                $event = $events[0];
+                $reflection = new \ReflectionProperty(ClockAwareEvent::class, 'clock');
+                $reflection->setAccessible(true);
+                $eventClock = $reflection->getValue($event);
+                $capturedTimes[] = $eventClock->now();
+                return true;
+            })
+            ->between('11:59', '12:01');
+
+        // Orchestrator を構成
+        // Orchestrator 自身の clock も 12:00:00 から始める（AdvancingClock）
+        $orchestratorClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $tracker = $this->createTracker();
+        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $trackingDispatcher,
+            $orchestratorClock,
+            $tracker,
+            $this->logger,
+            new NullSleeper()
+        );
+
+        $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
+
+        // evaluateAt により freeze されるので、
+        // when() と between() の両方が同一時刻（12:00:00）で評価される
+        $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
+
+        // captured times はすべて同じ値であること
+        $this->assertNotEmpty($capturedTimes);
+        foreach ($capturedTimes as $time) {
+            $this->assertEquals($capturedTimes[0], $time);
+        }
     }
 }

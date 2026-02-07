@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
+use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Schedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FreezableClock;
 
 class ClockAwareSchedule extends Schedule
 {
@@ -15,6 +17,11 @@ class ClockAwareSchedule extends Schedule
     protected $clock;
 
     /**
+     * @var FreezableClock
+     */
+    private $eventClock;
+
+    /**
      * @param ClockInterface $clock
      * @param \DateTimeZone|string|null $timezone
      */
@@ -22,6 +29,7 @@ class ClockAwareSchedule extends Schedule
     {
         parent::__construct($timezone);
         $this->clock = $clock;
+        $this->eventClock = new FreezableClock($clock);
     }
 
     /**
@@ -37,10 +45,22 @@ class ClockAwareSchedule extends Schedule
             $command .= ' ' . $this->compileParameters($parameters);
         }
 
-        $event = new ClockAwareEvent($this->eventMutex, $command, $this->clock, $this->timezone);
+        $event = new ClockAwareEvent($this->eventMutex, $command, $this->eventClock, $this->timezone);
 
         $this->events[] = $event;
 
         return $event;
+    }
+
+    /**
+     * 指定時刻で freeze した状態でコールバックを実行
+     *
+     * @param DateTimeImmutable $time 評価基準時刻
+     * @param callable $callback 実行するコールバック
+     * @return mixed
+     */
+    public function evaluateAt(DateTimeImmutable $time, callable $callback)
+    {
+        return $this->eventClock->withFrozenTime($time, $callback);
     }
 }

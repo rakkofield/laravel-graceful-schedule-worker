@@ -15,6 +15,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 /**
@@ -93,30 +94,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
             ) {
                 $lastExecutionStartedAt = $currentMinute;
 
-                // due なイベントを取得してディスパッチ
-                /** @var array<\Illuminate\Console\Scheduling\Event> $events */
-                $events = $schedule->dueEvents($app);
-
-                $nowCarbon = Carbon::instance($now);
-
-                foreach ($events as $event) {
-                    try {
-                        if (!$event->filtersPass($app)) {
-                            $this->logger->debug('[GracefulScheduleWorker] Event skipped by filters', [
-                                'event' => $event->mutexName(),
-                            ]);
-                            continue;
-                        }
-                    } catch (\Exception $e) {
-                        $this->logger->warning('[GracefulScheduleWorker] filtersPass threw exception, skipping event', [
-                            'event' => $event->mutexName(),
-                            'error' => $e->getMessage(),
-                            'exception' => $e,
-                        ]);
-                        continue;
-                    }
-                    $this->dispatcher->dispatchEvent($event, $container, $nowCarbon);
-                }
+                $this->evaluateAndDispatch($schedule, $app, $container, $now);
             }
 
             // 完了したプロセスをクリーンアップ
@@ -183,9 +161,62 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         ]);
 
         // リカバリでは filtersPass() をチェックしない。
-        // between()/unlessBetween() 等の時間ベースフィルタは Carbon::now() を使うため、
+        // between()/unlessBetween() 等の時間ベースフィルタは clock->now() を使うため、
         // 過去の dueAt に対して現在時刻で評価すると誤った結果になる。
         $this->dispatcher->dispatchEvent($event, $container, $missedDue);
+    }
+
+    /**
+     * due イベントを評価してディスパッチ
+     *
+     * ClockAwareSchedule の場合は evaluateAt() で時刻を固定し、
+     * dueEvents() と filtersPass() が同一時刻で評価されることを保証する。
+     *
+     * @param Schedule $schedule
+     * @param Application $app
+     * @param Container $container
+     * @param \DateTimeImmutable $now
+     * @return void
+     */
+    private function evaluateAndDispatch(
+        Schedule $schedule,
+        Application $app,
+        Container $container,
+        \DateTimeImmutable $now
+    ): void {
+        $doEvaluate = function () use ($schedule, $app, $container, $now) {
+            /** @var array<Event> $events */
+            $events = $schedule->dueEvents($app);
+            $nowCarbon = Carbon::instance($now);
+
+            foreach ($events as $event) {
+                try {
+                    if (!$event->filtersPass($app)) {
+                        $this->logger->debug('[GracefulScheduleWorker] Event skipped by filters', [
+                            'event' => $event->mutexName(),
+                        ]);
+                        continue;
+                    }
+                } catch (\Exception $e) {
+                    $this->logger->warning(
+                        '[GracefulScheduleWorker] filtersPass threw exception, skipping event',
+                        [
+                            'event' => $event->mutexName(),
+                            'error' => $e->getMessage(),
+                            'exception' => $e,
+                        ]
+                    );
+                    continue;
+                }
+                $this->dispatcher->dispatchEvent($event, $container, $nowCarbon);
+            }
+        };
+
+        if ($schedule instanceof ClockAwareSchedule) {
+            $schedule->evaluateAt($now, $doEvaluate);
+        } else {
+            $doEvaluate();
+        }
     }
 
     /**

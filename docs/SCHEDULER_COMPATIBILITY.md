@@ -18,6 +18,12 @@ Overrides the parent's `ManagesFrequencies` trait methods. The parent uses `inTi
 
 The `ClockAwareEvent` implementation evaluates `$this->clock->now()` lazily inside the closure, ensuring correct time checks on every evaluation.
 
+### `FreezableClock` — Evaluation Time Consistency
+
+`ClockAwareSchedule` wraps the injected `ClockInterface` in a `FreezableClock` and passes it to all `ClockAwareEvent` instances. During each evaluation cycle, the `DefaultScheduleOrchestrator` calls `ClockAwareSchedule::evaluateAt($now, $callback)`, which freezes the clock for the duration of the callback. This ensures that `dueEvents()` (via `expressionPasses()`) and `filtersPass()` (via `between()` / `unlessBetween()`) all observe the same timestamp within a single evaluation cycle.
+
+Without this mechanism, when using `SystemClock`, the clock could advance across minute boundaries between `dueEvents()` and `filtersPass()` calls, leading to inconsistent time-based decisions.
+
 ### Known Limitation: `lastDayOfMonth()`
 
 `lastDayOfMonth()` uses `Carbon::now()` to determine the current month and sets the cron expression's day field statically. In a long-running worker that spans month boundaries, this could become inaccurate. Fixing this would require dynamic cron expression re-evaluation, which adds significant complexity. This is documented as a known limitation.

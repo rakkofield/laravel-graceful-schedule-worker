@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FreezableClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
@@ -105,5 +106,69 @@ class ClockAwareScheduleTest extends TestCase
         $event = $schedule->command('php artisan test', ['--option' => 'value']);
 
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
+    }
+
+    /**
+     * @testdox T1.17
+     */
+    public function testEvaluateAtFreezesEventClock(): void
+    {
+        $innerTime = new DateTimeImmutable('2024-01-15 12:00:00');
+        $frozenTime = new DateTimeImmutable('2024-01-15 10:30:00');
+        $clock = new FixedClock($innerTime);
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->exec('echo test');
+
+        $schedule->evaluateAt($frozenTime, function () use ($event, $frozenTime) {
+            // ClockAwareEvent の clock（= eventClock）が frozen time を返すことを検証
+            // expressionPasses は protected なので、clock->now() を間接的に確認
+            $reflection = new \ReflectionProperty(ClockAwareEvent::class, 'clock');
+            $reflection->setAccessible(true);
+            $eventClock = $reflection->getValue($event);
+
+            $this->assertEquals($frozenTime, $eventClock->now());
+        });
+    }
+
+    /**
+     * @testdox T1.18
+     */
+    public function testEvaluateAtUnfreezesAfterCallback(): void
+    {
+        $innerTime = new DateTimeImmutable('2024-01-15 12:00:00');
+        $frozenTime = new DateTimeImmutable('2024-01-15 10:30:00');
+        $clock = new FixedClock($innerTime);
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->exec('echo test');
+
+        $schedule->evaluateAt($frozenTime, function () {
+            // no-op
+        });
+
+        // evaluateAt 完了後はイベントが live clock に戻る
+        $reflection = new \ReflectionProperty(ClockAwareEvent::class, 'clock');
+        $reflection->setAccessible(true);
+        $eventClock = $reflection->getValue($event);
+
+        $this->assertEquals($innerTime, $eventClock->now());
+    }
+
+    /**
+     * @testdox T1.19
+     */
+    public function testExecPassesFreezableClockToEvent(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->exec('echo test');
+
+        $reflection = new \ReflectionProperty(ClockAwareEvent::class, 'clock');
+        $reflection->setAccessible(true);
+        $eventClock = $reflection->getValue($event);
+
+        $this->assertInstanceOf(FreezableClock::class, $eventClock);
     }
 }
