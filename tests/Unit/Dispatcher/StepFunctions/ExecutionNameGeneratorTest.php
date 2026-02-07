@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 /**
  * @testdox ExecutionNameGenerator

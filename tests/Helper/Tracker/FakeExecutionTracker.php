@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
-use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 /**
  * ExecutionTrackerInterface の Fake 実装

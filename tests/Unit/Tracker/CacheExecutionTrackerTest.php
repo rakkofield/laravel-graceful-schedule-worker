@@ -11,11 +11,9 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeLockProvider;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 class CacheExecutionTrackerTest extends TestCase
 {

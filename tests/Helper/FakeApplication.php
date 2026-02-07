@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker;
 
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;

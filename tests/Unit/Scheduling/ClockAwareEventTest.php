@@ -7,8 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 use DateInterval;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 
 class ClockAwareEventTest extends TestCase
 {

@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubSfnClient;
 
 /**
  * @testdox AwsSfnClientAdapter

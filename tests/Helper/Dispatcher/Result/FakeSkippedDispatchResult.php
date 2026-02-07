@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 
-class FakeStartedDispatchResult implements StartedDispatchResultInterface
+class FakeSkippedDispatchResult implements SkippedDispatchResultInterface
 {
     /** @var string */
     private $eventIdentifier;
@@ -16,7 +15,7 @@ class FakeStartedDispatchResult implements StartedDispatchResultInterface
     private $eventCommand;
 
     /** @var string */
-    private $dispatcherType;
+    private $reason;
 
     /** @var DateTimeImmutable */
     private $dispatchedAt;
@@ -24,32 +23,32 @@ class FakeStartedDispatchResult implements StartedDispatchResultInterface
     /**
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param string $dispatcherType
+     * @param string $reason
      * @param DateTimeImmutable|null $dispatchedAt
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
-        string $dispatcherType,
+        string $reason,
         ?DateTimeImmutable $dispatchedAt = null
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
-        $this->dispatcherType = $dispatcherType;
+        $this->reason = $reason;
         $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
     }
 
     /**
-     * Create a successful result.
+     * Create a skipped result.
      *
      * @param string $identifier
      * @param string $command
-     * @param string $type
+     * @param string $reason
      * @return self
      */
-    public static function create(string $identifier, string $command, string $type = 'fake'): self
+    public static function create(string $identifier, string $command, string $reason = 'lock_not_acquired'): self
     {
-        return new self($identifier, $command, $type);
+        return new self($identifier, $command, $reason);
     }
 
     /**
@@ -73,7 +72,7 @@ class FakeStartedDispatchResult implements StartedDispatchResultInterface
      */
     public function getDispatcherType(): string
     {
-        return $this->dispatcherType;
+        return 'fake';
     }
 
     /**
@@ -82,5 +81,13 @@ class FakeStartedDispatchResult implements StartedDispatchResultInterface
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getReason(): string
+    {
+        return $this->reason;
     }
 }

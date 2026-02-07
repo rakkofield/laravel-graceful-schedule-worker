@@ -10,17 +10,15 @@ use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyCallbackEvent;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableLocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
 
 class LocalDispatcherTest extends TestCase
 {

@@ -8,9 +8,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 
 /**
  * ClockAwareEvent の Laravel Event 互換性テスト

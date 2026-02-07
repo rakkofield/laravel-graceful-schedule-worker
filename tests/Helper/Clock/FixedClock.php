@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 
 use DateTimeImmutable;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 class FixedClock implements ClockInterface
 {

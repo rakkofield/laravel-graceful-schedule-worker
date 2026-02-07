@@ -17,8 +17,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedStepFunctions
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStepFunctionsClient;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FakeStepFunctionsClient;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 /**
  * @testdox StepFunctionsDispatcher

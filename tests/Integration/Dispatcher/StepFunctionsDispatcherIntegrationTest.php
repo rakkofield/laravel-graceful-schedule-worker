@@ -17,8 +17,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunction
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedExecutionNameGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FixedExecutionNameGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 /**
  * StepFunctionsDispatcher の moto を使った Integration テスト

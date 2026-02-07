@@ -9,15 +9,13 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\ThrowingFakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 class CompositeDispatcherTest extends TestCase
 {

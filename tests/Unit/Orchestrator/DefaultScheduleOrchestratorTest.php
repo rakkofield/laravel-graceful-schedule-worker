@@ -10,18 +10,18 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeExecutionTracker;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpySchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 /**

@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
-
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 
 /**
  * テスト用の no-op Sleeper（呼び出し回数を記録する Spy）

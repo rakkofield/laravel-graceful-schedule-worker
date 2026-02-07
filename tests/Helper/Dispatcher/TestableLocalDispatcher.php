@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 
 /**

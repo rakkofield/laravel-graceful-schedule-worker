@@ -13,16 +13,15 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeCacheStore;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeLockProvider;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableGracefulScheduleWorkerProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeLockProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 class GracefulScheduleWorkerProviderTest extends TestCase

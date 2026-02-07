@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use Aws\Command;
 use Aws\Exception\AwsException;

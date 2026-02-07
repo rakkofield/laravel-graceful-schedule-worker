@@ -10,15 +10,14 @@ use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeAlreadyRunningDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeFailedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeAlreadyRunningDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeExecutionTracker;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeFailedDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeExecutionTracker;
 
 class TrackingDispatcherTest extends TestCase
 {

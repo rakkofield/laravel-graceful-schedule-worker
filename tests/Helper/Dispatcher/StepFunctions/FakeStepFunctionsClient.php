@@ -2,13 +2,9 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use DateTimeImmutable;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
 
 /**
  * テスト用の Fake Step Functions クライアント

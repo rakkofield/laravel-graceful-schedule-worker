@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 class NullExecutionTrackerTest extends TestCase
 {

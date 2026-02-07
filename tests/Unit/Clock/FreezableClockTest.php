@@ -7,8 +7,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 use DateTimeImmutable;
 use LogicException;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\AdvancingClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RuntimeException;
 
 class FreezableClockTest extends TestCase

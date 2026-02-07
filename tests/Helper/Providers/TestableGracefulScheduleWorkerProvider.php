@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
-
-use RakkoInc\LaravelGracefulScheduleWorker\Providers\GracefulScheduleWorkerProvider;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Providers;
 
 /**
  * Testable ServiceProvider that skips mergeConfigFrom

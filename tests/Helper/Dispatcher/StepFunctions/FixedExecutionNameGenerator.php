@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 
 /**
  * テスト用の固定 Execution Name Generator

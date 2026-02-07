@@ -33,10 +33,10 @@
         "psr-4": {
             "RakkoInc\\LaravelGracefulScheduleWorker\\": [
                 "tests/Unit/",
-                "tests/Integration/"
+                "tests/Integration/",
+                "tests/Helper/"
             ],
-            "RakkoInc\\LaravelGracefulScheduleWorker\\E2E\\": "tests/E2E/",
-            "RakkoInc\\LaravelGracefulScheduleWorker\\Helper\\": "tests/Helper/"
+            "RakkoInc\\LaravelGracefulScheduleWorker\\E2E\\": "tests/E2E/"
         }
     },
     "config": {

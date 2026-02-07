@@ -12,14 +12,14 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 class GracefulScheduleWorkCommandTest extends TestCase

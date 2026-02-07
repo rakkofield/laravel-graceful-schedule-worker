@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use Illuminate\Contracts\Redis\Factory;
 use Illuminate\Redis\Connections\PhpRedisConnection;

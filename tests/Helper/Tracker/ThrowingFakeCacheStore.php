@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 /**
  * put() で例外をスローする FakeCacheStore 拡張

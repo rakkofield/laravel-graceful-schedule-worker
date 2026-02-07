@@ -10,10 +10,9 @@ use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\RedisTestTrait;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 /**
  * CacheExecutionTracker の Redis 統合テスト

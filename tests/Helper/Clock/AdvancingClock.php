@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 
 use DateTimeImmutable;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 /**
  * now() を呼ぶたびに指定秒数進む Clock 実装

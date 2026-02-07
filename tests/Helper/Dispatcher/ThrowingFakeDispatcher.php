@@ -2,21 +2,26 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 
-class FakeDispatcher implements ScheduleDispatcherInterface
+/**
+ * テスト用：cleanup()/stopAll() で例外をスローする FakeDispatcher
+ */
+class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
 {
     /** @var DispatchResultInterface */
     private $resultToReturn;
 
-    /** @var array<array{event: Event, container: Container, dueAt: DateTimeInterface}> */
-    private $dispatched = [];
+    /** @var \Exception|null */
+    private $cleanupException;
+
+    /** @var \Exception|null */
+    private $stopAllException;
 
     /** @var int */
     private $cleanupCallCount = 0;
@@ -42,51 +47,29 @@ class FakeDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
-        $this->dispatched[] = ['event' => $event, 'container' => $container, 'dueAt' => $dueAt];
         return $this->resultToReturn;
     }
 
     /**
-     * Get dispatched events.
+     * Configure cleanup to throw an exception.
      *
-     * @return array<array{event: Event, container: Container, dueAt: DateTimeInterface}>
-     */
-    public function getDispatched(): array
-    {
-        return $this->dispatched;
-    }
-
-    /**
-     * Get dispatch count.
-     *
-     * @return int
-     */
-    public function getDispatchCount(): int
-    {
-        return count($this->dispatched);
-    }
-
-    /**
-     * Set the result to return on next dispatch.
-     *
-     * @param DispatchResultInterface $result
+     * @param \Exception $exception
      * @return void
      */
-    public function setResult(DispatchResultInterface $result): void
+    public function willThrowOnCleanup(\Exception $exception): void
     {
-        $this->resultToReturn = $result;
+        $this->cleanupException = $exception;
     }
 
     /**
-     * Reset all state.
+     * Configure stopAll to throw an exception.
      *
+     * @param \Exception $exception
      * @return void
      */
-    public function reset(): void
+    public function willThrowOnStopAll(\Exception $exception): void
     {
-        $this->dispatched = [];
-        $this->cleanupCallCount = 0;
-        $this->stopAllCallCount = 0;
+        $this->stopAllException = $exception;
     }
 
     /**
@@ -95,6 +78,9 @@ class FakeDispatcher implements ScheduleDispatcherInterface
     public function cleanup(): void
     {
         $this->cleanupCallCount++;
+        if ($this->cleanupException !== null) {
+            throw $this->cleanupException;
+        }
     }
 
     /**
@@ -103,6 +89,9 @@ class FakeDispatcher implements ScheduleDispatcherInterface
     public function stopAll(): void
     {
         $this->stopAllCallCount++;
+        if ($this->stopAllException !== null) {
+            throw $this->stopAllException;
+        }
     }
 
     /**

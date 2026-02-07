@@ -10,9 +10,7 @@ use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 
 /**
  * ClockAwareSchedule の Laravel 互換性テスト
