@@ -72,7 +72,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      */
     public function run(Schedule $schedule, Application $app, callable $shouldContinue): bool
     {
-        $lastExecutionStartedAt = $this->getCurrentTime()->modify('-10 minutes');
+        $lastExecutionStartedAt = null;
 
         // 起動時に一度だけ取りこぼしチェック
         $this->checkMissedExecutions($schedule, $app, Carbon::instance($this->getCurrentTime()));
