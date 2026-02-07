@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
-use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
@@ -75,7 +74,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         $lastExecutionStartedAt = null;
 
         // 起動時に一度だけ取りこぼしチェック
-        $this->checkMissedExecutions($schedule, $app, Carbon::instance($this->getCurrentTime()));
+        $this->checkMissedExecutions($schedule, $app, $this->getCurrentTime());
 
         while ($shouldContinue()) {
             // スリープを挟んで CPU 負荷を軽減
@@ -109,10 +108,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      *
      * @param Schedule $schedule
      * @param Application $app
-     * @param Carbon $now
+     * @param DateTimeInterface $now
      * @return void
      */
-    private function checkMissedExecutions(Schedule $schedule, Application $app, Carbon $now): void
+    private function checkMissedExecutions(Schedule $schedule, Application $app, DateTimeInterface $now): void
     {
         foreach ($schedule->events() as $event) {
             if (!$this->isRecoverableEvent($event)) {
@@ -149,12 +148,9 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      */
     private function recoverMissedEvent(Event $event, Application $app, DateTimeInterface $missedDue): void
     {
-        // ログ出力用に Carbon に変換
-        $missedDueCarbon = $missedDue instanceof Carbon ? $missedDue : Carbon::instance($missedDue);
-
         $this->logger->info('[GracefulScheduleWorker] Recovering missed event', [
             'event' => $event->mutexName(),
-            'due' => $missedDueCarbon->toDateTimeString(),
+            'due' => $missedDue->format('Y-m-d H:i:s'),
         ]);
 
         // リカバリでは filtersPass() をチェックしない。
@@ -184,8 +180,6 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         $doEvaluate = function () use ($schedule, $app, $now) {
             /** @var array<Event> $events */
             $events = $schedule->dueEvents($app);
-            $nowCarbon = Carbon::instance($now);
-
             foreach ($events as $event) {
                 try {
                     if (!$event->filtersPass($app)) {
@@ -205,7 +199,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                     );
                     continue;
                 }
-                $this->dispatcher->dispatchEvent($event, $app, $nowCarbon);
+                $this->dispatcher->dispatchEvent($event, $app, $now);
             }
         };
 
