@@ -556,7 +556,7 @@ sequenceDiagram
 ##### 継承関係（extends）
 
 - **`ClockAwareSchedule` extends `Schedule`**
-  Laravel の `Schedule` クラスを継承し、`exec()` / `command()` メソッドをオーバーライドすることで、`ClockAwareEvent` を返すように拡張します。これにより、Kernel.php のタイプヒントを変更するだけで拡張機能が利用可能になります。
+  Laravel の `Schedule` クラスを継承し、`exec()` / `command()` メソッドをオーバーライドすることで、`ClockAwareEvent` を返すように拡張します。利用側は `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし、`ClockAwareSchedule` を `Schedule` シングルトンとして登録することで拡張機能が利用可能になります。
 
 - **`ClockAwareEvent` extends `Event`**
   Laravel の `Event` クラスを継承し、`ClockInterface` を注入することで、テスト時の時刻固定と Grace Period 管理を実現します。
@@ -590,7 +590,10 @@ sequenceDiagram
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Kernel.php                                  │
-│  protected function schedule(ClockAwareSchedule $schedule)          │
+│  defineConsoleSchedule() で ClockAwareSchedule を Schedule に登録   │
+│                                                                     │
+│  /** @param ClockAwareSchedule $schedule */                         │
+│  protected function schedule(Schedule $schedule)                    │
 │  {                                                                  │
 │      $schedule->command('report:daily')                             │
 │          ->dailyAt('03:00')                                         │
@@ -653,7 +656,7 @@ sequenceDiagram
 
 **重要なポイント**:
 
-1. **型安全性**: `Kernel.php` のタイプヒントを `ClockAwareSchedule` にすることで、IDE 補完と静的解析が効く
+1. **型安全性**: `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし `ClockAwareSchedule` を登録。PHPDoc `@param ClockAwareSchedule` により IDE 補完と静的解析が効く
 2. **テスタビリティ**: `ClockInterface` により時刻を固定でき、決定論的なテストが可能
 3. **拡張性**: Dispatcher パターンにより、新しい実行方法（例: Kubernetes Job）を簡単に追加可能
 4. **信頼性**: ExecutionTracker により At-least-once セマンティックを実現し、取りこぼしを防止
@@ -1696,8 +1699,8 @@ interface ExecutionTrackerInterface
 - `ScheduleOrchestratorInterface` を `DefaultScheduleOrchestrator` として登録
 
 **重要なポイント**:
-- `Kernel.php` のタイプヒントを `ClockAwareSchedule` に変更するだけで拡張機能が利用可能
-- IDE 補完と静的解析ツールのサポートを維持
+- 利用側は `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし、`ClockAwareSchedule` を `Schedule` シングルトンとして登録する
+- PHPDoc `@param ClockAwareSchedule $schedule` により IDE 補完と静的解析ツールのサポートを維持
 - 後方互換性を保ちながら段階的な移行が可能
 
 ### ClockAwareSchedule
@@ -2213,11 +2216,25 @@ Laravel の `ManagesFrequencies` トレイトには `Carbon::now()` を直接使
 
 ```php
 // app/Console/Kernel.php
+use Illuminate\Console\Scheduling\Schedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class Kernel extends ConsoleKernel
 {
-    protected function schedule(ClockAwareSchedule $schedule)
+    // ClockAwareSchedule を Schedule シングルトンとして登録
+    protected function defineConsoleSchedule()
+    {
+        $this->app->singleton(Schedule::class, function ($app) {
+            $clock = $app->make(ClockInterface::class);
+            $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone());
+            $this->schedule($schedule->useCache($this->scheduleCache()));
+            return $schedule;
+        });
+    }
+
+    /** @param ClockAwareSchedule $schedule */
+    protected function schedule(Schedule $schedule)
     {
         // デフォルト: リカバリしない（安全）
         $schedule->command('heartbeat:send')
@@ -2241,9 +2258,8 @@ class Kernel extends ConsoleKernel
 ### 動的条件との組み合わせ
 
 ```php
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
-
-protected function schedule(ClockAwareSchedule $schedule)
+/** @param ClockAwareSchedule $schedule */
+protected function schedule(Schedule $schedule)
 {
     // 休日はスキップ + リカバリ有効
     $schedule->command('business:process')
@@ -2268,7 +2284,8 @@ protected function schedule(ClockAwareSchedule $schedule)
 ### リカバリの制御パターン
 
 ```php
-protected function schedule(ClockAwareSchedule $schedule)
+/** @param ClockAwareSchedule $schedule */
+protected function schedule(Schedule $schedule)
 {
     // パターン1: リカバリ不要（デフォルト）
     $schedule->command('heartbeat:send')
@@ -2304,10 +2321,10 @@ SCHEDULE_STATE_MACHINE_ARN=arn:aws:states:ap-northeast-1:123456789012:stateMachi
 SCHEDULE_TRACKER_ENABLED=true
 SCHEDULE_TRACKER_STORE=redis
 
-// Kernel.php
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
+// Kernel.php（defineConsoleSchedule() は「基本的な使い方」と同じ）
 
-protected function schedule(ClockAwareSchedule $schedule)
+/** @param ClockAwareSchedule $schedule */
+protected function schedule(Schedule $schedule)
 {
     $schedule->command('heavy:job')
         ->hourly()
