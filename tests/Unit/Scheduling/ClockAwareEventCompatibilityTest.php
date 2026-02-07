@@ -360,4 +360,110 @@ class ClockAwareEventCompatibilityTest extends TestCase
 
         $this->assertSame('my-task', $event->description);
     }
+
+    /**
+     * @testdox T6.23 typical Kernel.php chaining pattern works
+     */
+    public function testTypicalKernelChainPatternWorks(): void
+    {
+        $event = $this->createEvent('php artisan hello');
+        $result = $event->everyMinute()
+            ->runInBackground()
+            ->withGracePeriod(30)
+            ->appendOutputTo('/tmp/test.log')
+            ->before(function () {
+                // no-op
+            })
+            ->onSuccess(function () {
+                // no-op
+            })
+            ->onFailure(function () {
+                // no-op
+            })
+            ->after(function () {
+                // no-op
+            });
+
+        $this->assertSame($event, $result);
+        $this->assertSame('* * * * *', $event->expression);
+        $this->assertTrue($event->isRecoverable());
+        $this->assertNotNull($event->getGracePeriod());
+        $this->assertTrue($event->runInBackground);
+    }
+
+    /**
+     * @testdox T6.24 onOneServer chaining works
+     */
+    public function testOnOneServerChaining(): void
+    {
+        $event = $this->createEvent();
+        $result = $event->everyMinute()
+            ->onOneServer()
+            ->withGracePeriod(30);
+
+        $this->assertSame($event, $result);
+        $this->assertTrue($event->isRecoverable());
+    }
+
+    /**
+     * @testdox T6.25 withGracePeriod(0) sets recoverable without grace period
+     */
+    public function testWithGracePeriodZeroSetsRecoverableWithoutGracePeriod(): void
+    {
+        $event = $this->createEvent();
+        $event->withGracePeriod(0);
+
+        $this->assertTrue($event->isRecoverable());
+        $this->assertNull($event->getGracePeriod());
+    }
+
+    /**
+     * @testdox T6.26 everyFiveMinutes sets correct cron expression
+     */
+    public function testEveryFiveMinutesSetsCorrectCron(): void
+    {
+        $event = $this->createEvent();
+        $event->everyFiveMinutes();
+
+        $this->assertSame('*/5 * * * *', $event->expression);
+    }
+
+    /**
+     * @testdox T6.27 dispatchVia chained with schedule methods
+     */
+    public function testDispatchViaChainedWithScheduleMethods(): void
+    {
+        $event = $this->createEvent();
+        $result = $event->hourly()
+            ->dispatchVia('stepfunctions')
+            ->enableRecovery()
+            ->runInBackground();
+
+        $this->assertSame($event, $result);
+        $this->assertSame('stepfunctions', $event->getDispatcherType());
+        $this->assertTrue($event->isRecoverable());
+        $this->assertTrue($event->runInBackground);
+    }
+
+    /**
+     * @testdox T6.28 getSummaryForDisplay returns command summary
+     */
+    public function testGetSummaryForDisplayReturnsCommandSummary(): void
+    {
+        $event = $this->createEvent('php artisan report:generate');
+        $summary = $event->getSummaryForDisplay();
+
+        $this->assertStringContainsString('report:generate', $summary);
+    }
+
+    /**
+     * @testdox T6.29 mutexName is consistent for same command
+     */
+    public function testMutexNameConsistentForSameCommand(): void
+    {
+        $event1 = $this->createEvent('php artisan test');
+        $event2 = $this->createEvent('php artisan test');
+
+        $this->assertSame($event1->mutexName(), $event2->mutexName());
+    }
 }

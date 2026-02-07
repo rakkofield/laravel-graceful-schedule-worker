@@ -11,6 +11,7 @@ use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 
 /**
  * ClockAwareSchedule の Laravel 互換性テスト
@@ -125,5 +126,101 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
 
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
         $this->assertSame('Asia/Tokyo', $event->timezone);
+    }
+
+    /**
+     * @testdox T5.6 dueEvents() returns only events due at clock time
+     */
+    public function testDueEventsReturnsOnlyEventsDueAtClockTime(): void
+    {
+        $app = new FakeApplication();
+
+        // clock = 12:00 → everyMinute は due、dailyAt('03:00') は not due
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
+
+        $this->schedule->exec('echo every-minute')->everyMinute();
+        $this->schedule->exec('echo daily-three')->dailyAt('03:00');
+
+        $dueEvents = $this->schedule->dueEvents($app)->all();
+
+        $this->assertCount(1, $dueEvents);
+        $this->assertStringContainsString('every-minute', $dueEvents[0]->command);
+    }
+
+    /**
+     * @testdox T5.7 evaluateAt() freezes time for dueEvents() evaluation
+     */
+    public function testEvaluateAtFreezesDueEventsEvaluation(): void
+    {
+        $app = new FakeApplication();
+
+        // clock の実時刻は 12:00 だが、evaluateAt で 03:00 に freeze
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
+
+        $this->schedule->exec('echo every-minute')->everyMinute();
+        $this->schedule->exec('echo daily-three')->dailyAt('03:00');
+
+        $frozenTime = new DateTimeImmutable('2024-01-15 03:00:00');
+        $dueEvents = [];
+
+        $this->schedule->evaluateAt($frozenTime, function () use ($app, &$dueEvents) {
+            $dueEvents = $this->schedule->dueEvents($app)->all();
+        });
+
+        // 03:00 に freeze → everyMinute と dailyAt('03:00') 両方 due
+        $this->assertCount(2, $dueEvents);
+    }
+
+    /**
+     * @testdox T5.8 job() returns CallbackEvent (not ClockAwareEvent)
+     */
+    public function testJobReturnsCallbackEvent(): void
+    {
+        // job() は内部で call() を使うため CallbackEvent を返す
+        $event = $this->schedule->job(new class {
+            public function handle(): void
+            {
+            }
+        });
+
+        $this->assertInstanceOf(CallbackEvent::class, $event);
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $event);
+    }
+
+    /**
+     * @testdox T5.9 events() returns mixed ClockAwareEvent and CallbackEvent
+     */
+    public function testEventsReturnsMixedTypes(): void
+    {
+        $this->schedule->exec('echo test');
+        $this->schedule->command('echo test2');
+        $this->schedule->call(function () {
+            return true;
+        });
+
+        $events = $this->schedule->events();
+
+        $this->assertCount(3, $events);
+        $this->assertInstanceOf(ClockAwareEvent::class, $events[0]);
+        $this->assertInstanceOf(ClockAwareEvent::class, $events[1]);
+        $this->assertInstanceOf(CallbackEvent::class, $events[2]);
+    }
+
+    /**
+     * @testdox T5.10 dueEvents() changes result when clock advances
+     */
+    public function testDueEventsChangesWhenClockAdvances(): void
+    {
+        $app = new FakeApplication();
+
+        $this->schedule->exec('echo daily-noon')->dailyAt('12:00');
+
+        // 12:00 → due
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $this->assertCount(1, $this->schedule->dueEvents($app)->all());
+
+        // 12:01 → not due
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:01:00'));
+        $this->assertCount(0, $this->schedule->dueEvents($app)->all());
     }
 }

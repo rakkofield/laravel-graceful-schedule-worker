@@ -121,6 +121,20 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
+     * @testdox T1.5.4
+     */
+    public function testWithGracePeriodZeroSetsRecoverableWithoutGracePeriod(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+
+        $event->withGracePeriod(0);
+
+        $this->assertTrue($event->isRecoverable());
+        $this->assertNull($event->getGracePeriod());
+    }
+
+    /**
      * @testdox T1.6.1
      */
     public function testEnableRecoverySetsRecoverableWithUnlimitedGrace(): void
