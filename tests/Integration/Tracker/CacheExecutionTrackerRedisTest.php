@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use Carbon\Carbon;
-use Illuminate\Cache\RedisStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
@@ -13,9 +12,8 @@ use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestRedisFactory;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\RedisTestTrait;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
-use Redis;
 
 /**
  * CacheExecutionTracker の Redis 統合テスト
@@ -24,6 +22,8 @@ use Redis;
  */
 class CacheExecutionTrackerRedisTest extends TestCase
 {
+    use RedisTestTrait;
+
     /**
      * @var Repository
      */
@@ -59,49 +59,6 @@ class CacheExecutionTrackerRedisTest extends TestCase
             $this->cache->flush();
         }
         parent::tearDown();
-    }
-
-    /**
-     * @return string
-     */
-    private function getRedisHost(): string
-    {
-        return getenv('REDIS_HOST') ?: '127.0.0.1';
-    }
-
-    /**
-     * @return int
-     */
-    private function getRedisPort(): int
-    {
-        return (int) (getenv('REDIS_PORT') ?: 6379);
-    }
-
-    /**
-     * @return bool
-     */
-    private function isRedisAvailable(): bool
-    {
-        try {
-            $redis = new Redis();
-            $redis->connect($this->getRedisHost(), $this->getRedisPort(), 1.0);
-            $redis->ping();
-            $redis->close();
-            return true;
-        } catch (\Exception $e) {
-            return false;
-        }
-    }
-
-    /**
-     * @return Repository
-     */
-    private function createRedisCache(): Repository
-    {
-        $factory = new TestRedisFactory($this->getRedisHost(), $this->getRedisPort());
-        $store = new RedisStore($factory, 'test:');
-
-        return new Repository($store);
     }
 
     /**

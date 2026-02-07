@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use Carbon\Carbon;
 use DateTimeImmutable;
-use Illuminate\Cache\RedisStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
@@ -16,11 +15,10 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeFailedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\RedisTestTrait;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
-use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestRedisFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
-use Redis;
 
 /**
  * TrackingDispatcher + CacheExecutionTracker + Redis の統合テスト
@@ -29,6 +27,8 @@ use Redis;
  */
 class TrackingDispatcherRedisIntegrationTest extends TestCase
 {
+    use RedisTestTrait;
+
     /** @var Repository */
     private $cache;
 
@@ -64,7 +64,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
         $this->mutex = new FakeEventMutex();
         $this->logger = new SpyLogger();
 
-        $this->cache = $this->createRedisCache();
+        $this->cache = $this->createRedisCache('test:tracking:');
         $this->cache->flush();
 
         $store = $this->cache->getStore();
@@ -82,49 +82,6 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
         }
         Container::setInstance(null);
         parent::tearDown();
-    }
-
-    /**
-     * @return string
-     */
-    private function getRedisHost(): string
-    {
-        return getenv('REDIS_HOST') ?: '127.0.0.1';
-    }
-
-    /**
-     * @return int
-     */
-    private function getRedisPort(): int
-    {
-        return (int) (getenv('REDIS_PORT') ?: 6379);
-    }
-
-    /**
-     * @return bool
-     */
-    private function isRedisAvailable(): bool
-    {
-        try {
-            $redis = new Redis();
-            $redis->connect($this->getRedisHost(), $this->getRedisPort(), 1.0);
-            $redis->ping();
-            $redis->close();
-            return true;
-        } catch (\Exception $e) {
-            return false;
-        }
-    }
-
-    /**
-     * @return Repository
-     */
-    private function createRedisCache(): Repository
-    {
-        $factory = new TestRedisFactory($this->getRedisHost(), $this->getRedisPort());
-        $store = new RedisStore($factory, 'test:tracking:');
-
-        return new Repository($store);
     }
 
     /**

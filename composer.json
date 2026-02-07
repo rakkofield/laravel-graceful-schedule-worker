@@ -35,6 +35,7 @@
                 "tests/Unit/",
                 "tests/Integration/"
             ],
+            "RakkoInc\\LaravelGracefulScheduleWorker\\E2E\\": "tests/E2E/",
             "RakkoInc\\LaravelGracefulScheduleWorker\\Helper\\": "tests/Helper/"
         }
     },

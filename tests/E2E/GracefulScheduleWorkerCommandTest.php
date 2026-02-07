@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
+namespace RakkoInc\LaravelGracefulScheduleWorker\E2E;
 
 use Illuminate\Console\Application;
 use PHPUnit\Framework\TestCase;
@@ -24,7 +24,7 @@ use Symfony\Component\Process\Process;
  */
 final class GracefulScheduleWorkerCommandTest extends TestCase
 {
-    private const SKELETON_PATH = __DIR__ . '/../../../skeleton';
+    private const SKELETON_PATH = __DIR__ . '/../../skeleton';
     private const MAX_WAIT_SECONDS = 10;
     private const POLL_INTERVAL_MICROSECONDS = 100000; // 100ms
 
