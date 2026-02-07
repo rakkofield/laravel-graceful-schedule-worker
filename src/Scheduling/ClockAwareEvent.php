@@ -9,7 +9,6 @@ use Cron\CronExpression;
 use DateInterval;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
-use Illuminate\Support\Carbon;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 class ClockAwareEvent extends Event
@@ -124,13 +123,14 @@ class ClockAwareEvent extends Event
      */
     protected function expressionPasses()
     {
-        $date = Carbon::instance($this->clock->now());
+        $date = $this->clock->now();
 
         if ($this->timezone) {
-            $date->setTimezone($this->timezone);
+            $tz = $this->timezone instanceof \DateTimeZone ? $this->timezone : new \DateTimeZone($this->timezone);
+            $date = $date->setTimezone($tz);
         }
 
-        return CronExpression::factory($this->expression)->isDue($date->toDateTimeString());
+        return CronExpression::factory($this->expression)->isDue($date->format('Y-m-d H:i:s'));
     }
 
     /**
@@ -167,27 +167,37 @@ class ClockAwareEvent extends Event
     private function clockAwareTimeInterval($startTime, $endTime)
     {
         return function () use ($startTime, $endTime) {
-            $now = Carbon::instance($this->clock->now());
+            $now = $this->clock->now();
 
             if ($this->timezone) {
-                $now = $now->setTimezone($this->timezone);
+                $tz = $this->timezone instanceof \DateTimeZone ? $this->timezone : new \DateTimeZone($this->timezone);
+                $now = $now->setTimezone($tz);
             }
 
-            /** @var Carbon $start */
-            $start = $now->copy()->setTimeFromTimeString($startTime);
-            /** @var Carbon $end */
-            $end = $now->copy()->setTimeFromTimeString($endTime);
+            $start = $this->applyTimeString($now, $startTime);
+            $end = $this->applyTimeString($now, $endTime);
 
-            if ($end->lessThan($start)) {
-                if ($start->greaterThan($now)) {
-                    $start->subDay();
+            if ($end < $start) {
+                if ($start > $now) {
+                    $start = $start->modify('-1 day');
                 } else {
-                    $end->addDay();
+                    $end = $end->modify('+1 day');
                 }
             }
 
-            return $now->between($start, $end);
+            return $now >= $start && $now <= $end;
         };
+    }
+
+    /**
+     * @param \DateTimeImmutable $date
+     * @param string $timeString "HH:MM" or "HH:MM:SS"
+     * @return \DateTimeImmutable
+     */
+    private function applyTimeString(\DateTimeImmutable $date, string $timeString): \DateTimeImmutable
+    {
+        $parts = explode(':', $timeString);
+        return $date->setTime((int) $parts[0], (int) ($parts[1] ?? 0), (int) ($parts[2] ?? 0));
     }
 
     /**
