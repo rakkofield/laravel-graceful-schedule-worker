@@ -27,13 +27,12 @@ class ExecutionNameGenerator implements ExecutionNameGeneratorInterface
     public function generate(Event $event, DateTimeInterface $dueAt): string
     {
         $mutexName = $event->mutexName();
-        $timestamp = $dueAt->format('Y-m-d\TH-i-s');
+        $timestamp = (string) $dueAt->getTimestamp();
 
         // 不正な文字を置換
         $sanitizedMutex = $this->sanitize($mutexName);
-        $sanitizedTimestamp = $this->sanitize($timestamp);
 
-        $name = $sanitizedMutex . '_' . $sanitizedTimestamp;
+        $name = $sanitizedMutex . '_' . $timestamp;
 
         // 80 文字を超える場合はハッシュを使用
         if (strlen($name) > self::MAX_LENGTH) {

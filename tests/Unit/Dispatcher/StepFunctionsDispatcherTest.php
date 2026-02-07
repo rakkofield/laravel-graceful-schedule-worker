@@ -117,7 +117,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
         // mutexName に不正な文字が含まれていても sanitize される
-        $this->assertStringContainsString('2024-01-15T10-30-00', $execution['name']);
+        $this->assertStringContainsString('1705282200', $execution['name']);
     }
 
     /**

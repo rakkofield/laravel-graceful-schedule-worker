@@ -48,7 +48,7 @@ class ExecutionNameGeneratorTest extends TestCase
 
         // mutexName は Event の内部フォーマットに依存するため、
         // タイムスタンプ部分が含まれることを確認
-        $this->assertStringContainsString('2024-01-01T00-00-00', $result);
+        $this->assertStringContainsString('1704067200', $result);
     }
 
     /**
@@ -120,8 +120,8 @@ class ExecutionNameGeneratorTest extends TestCase
         $result = $this->generator->generate($event, $dueAt);
 
         $this->assertLessThanOrEqual(80, strlen($result));
-        // 短い入力ではハッシュ（md5の16文字部分）が使われず、タイムスタンプが含まれる
-        $this->assertStringContainsString('2024-01-01T00-00-00', $result);
+        // 短い入力ではハッシュが使われず、Unix timestamp が含まれる
+        $this->assertStringContainsString('1704067200', $result);
     }
 
     /**
