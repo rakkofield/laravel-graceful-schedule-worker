@@ -32,6 +32,9 @@ class CompositeDispatcherTest extends TestCase
     /** @var DateTimeImmutable */
     private $dueAt;
 
+    /** @var SpyLogger */
+    private $logger;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -42,6 +45,7 @@ class CompositeDispatcherTest extends TestCase
             return $this->mutex;
         });
         $this->dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+        $this->logger = new SpyLogger();
     }
 
     protected function tearDown(): void
@@ -81,7 +85,8 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local'
+            'local',
+            $this->logger
         );
 
         $event = $this->createClockAwareEvent('echo test', 'stepfunctions');
@@ -111,7 +116,8 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local'
+            'local',
+            $this->logger
         );
 
         $event = $this->createEvent('echo test');
@@ -141,7 +147,8 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local'
+            'local',
+            $this->logger
         );
 
         $event = $this->createClockAwareEvent('echo test', null);
@@ -165,7 +172,8 @@ class CompositeDispatcherTest extends TestCase
 
         $dispatcher = new CompositeDispatcher(
             ['local' => $localDispatcher],
-            'local'
+            'local',
+            $this->logger
         );
 
         $event = $this->createClockAwareEvent('echo test', 'unknown');
@@ -186,7 +194,8 @@ class CompositeDispatcherTest extends TestCase
 
         $dispatcher = new CompositeDispatcher(
             ['local' => $localDispatcher],
-            'local'
+            'local',
+            $this->logger
         );
 
         $event = $this->createEvent('echo test');
@@ -204,7 +213,7 @@ class CompositeDispatcherTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Dispatchers array cannot be empty');
 
-        new CompositeDispatcher([], 'local');
+        new CompositeDispatcher([], 'local', $this->logger);
     }
 
     /**
@@ -222,7 +231,8 @@ class CompositeDispatcherTest extends TestCase
 
         new CompositeDispatcher(
             ['local' => $localDispatcher],
-            'nonexistent'
+            'nonexistent',
+            $this->logger
         );
     }
 
@@ -242,7 +252,8 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local'
+            'local',
+            $this->logger
         );
 
         $dispatcher->cleanup();
@@ -267,7 +278,8 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local'
+            'local',
+            $this->logger
         );
 
         $dispatcher->stopAll();
@@ -293,7 +305,8 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $throwingDispatcher,
                 'stepfunctions' => $normalDispatcher,
             ],
-            'local'
+            'local',
+            $this->logger
         );
 
         // 例外がスローされないこと
@@ -321,7 +334,8 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $throwingDispatcher,
                 'stepfunctions' => $normalDispatcher,
             ],
-            'local'
+            'local',
+            $this->logger
         );
 
         // 例外がスローされないこと

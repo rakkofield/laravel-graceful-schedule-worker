@@ -12,6 +12,7 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedExecutionNameGenerator;
 
@@ -109,7 +110,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     }
 
     private function createDispatcher(
-        ExecutionNameGenerator $nameGenerator = null
+        ExecutionNameGeneratorInterface $nameGenerator = null
     ): StepFunctionsDispatcher {
         $adapter = new AwsSfnClientAdapter($this->sfnClient);
         return new StepFunctionsDispatcher(

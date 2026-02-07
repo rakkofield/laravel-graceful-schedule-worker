@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
@@ -61,7 +62,8 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             return new SkippedDispatchResult(
                 $event->mutexName(),
                 (string) $event->command,
-                'lock_not_acquired'
+                'lock_not_acquired',
+                new DateTimeImmutable()
             );
         }
 

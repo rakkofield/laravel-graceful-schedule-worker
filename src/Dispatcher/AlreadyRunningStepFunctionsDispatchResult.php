@@ -29,18 +29,18 @@ class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatc
      * @param string $executionName
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param DateTimeImmutable|null $dispatchedAt
+     * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
-        ?DateTimeImmutable $dispatchedAt = null
+        DateTimeImmutable $dispatchedAt
     ) {
         $this->executionName = $executionName;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
-        $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
+        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**

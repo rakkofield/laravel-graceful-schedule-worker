@@ -61,35 +61,6 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.7
-     */
-    public function testReturnsCurrentTimeFromClock(): void
-    {
-        $fixedTime = new DateTimeImmutable('2024-01-01 12:00:00');
-        $clock = new FixedClock($fixedTime);
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
-
-        $currentTime = $event->getCurrentTime();
-
-        $this->assertEquals($fixedTime, $currentTime);
-    }
-
-    /**
-     * @testdox T1.7.1
-     */
-    public function testReturnsSameTimeOnMultipleCallsWithFixedClock(): void
-    {
-        $fixedTime = new DateTimeImmutable('2024-01-01 12:00:00');
-        $clock = new FixedClock($fixedTime);
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
-
-        $time1 = $event->getCurrentTime();
-        $time2 = $event->getCurrentTime();
-
-        $this->assertEquals($time1->getTimestamp(), $time2->getTimestamp());
-    }
-
-    /**
      * @testdox T1.8
      */
     public function testRecoverableIsFalseByDefault(): void

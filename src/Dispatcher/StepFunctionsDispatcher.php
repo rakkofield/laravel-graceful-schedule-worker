@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 
 /**
@@ -24,18 +25,18 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /** @var string */
     private $stateMachineArn;
 
-    /** @var ExecutionNameGenerator */
+    /** @var ExecutionNameGeneratorInterface */
     private $nameGenerator;
 
     /**
      * @param StepFunctionsClientInterface $client
      * @param string $stateMachineArn
-     * @param ExecutionNameGenerator $nameGenerator
+     * @param ExecutionNameGeneratorInterface $nameGenerator
      */
     public function __construct(
         StepFunctionsClientInterface $client,
         string $stateMachineArn,
-        ExecutionNameGenerator $nameGenerator
+        ExecutionNameGeneratorInterface $nameGenerator
     ) {
         $this->client = $client;
         $this->stateMachineArn = $stateMachineArn;
@@ -49,8 +50,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     {
         $mutexName = $event->mutexName();
         $command = $event->command;
-        $timestamp = $dueAt->format('Y-m-d\TH-i-s');
-        $executionName = $this->nameGenerator->generate($mutexName, $timestamp);
+        $executionName = $this->nameGenerator->generate($event, $dueAt);
 
         try {
             $input = json_encode([
@@ -73,13 +73,15 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 $result->getExecutionArn(),
                 $executionName,
                 $mutexName,
-                (string) $command
+                (string) $command,
+                new DateTimeImmutable()
             );
         } catch (ExecutionAlreadyExistsException $e) {
             return new AlreadyRunningStepFunctionsDispatchResult(
                 $executionName,
                 $mutexName,
-                (string) $command
+                (string) $command,
+                new DateTimeImmutable()
             );
         } catch (\Exception $e) {
             // StepFunctionsException およびその他の Exception を処理

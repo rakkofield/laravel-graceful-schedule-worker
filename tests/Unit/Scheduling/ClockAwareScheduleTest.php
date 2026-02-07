@@ -66,7 +66,7 @@ class ClockAwareScheduleTest extends TestCase
     /**
      * @testdox T1.14
      */
-    public function testInjectsSameClockToAllEvents(): void
+    public function testCreatesClockAwareEventsFromMultipleMethods(): void
     {
         $fixedTime = new DateTimeImmutable('2024-01-01 12:00:00');
         $clock = new FixedClock($fixedTime);
@@ -76,9 +76,9 @@ class ClockAwareScheduleTest extends TestCase
         $event2 = $schedule->command('php artisan test2');
         $event3 = $schedule->exec('ls -la');
 
-        $this->assertEquals($fixedTime, $event1->getCurrentTime());
-        $this->assertEquals($fixedTime, $event2->getCurrentTime());
-        $this->assertEquals($fixedTime, $event3->getCurrentTime());
+        $this->assertInstanceOf(ClockAwareEvent::class, $event1);
+        $this->assertInstanceOf(ClockAwareEvent::class, $event2);
+        $this->assertInstanceOf(ClockAwareEvent::class, $event3);
     }
 
     /**

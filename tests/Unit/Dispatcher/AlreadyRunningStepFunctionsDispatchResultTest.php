@@ -20,7 +20,8 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
         $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
-            'php artisan schedule:run'
+            'php artisan schedule:run',
+            new DateTimeImmutable()
         );
 
         $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result);
@@ -34,7 +35,8 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
         $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
-            'php artisan schedule:run'
+            'php artisan schedule:run',
+            new DateTimeImmutable()
         );
 
         $this->assertSame('stepfunctions', $result->getDispatcherType());
@@ -48,7 +50,8 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
         $result = new AlreadyRunningStepFunctionsDispatchResult(
             'my-execution',
             'framework/schedule-mutex',
-            'php artisan schedule:run'
+            'php artisan schedule:run',
+            new DateTimeImmutable()
         );
 
         $this->assertSame('my-execution', $result->getExecutionName());
@@ -62,7 +65,8 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
         $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
-            'php artisan schedule:run'
+            'php artisan schedule:run',
+            new DateTimeImmutable()
         );
 
         $this->assertSame('framework/schedule-mutex', $result->getEventIdentifier());
@@ -76,7 +80,8 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
         $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
-            'php artisan schedule:run'
+            'php artisan schedule:run',
+            new DateTimeImmutable()
         );
 
         $this->assertSame('php artisan schedule:run', $result->getEventCommand());
@@ -87,17 +92,16 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
-        $before = new DateTimeImmutable();
+        $now = new DateTimeImmutable();
         $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
-            'php artisan schedule:run'
+            'php artisan schedule:run',
+            $now
         );
-        $after = new DateTimeImmutable();
 
         $this->assertInstanceOf(DateTimeImmutable::class, $result->getDispatchedAt());
-        $this->assertGreaterThanOrEqual($before, $result->getDispatchedAt());
-        $this->assertLessThanOrEqual($after, $result->getDispatchedAt());
+        $this->assertSame($now, $result->getDispatchedAt());
     }
 
     /**

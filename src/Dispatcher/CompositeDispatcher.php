@@ -8,7 +8,6 @@ use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
@@ -28,10 +27,10 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /**
      * @param array<string, ScheduleDispatcherInterface> $dispatchers
      * @param string $defaultType
-     * @param LoggerInterface|null $logger ロガー（null の場合は NullLogger）
+     * @param LoggerInterface $logger ロガー
      * @throws \InvalidArgumentException dispatchers が空または defaultType が存在しない場合
      */
-    public function __construct(array $dispatchers, string $defaultType, ?LoggerInterface $logger = null)
+    public function __construct(array $dispatchers, string $defaultType, LoggerInterface $logger)
     {
         if (empty($dispatchers)) {
             throw new \InvalidArgumentException('Dispatchers array cannot be empty');
@@ -46,7 +45,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
 
         $this->dispatchers = $dispatchers;
         $this->defaultType = $defaultType;
-        $this->logger = $logger ?? new NullLogger();
+        $this->logger = $logger;
     }
 
     /**

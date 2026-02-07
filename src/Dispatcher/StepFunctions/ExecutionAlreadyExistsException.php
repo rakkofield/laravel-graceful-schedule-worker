@@ -11,26 +11,12 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
  */
 class ExecutionAlreadyExistsException extends StepFunctionsException
 {
-    /** @var string */
-    private $executionName;
-
     /**
      * @param string $executionName 既存の Execution 名
      * @param string $message エラーメッセージ
      */
     public function __construct(string $executionName, string $message = '')
     {
-        $this->executionName = $executionName;
         parent::__construct($message ?: "Execution '{$executionName}' already exists");
-    }
-
-    /**
-     * 既存の Execution 名を取得
-     *
-     * @return string
-     */
-    public function getExecutionName(): string
-    {
-        return $this->executionName;
     }
 }

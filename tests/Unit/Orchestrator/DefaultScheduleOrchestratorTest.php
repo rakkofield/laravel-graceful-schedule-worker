@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeDispatcher;
@@ -17,8 +18,10 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 /**
@@ -53,6 +56,9 @@ class DefaultScheduleOrchestratorTest extends TestCase
     /** @var NullLogger */
     private $logger;
 
+    /** @var NullSleeper */
+    private $sleeper;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -70,6 +76,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // 時刻を 12:00:00 に固定（秒が 0 の状態）
         $this->clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $this->logger = new NullLogger();
+        $this->sleeper = new NullSleeper();
     }
 
     protected function tearDown(): void
@@ -97,6 +104,24 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
+     * @param ExecutionTrackerInterface|null $tracker
+     * @param LoggerInterface|null $logger
+     * @return DefaultScheduleOrchestrator
+     */
+    private function createOrchestrator(
+        $tracker = null,
+        $logger = null
+    ): DefaultScheduleOrchestrator {
+        return new DefaultScheduleOrchestrator(
+            $this->dispatcher,
+            $this->clock,
+            $tracker ?? new NullExecutionTracker(),
+            $logger ?? $this->logger,
+            $this->sleeper
+        );
+    }
+
+    /**
      * @testdox T3.1 run_executes_due_events
      */
     public function testRunExecutesDueEvents(): void
@@ -107,9 +132,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $tracker = new NullExecutionTracker();
-        // テスト時はスリープを無効化（sleepMicroseconds = 0）
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         // shouldContinue は 1 回だけ true を返してからすぐ false を返す
         $callCount = 0;
@@ -133,8 +156,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // due でないイベントは dueEvents に含まれないため、空配列を設定
         $this->schedule->setDueEvents([]);
 
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -157,8 +179,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event3 = $this->createEvent('echo test3');
         $this->schedule->setDueEvents([$event1, $event2, $event3]);
 
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -183,8 +204,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         // 最初から false を返す
         $shouldContinue = function () {
@@ -206,8 +226,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -233,8 +252,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'local');
         $this->dispatcher->setResult($result);
 
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -259,8 +277,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -285,8 +302,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         // 3回ループする
         $callCount = 0;
@@ -313,8 +329,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         // 時刻を毎分0秒に固定（setUp で 12:00:00 に設定済み）
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         // shouldContinue で 3 回ループを回す
         $callCount = 0;
@@ -342,8 +357,13 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         // 秒を 30 に設定（0 でないのでスキップされる）
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:30'));
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $clock, $tracker, $this->logger, 0);
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $this->dispatcher,
+            $clock,
+            new NullExecutionTracker(),
+            $this->logger,
+            $this->sleeper
+        );
 
         // shouldContinue で 2 回ループを回す
         $callCount = 0;
@@ -369,8 +389,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $tracker = new NullExecutionTracker();
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator();
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -414,7 +433,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator($tracker);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -453,7 +472,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator($tracker);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -489,7 +508,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        $orchestrator = new DefaultScheduleOrchestrator($this->dispatcher, $this->clock, $tracker, $this->logger, 0);
+        $orchestrator = $this->createOrchestrator($tracker);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {
@@ -531,13 +550,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
             $logMessages[] = ['level' => 'info', 'message' => $message, 'context' => $context];
         });
 
-        $orchestrator = new DefaultScheduleOrchestrator(
-            $this->dispatcher,
-            $this->clock,
-            $tracker,
-            $spyLogger,
-            0
-        );
+        $orchestrator = $this->createOrchestrator($tracker, $spyLogger);
 
         $callCount = 0;
         $shouldContinue = function () use (&$callCount) {

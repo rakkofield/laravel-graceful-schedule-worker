@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
+use DateTimeInterface;
+use Illuminate\Console\Scheduling\Event;
+
 /**
  * Step Functions Execution Name を生成するクラス
  *
@@ -11,7 +14,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
  * - 最大 80 文字
  * - 使用可能文字: a-z, A-Z, 0-9, -, _
  */
-class ExecutionNameGenerator
+class ExecutionNameGenerator implements ExecutionNameGeneratorInterface
 {
     /**
      * Execution Name の最大長
@@ -19,14 +22,13 @@ class ExecutionNameGenerator
     private const MAX_LENGTH = 80;
 
     /**
-     * mutexName とタイムスタンプから Execution Name を生成
-     *
-     * @param string $mutexName Event の mutex 名
-     * @param string $timestamp タイムスタンプ（ISO 8601 形式など）
-     * @return string Execution Name
+     * {@inheritdoc}
      */
-    public function generate(string $mutexName, string $timestamp): string
+    public function generate(Event $event, DateTimeInterface $dueAt): string
     {
+        $mutexName = $event->mutexName();
+        $timestamp = $dueAt->format('Y-m-d\TH-i-s');
+
         // 不正な文字を置換
         $sanitizedMutex = $this->sanitize($mutexName);
         $sanitizedTimestamp = $this->sanitize($timestamp);

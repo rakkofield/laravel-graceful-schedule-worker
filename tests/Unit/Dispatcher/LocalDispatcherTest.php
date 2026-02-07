@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyCallbackEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableLocalDispatcher;
@@ -67,7 +68,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testReturnsLocalDispatchResult(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
@@ -81,7 +82,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testReturnsStartedDispatchResultInterfaceOnSuccess(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
@@ -94,7 +95,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testReturnsCorrectEventIdentifier(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
@@ -107,7 +108,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testReturnsCorrectEventCommand(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('php artisan report:daily');
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
@@ -121,7 +122,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testReturnsCorrectDispatcherType(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
@@ -134,7 +135,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testStartsProcessInBackground(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('sleep 0.1');
         $event->runInBackground = true;
 
@@ -152,7 +153,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testReturnsDispatchedAtTimestamp(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
 
         $before = new \DateTimeImmutable();
@@ -170,7 +171,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testHasRunningProcessImmediatelyAfterDispatch(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('sleep 2');
         $event->runInBackground = true;
 
@@ -186,7 +187,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testBeforeCallbacksAreCalledBeforeDispatch(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createSpyEvent('echo test');
 
         $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
@@ -199,7 +200,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testBuildCommandIncludesScheduleFinish(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
         $event->runInBackground = true;
 
@@ -214,7 +215,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testRunInBackgroundIsPreservedAfterDispatch(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
         $event->runInBackground = false;
 
@@ -229,7 +230,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testOutputRedirectionIsIncludedInCommand(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
         $event->sendOutputTo('/tmp/test-output.log');
 
@@ -244,7 +245,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testReturnsFailedWhenBeforeCallbackThrows(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createSpyEvent('echo test');
         $event->throwOnBeforeCallback(new \RuntimeException('Test exception'));
 
@@ -260,7 +261,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testRethrowsErrorFromBeforeCallback(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createSpyEvent('echo test');
         $event->throwOnBeforeCallback(new \Error('Test error'));
 
@@ -275,7 +276,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testCleanupRemovesCompletedProcesses(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
 
         // 即座に完了するプロセスをディスパッチ（background）
         $event1 = $this->createEvent('echo test1');
@@ -306,7 +307,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testStopAllStopsAllRunningProcesses(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
 
         // 複数のプロセスをディスパッチ（background）
         $event1 = $this->createEvent('sleep 10');
@@ -334,7 +335,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testStopAllHandlesAlreadyStoppedProcesses(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
 
         // 即座に完了するプロセスをディスパッチ（background）
         $event = $this->createEvent('echo test');
@@ -357,7 +358,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testDispatchEventAddsResultToRunningProcesses(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
 
         $event = $this->createEvent('sleep 5');
         $event->runInBackground = true;
@@ -377,7 +378,7 @@ class LocalDispatcherTest extends TestCase
 
     private function createStubResult(StubProcess $process, string $identifier = 'test'): StartedLocalDispatchResult
     {
-        return new StartedLocalDispatchResult($process, $identifier, 'echo stub');
+        return new StartedLocalDispatchResult($process, $identifier, 'echo stub', new DateTimeImmutable());
     }
 
     /**
@@ -385,7 +386,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testStopAllSendsSignalToAllProcesses(): void
     {
-        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), 0.1);
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.1);
 
         $proc1 = new StubProcess(true);
         $proc1->setTerminateOnSignal(true);
@@ -406,7 +407,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testStopAllSendsKillToProcessesThatDontStop(): void
     {
-        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), 0.05);
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
 
         $proc = new StubProcess(true);
         // terminateOnSignal = false → SIGTERM を無視する
@@ -425,7 +426,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testStopAllHandlesSignalExceptionGracefully(): void
     {
-        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), 0.05);
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
 
         // signal() で例外を投げるプロセス（無名クラスで StubProcess を拡張）
         $throwingProc = new class (true) extends StubProcess {
@@ -454,7 +455,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testStopAllSkipsSignalForNonRunningProcesses(): void
     {
-        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), 0.05);
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
 
         $runningProc = new StubProcess(true);
         $runningProc->setTerminateOnSignal(true);
@@ -477,7 +478,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testForegroundEventRunsSynchronously(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo foreground');
         // runInBackground のデフォルトは false
 
@@ -494,7 +495,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testForegroundEventCallsAfterCallbacks(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createSpyEvent('echo test');
         // runInBackground のデフォルトは false
 
@@ -509,7 +510,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testForegroundEventResultNotAddedToRunningProcesses(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
         // runInBackground のデフォルトは false
 
@@ -528,7 +529,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testBackgroundEventRunsAsynchronously(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('sleep 2');
         $event->runInBackground = true;
 
@@ -546,7 +547,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testClockAwareEventUseBuildProcessCommandInBackground(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock);
         $event->runInBackground = true;
@@ -566,7 +567,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testForegroundNonZeroExitCodePassedToAfterCallbacks(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createSpyEvent('exit 42');
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
@@ -581,7 +582,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testForegroundAfterCallbackExceptionReturnsStartedResult(): void
     {
-        $dispatcher = new LocalDispatcher();
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createSpyEvent('echo test');
         $event->throwOnAfterCallback(new \RuntimeException('afterCallback error'));
 

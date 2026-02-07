@@ -30,18 +30,18 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
      * @param Process $process
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param DateTimeImmutable|null $dispatchedAt
+     * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
         Process $process,
         string $eventIdentifier,
         string $eventCommand,
-        ?DateTimeImmutable $dispatchedAt = null
+        DateTimeImmutable $dispatchedAt
     ) {
         $this->process = $process;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
-        $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
+        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**

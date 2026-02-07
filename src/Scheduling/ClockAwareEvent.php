@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateInterval;
-use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
@@ -95,16 +94,6 @@ class ClockAwareEvent extends Event
     public function getDispatcherType()
     {
         return $this->dispatcherType;
-    }
-
-    /**
-     * 現在時刻を取得
-     *
-     * @return DateTimeImmutable
-     */
-    public function getCurrentTime()
-    {
-        return $this->clock->now();
     }
 
     /**

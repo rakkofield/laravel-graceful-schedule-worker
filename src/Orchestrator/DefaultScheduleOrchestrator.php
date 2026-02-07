@@ -12,6 +12,7 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
@@ -42,28 +43,28 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     /** @var LoggerInterface */
     private $logger;
 
-    /** @var int スリープ時間（マイクロ秒） */
-    private $sleepMicroseconds = 100000;
+    /** @var SleeperInterface */
+    private $sleeper;
 
     /**
      * @param ScheduleDispatcherInterface $dispatcher
      * @param ClockInterface $clock 時刻プロバイダ
      * @param ExecutionTrackerInterface $tracker 実行トラッカー（リカバリ検出に使用）
      * @param LoggerInterface $logger ロガー
-     * @param int $sleepMicroseconds スリープ時間（マイクロ秒）
+     * @param SleeperInterface $sleeper スリーパー
      */
     public function __construct(
         ScheduleDispatcherInterface $dispatcher,
         ClockInterface $clock,
         ExecutionTrackerInterface $tracker,
         LoggerInterface $logger,
-        int $sleepMicroseconds = 100000
+        SleeperInterface $sleeper
     ) {
         $this->dispatcher = $dispatcher;
         $this->clock = $clock;
         $this->tracker = $tracker;
         $this->logger = $logger;
-        $this->sleepMicroseconds = $sleepMicroseconds;
+        $this->sleeper = $sleeper;
     }
 
     /**
@@ -80,9 +81,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 
         while ($shouldContinue()) {
             // スリープを挟んで CPU 負荷を軽減
-            if ($this->sleepMicroseconds > 0) {
-                usleep($this->sleepMicroseconds);
-            }
+            $this->sleeper->sleep();
 
             $now = $this->getCurrentTime();
             $currentMinute = $now->setTime((int) $now->format('H'), (int) $now->format('i'), 0);

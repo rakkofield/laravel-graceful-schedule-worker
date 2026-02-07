@@ -14,7 +14,7 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testGetEventIdentifier(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired');
+        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
 
         $this->assertSame('test-mutex', $result->getEventIdentifier());
     }
@@ -24,7 +24,7 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testGetEventCommand(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired');
+        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
 
         $this->assertSame('echo test', $result->getEventCommand());
     }
@@ -34,7 +34,7 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testGetReason(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired');
+        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
 
         $this->assertSame('lock_not_acquired', $result->getReason());
     }
@@ -44,7 +44,7 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testGetDispatcherType(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired');
+        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
 
         $this->assertSame('tracking', $result->getDispatcherType());
     }
@@ -66,7 +66,7 @@ class SkippedDispatchResultTest extends TestCase
     public function testGetDispatchedAtWithDefaultValue(): void
     {
         $before = new DateTimeImmutable();
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired');
+        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
         $after = new DateTimeImmutable();
 
         $dispatchedAt = $result->getDispatchedAt();
@@ -80,7 +80,7 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testImplementsSkippedDispatchResultInterface(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired');
+        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
 
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
     }
@@ -90,7 +90,7 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testImplementsDispatchResultInterface(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired');
+        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
     }

@@ -18,6 +18,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeLockProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -113,7 +114,13 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
-        $orchestrator = new DefaultScheduleOrchestrator($trackingDispatcher, $clock, $tracker, $this->logger, 0);
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $trackingDispatcher,
+            $clock,
+            $tracker,
+            $this->logger,
+            new NullSleeper()
+        );
 
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(1));
 
@@ -143,7 +150,13 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $this->schedule->addEvent($event);
 
         $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
-        $orchestrator = new DefaultScheduleOrchestrator($trackingDispatcher, $clock, $tracker, $this->logger, 0);
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $trackingDispatcher,
+            $clock,
+            $tracker,
+            $this->logger,
+            new NullSleeper()
+        );
 
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(1));
 
@@ -182,7 +195,13 @@ class OrchestratorFlowIntegrationTest extends TestCase
             $this->logger
         );
         $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger);
-        $orchestrator = new DefaultScheduleOrchestrator($trackingDispatcher, $clock, $tracker, $this->logger, 0);
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $trackingDispatcher,
+            $clock,
+            $tracker,
+            $this->logger,
+            new NullSleeper()
+        );
 
         $localEvent = new ClockAwareEvent($this->eventMutex, 'echo local', $clock);
         $localEvent->cron('0 * * * *');
@@ -218,7 +237,13 @@ class OrchestratorFlowIntegrationTest extends TestCase
             $this->logger
         );
         $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger);
-        $orchestrator = new DefaultScheduleOrchestrator($trackingDispatcher, $clock, $tracker, $this->logger, 0);
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $trackingDispatcher,
+            $clock,
+            $tracker,
+            $this->logger,
+            new NullSleeper()
+        );
 
         $event = new ClockAwareEvent($this->eventMutex, 'echo shutdown', $clock);
         $event->cron('0 * * * *');

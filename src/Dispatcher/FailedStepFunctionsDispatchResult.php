@@ -35,22 +35,22 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
      * @param string $eventCommand
      * @param string $error
      * @param \Throwable|null $exception
-     * @param DateTimeImmutable|null $dispatchedAt
+     * @param DateTimeImmutable $dispatchedAt
      */
     private function __construct(
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
         string $error,
-        ?\Throwable $exception = null,
-        ?DateTimeImmutable $dispatchedAt = null
+        ?\Throwable $exception,
+        DateTimeImmutable $dispatchedAt
     ) {
         $this->executionName = $executionName;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->error = $error;
         $this->exception = $exception;
-        $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
+        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**
@@ -75,7 +75,8 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
             $identifier,
             $command ?? '',
             $error,
-            $exception
+            $exception,
+            new DateTimeImmutable()
         );
     }
 

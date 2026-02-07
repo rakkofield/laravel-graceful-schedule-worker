@@ -29,18 +29,18 @@ class SkippedDispatchResult implements SkippedDispatchResultInterface
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param string $reason スキップ理由
-     * @param DateTimeImmutable|null $dispatchedAt
+     * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
         string $reason,
-        ?DateTimeImmutable $dispatchedAt = null
+        DateTimeImmutable $dispatchedAt
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->reason = $reason;
-        $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
+        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**

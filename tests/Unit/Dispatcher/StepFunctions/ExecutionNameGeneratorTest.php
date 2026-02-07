@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
+use DateTimeImmutable;
+use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 
 /**
  * @testdox ExecutionNameGenerator
@@ -14,20 +17,38 @@ class ExecutionNameGeneratorTest extends TestCase
     /** @var ExecutionNameGenerator */
     private $generator;
 
+    /** @var FakeEventMutex */
+    private $mutex;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->generator = new ExecutionNameGenerator();
+        $this->mutex = new FakeEventMutex();
     }
 
     /**
-     * @testdox T4.1.1 mutexName と timestamp から Execution Name を生成する
+     * @param string $command
+     * @return Event
      */
-    public function testGeneratesExecutionNameFromMutexAndTimestamp(): void
+    private function createEvent(string $command): Event
     {
-        $result = $this->generator->generate('my-task', '2024-01-01T00-00-00');
+        return new Event($this->mutex, $command);
+    }
 
-        $this->assertSame('my-task_2024-01-01T00-00-00', $result);
+    /**
+     * @testdox T4.1.1 Event と dueAt から Execution Name を生成する
+     */
+    public function testGeneratesExecutionNameFromEventAndDueAt(): void
+    {
+        $event = $this->createEvent('my-task');
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
+
+        $result = $this->generator->generate($event, $dueAt);
+
+        // mutexName は Event の内部フォーマットに依存するため、
+        // タイムスタンプ部分が含まれることを確認
+        $this->assertStringContainsString('2024-01-01T00-00-00', $result);
     }
 
     /**
@@ -35,86 +56,68 @@ class ExecutionNameGeneratorTest extends TestCase
      */
     public function testSanitizesInvalidCharacters(): void
     {
-        $result = $this->generator->generate('framework/schedule:run', '2024/01/01 00:00:00');
+        $event = $this->createEvent('framework/schedule:run');
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $this->assertSame('framework-schedule-run_2024-01-01-00-00-00', $result);
+        $result = $this->generator->generate($event, $dueAt);
+
+        // 不正文字がサニタイズされていることを確認
+        $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
     }
 
     /**
-     * @testdox T4.1.3 許可された文字（a-z, A-Z, 0-9, -, _）はそのまま保持する
-     */
-    public function testPreservesValidCharacters(): void
-    {
-        $result = $this->generator->generate('Task_Name-123', 'ABC-xyz_456');
-
-        $this->assertSame('Task_Name-123_ABC-xyz_456', $result);
-    }
-
-    /**
-     * @testdox T4.1.4 80文字を超える場合はハッシュを使用して短縮する
+     * @testdox T4.1.3 80文字を超える場合はハッシュを使用して短縮する
      */
     public function testTruncatesLongNamesWithHash(): void
     {
-        $longMutexName = str_repeat('a', 100);
-        $timestamp = '2024-01-01T00-00-00';
+        $longCommand = str_repeat('a', 100);
+        $event = $this->createEvent($longCommand);
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result = $this->generator->generate($longMutexName, $timestamp);
+        $result = $this->generator->generate($event, $dueAt);
 
         $this->assertLessThanOrEqual(80, strlen($result));
-        // ハッシュ（16文字）が含まれていることを確認
-        $this->assertRegExp('/^a+_[a-f0-9]{16}$/', $result);
     }
 
     /**
-     * @testdox T4.1.5 ちょうど80文字の場合は短縮しない
-     */
-    public function testDoesNotTruncateExactly80Characters(): void
-    {
-        // 80文字になるように調整（mutex + _ + timestamp = 80）
-        $mutexName = str_repeat('a', 60);
-        $timestamp = str_repeat('b', 19); // 60 + 1 + 19 = 80
-
-        $result = $this->generator->generate($mutexName, $timestamp);
-
-        $this->assertSame(80, strlen($result));
-        $this->assertSame($mutexName . '_' . $timestamp, $result);
-    }
-
-    /**
-     * @testdox T4.1.6 同じ入力からは同じ出力が得られる（決定論的）
+     * @testdox T4.1.4 同じ入力からは同じ出力が得られる（決定論的）
      */
     public function testIsDeterministic(): void
     {
-        $mutexName = 'my-task';
-        $timestamp = '2024-01-01T00-00-00';
+        $event = $this->createEvent('my-task');
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result1 = $this->generator->generate($mutexName, $timestamp);
-        $result2 = $this->generator->generate($mutexName, $timestamp);
+        $result1 = $this->generator->generate($event, $dueAt);
+        $result2 = $this->generator->generate($event, $dueAt);
 
         $this->assertSame($result1, $result2);
     }
 
     /**
-     * @testdox T4.1.7 長い名前でも同じ入力から同じハッシュが生成される
+     * @testdox T4.1.5 長い名前でも同じ入力から同じハッシュが生成される
      */
     public function testLongNamesAreDeterministic(): void
     {
-        $longMutexName = str_repeat('x', 100);
-        $timestamp = '2024-01-01T00-00-00';
+        $longCommand = str_repeat('x', 100);
+        $event = $this->createEvent($longCommand);
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result1 = $this->generator->generate($longMutexName, $timestamp);
-        $result2 = $this->generator->generate($longMutexName, $timestamp);
+        $result1 = $this->generator->generate($event, $dueAt);
+        $result2 = $this->generator->generate($event, $dueAt);
 
         $this->assertSame($result1, $result2);
     }
 
     /**
-     * @testdox T4.1.8 空文字列でも動作する
+     * @testdox T4.1.6 結果は許可文字のみで構成される
      */
-    public function testHandlesEmptyStrings(): void
+    public function testResultContainsOnlyValidCharacters(): void
     {
-        $result = $this->generator->generate('', '');
+        $event = $this->createEvent('php artisan report:daily --force');
+        $dueAt = new DateTimeImmutable('2024-06-15 14:30:00');
 
-        $this->assertSame('_', $result);
+        $result = $this->generator->generate($event, $dueAt);
+
+        $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
     }
 }

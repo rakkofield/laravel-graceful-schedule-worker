@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
+use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Symfony\Component\Process\Process;
 
@@ -30,19 +31,30 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     protected $runningProcesses = [];
 
     /**
+     * @var SleeperInterface
+     */
+    private $sleeper;
+
+    /**
      * @var float
      */
     private $stopTimeout;
 
     /**
      * @param string|null $basePath プロセスの作業ディレクトリ（null の場合は現在のディレクトリ）
-     * @param LoggerInterface|null $logger ロガー（null の場合は NullLogger）
+     * @param LoggerInterface $logger ロガー
+     * @param SleeperInterface $sleeper スリーパー（stopAll のポーリング用）
      * @param float $stopTimeout stopAll() での SIGTERM→SIGKILL 待機タイムアウト（秒）
      */
-    public function __construct(?string $basePath = null, ?LoggerInterface $logger = null, float $stopTimeout = 10.0)
-    {
+    public function __construct(
+        ?string $basePath,
+        LoggerInterface $logger,
+        SleeperInterface $sleeper,
+        float $stopTimeout = 10.0
+    ) {
         $this->basePath = $basePath;
-        $this->logger = $logger ?? new NullLogger();
+        $this->logger = $logger;
+        $this->sleeper = $sleeper;
         $this->stopTimeout = $stopTimeout;
     }
 
@@ -80,7 +92,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 $process = Process::fromShellCommandline($fullCommand, $this->basePath);
                 $process->start();
 
-                $result = new StartedLocalDispatchResult($process, $identifier, $fullCommand);
+                $result = new StartedLocalDispatchResult($process, $identifier, $fullCommand, new DateTimeImmutable());
                 $this->runningProcesses[] = $result;
                 return $result;
             }
@@ -102,11 +114,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 ]);
             }
 
-            return new StartedLocalDispatchResult($process, $identifier, $fullCommand);
+            return new StartedLocalDispatchResult($process, $identifier, $fullCommand, new DateTimeImmutable());
         } catch (\Exception $e) {
             $error = get_class($e) . ': ' . $e->getMessage();
 
-            return new FailedLocalDispatchResult($identifier, $event->command, $error, $e);
+            return new FailedLocalDispatchResult($identifier, $event->command, $error, $e, new DateTimeImmutable());
         }
     }
 
@@ -159,7 +171,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             if ($allStopped) {
                 break;
             }
-            usleep(10000); // 10ms
+            $this->sleeper->sleep();
         }
 
         // Phase 3: まだ running なプロセスに SIGKILL を送信

@@ -31,20 +31,20 @@ class FailedLocalDispatchResult implements FailedDispatchResultInterface
      * @param string $eventCommand
      * @param string $error
      * @param \Throwable|null $exception
-     * @param DateTimeImmutable|null $dispatchedAt
+     * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
         string $error,
-        ?\Throwable $exception = null,
-        ?DateTimeImmutable $dispatchedAt = null
+        ?\Throwable $exception,
+        DateTimeImmutable $dispatchedAt
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->error = $error;
         $this->exception = $exception;
-        $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
+        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**

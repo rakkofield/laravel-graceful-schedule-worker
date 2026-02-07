@@ -17,6 +17,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
@@ -72,7 +73,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $tracker = new NullExecutionTracker();
         $logger = new NullLogger();
-        $orchestrator = new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, 0);
+        $orchestrator = new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, new NullSleeper());
 
         $mockApp = $this->createMockApplication();
         $this->container->instance(Application::class, $mockApp);

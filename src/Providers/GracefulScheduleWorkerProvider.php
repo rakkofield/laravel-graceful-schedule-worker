@@ -11,6 +11,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\Sleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\GracefulScheduleWorkCommand;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
@@ -18,6 +19,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
@@ -55,7 +57,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var \Psr\Log\LoggerInterface $logger */
             $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
 
-            return new LocalDispatcher($basePath, $logger);
+            return new LocalDispatcher($basePath, $logger, new Sleeper(10000));
         });
 
         // StepFunctions 関連のバインディング（AWS SDK がインストールされている場合のみ）
@@ -124,7 +126,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var \Psr\Log\LoggerInterface $logger */
             $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
 
-            return new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger);
+            return new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, new Sleeper(100000));
         });
     }
 
@@ -173,6 +175,9 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             return new AwsSfnClientAdapter($client);
         });
 
+        // ExecutionNameGeneratorInterface を登録
+        $this->app->singleton(ExecutionNameGeneratorInterface::class, ExecutionNameGenerator::class);
+
         // StepFunctionsDispatcher を登録
         $this->app->singleton(StepFunctionsDispatcher::class, function (Container $app) {
             /** @var ConfigRepository $config */
@@ -184,7 +189,8 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var StepFunctionsClientInterface $client */
             $client = $app->make(StepFunctionsClientInterface::class);
 
-            $nameGenerator = new ExecutionNameGenerator();
+            /** @var ExecutionNameGeneratorInterface $nameGenerator */
+            $nameGenerator = $app->make(ExecutionNameGeneratorInterface::class);
 
             return new StepFunctionsDispatcher($client, $stateMachineArn, $nameGenerator);
         });
