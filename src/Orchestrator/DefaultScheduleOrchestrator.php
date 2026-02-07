@@ -8,7 +8,6 @@ use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
@@ -73,12 +72,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      */
     public function run(Schedule $schedule, Application $app, callable $shouldContinue): bool
     {
-        // Laravel の Application は Container を継承しているため、Container::getInstance() を使用
-        $container = Container::getInstance();
         $lastExecutionStartedAt = $this->getCurrentTime()->modify('-10 minutes');
 
         // 起動時に一度だけ取りこぼしチェック
-        $this->checkMissedExecutions($schedule, $container, Carbon::instance($this->getCurrentTime()));
+        $this->checkMissedExecutions($schedule, $app, Carbon::instance($this->getCurrentTime()));
 
         while ($shouldContinue()) {
             // スリープを挟んで CPU 負荷を軽減
@@ -94,7 +91,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
             ) {
                 $lastExecutionStartedAt = $currentMinute;
 
-                $this->evaluateAndDispatch($schedule, $app, $container, $now);
+                $this->evaluateAndDispatch($schedule, $app, $now);
             }
 
             // 完了したプロセスをクリーンアップ
@@ -111,11 +108,11 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      * 取りこぼしタスクのリカバリを実行
      *
      * @param Schedule $schedule
-     * @param Container $container
+     * @param Application $app
      * @param Carbon $now
      * @return void
      */
-    private function checkMissedExecutions(Schedule $schedule, Container $container, Carbon $now): void
+    private function checkMissedExecutions(Schedule $schedule, Application $app, Carbon $now): void
     {
         foreach ($schedule->events() as $event) {
             if (!$this->isRecoverableEvent($event)) {
@@ -127,7 +124,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 continue;
             }
 
-            $this->recoverMissedEvent($event, $container, $missedDue);
+            $this->recoverMissedEvent($event, $app, $missedDue);
         }
     }
 
@@ -146,11 +143,11 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      * 取りこぼしイベントをリカバリ
      *
      * @param Event $event
-     * @param Container $container
+     * @param Application $app
      * @param DateTimeInterface $missedDue
      * @return void
      */
-    private function recoverMissedEvent(Event $event, Container $container, DateTimeInterface $missedDue): void
+    private function recoverMissedEvent(Event $event, Application $app, DateTimeInterface $missedDue): void
     {
         // ログ出力用に Carbon に変換
         $missedDueCarbon = $missedDue instanceof Carbon ? $missedDue : Carbon::instance($missedDue);
@@ -164,7 +161,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         // リカバリ時は clock が freeze されていないため、between()/unlessBetween() 等の
         // 時間ベースフィルタは現在時刻で評価される。過去の dueAt に対して現在時刻で
         // 評価すると誤った結果になる。
-        $this->dispatcher->dispatchEvent($event, $container, $missedDue);
+        $this->dispatcher->dispatchEvent($event, $app, $missedDue);
     }
 
     /**
@@ -176,17 +173,15 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      *
      * @param Schedule $schedule
      * @param Application $app
-     * @param Container $container
      * @param \DateTimeImmutable $now
      * @return void
      */
     private function evaluateAndDispatch(
         Schedule $schedule,
         Application $app,
-        Container $container,
         \DateTimeImmutable $now
     ): void {
-        $doEvaluate = function () use ($schedule, $app, $container, $now) {
+        $doEvaluate = function () use ($schedule, $app, $now) {
             /** @var array<Event> $events */
             $events = $schedule->dueEvents($app);
             $nowCarbon = Carbon::instance($now);
@@ -210,7 +205,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                     );
                     continue;
                 }
-                $this->dispatcher->dispatchEvent($event, $container, $nowCarbon);
+                $this->dispatcher->dispatchEvent($event, $app, $nowCarbon);
             }
         };
 
