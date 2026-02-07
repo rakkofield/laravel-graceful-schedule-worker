@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
+use Closure;
+use Cron\CronExpression;
 use DateInterval;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
+use Illuminate\Support\Carbon;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 class ClockAwareEvent extends Event
@@ -114,6 +117,77 @@ class ClockAwareEvent extends Event
     public function getGracePeriod()
     {
         return $this->gracePeriod;
+    }
+
+    /**
+     * @return bool
+     */
+    protected function expressionPasses()
+    {
+        $date = Carbon::instance($this->clock->now());
+
+        if ($this->timezone) {
+            $date->setTimezone($this->timezone);
+        }
+
+        return CronExpression::factory($this->expression)->isDue($date->toDateTimeString());
+    }
+
+    /**
+     * @param string $startTime
+     * @param string $endTime
+     * @return $this
+     */
+    public function between($startTime, $endTime)
+    {
+        return $this->when($this->clockAwareTimeInterval($startTime, $endTime));
+    }
+
+    /**
+     * @param string $startTime
+     * @param string $endTime
+     * @return $this
+     */
+    public function unlessBetween($startTime, $endTime)
+    {
+        return $this->skip($this->clockAwareTimeInterval($startTime, $endTime));
+    }
+
+    /**
+     * clock を使った時間帯チェック closure を生成する
+     *
+     * 親の inTimeInterval() は private かつ Carbon::now() を定義時に即時評価するため、
+     * 長時間稼働ワーカーでは起動時の時刻で固定されてしまう。
+     * この実装では closure 内で clock->now() を遅延評価して毎回正しい時刻を使う。
+     *
+     * @param string $startTime
+     * @param string $endTime
+     * @return Closure
+     */
+    private function clockAwareTimeInterval($startTime, $endTime)
+    {
+        return function () use ($startTime, $endTime) {
+            $now = Carbon::instance($this->clock->now());
+
+            if ($this->timezone) {
+                $now = $now->setTimezone($this->timezone);
+            }
+
+            /** @var Carbon $start */
+            $start = $now->copy()->setTimeFromTimeString($startTime);
+            /** @var Carbon $end */
+            $end = $now->copy()->setTimeFromTimeString($endTime);
+
+            if ($end->lessThan($start)) {
+                if ($start->greaterThan($now)) {
+                    $start->subDay();
+                } else {
+                    $end->addDay();
+                }
+            }
+
+            return $now->between($start, $end);
+        };
     }
 
     /**

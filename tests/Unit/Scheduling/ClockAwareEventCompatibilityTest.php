@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeApplication;
@@ -181,5 +182,183 @@ class ClockAwareEventCompatibilityTest extends TestCase
         $event->daily()->weekdays();
 
         $this->assertSame('0 0 * * 1-5', $event->expression);
+    }
+
+    /**
+     * @testdox T6.10 expressionPasses uses injected clock
+     */
+    public function testExpressionPassesUsesInjectedClock(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $event = $this->createEvent();
+        $event->dailyAt('12:00');
+
+        $reflection = new \ReflectionMethod($event, 'expressionPasses');
+        $reflection->setAccessible(true);
+
+        $this->assertTrue($reflection->invoke($event));
+    }
+
+    /**
+     * @testdox T6.11 expressionPasses with different clock time
+     */
+    public function testExpressionPassesWithDifferentClockTime(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 13:00:00'));
+        $event = $this->createEvent();
+        $event->dailyAt('12:00');
+
+        $reflection = new \ReflectionMethod($event, 'expressionPasses');
+        $reflection->setAccessible(true);
+
+        $this->assertFalse($reflection->invoke($event));
+    }
+
+    /**
+     * @testdox T6.12 expressionPasses respects timezone
+     */
+    public function testExpressionPassesRespectsTimezone(): void
+    {
+        // UTC 03:00 = Asia/Tokyo 12:00 (UTC+9)
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 03:00:00', new DateTimeZone('UTC')));
+        $event = $this->createEvent();
+        $event->dailyAt('12:00')->timezone('Asia/Tokyo');
+
+        $reflection = new \ReflectionMethod($event, 'expressionPasses');
+        $reflection->setAccessible(true);
+
+        $this->assertTrue($reflection->invoke($event));
+    }
+
+    /**
+     * @testdox T6.13 between uses injected clock
+     */
+    public function testBetweenUsesInjectedClock(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $event = $this->createEvent();
+        $event->between('09:00', '17:00');
+
+        $this->assertTrue($event->filtersPass($this->app));
+    }
+
+    /**
+     * @testdox T6.14 between rejects outside range
+     */
+    public function testBetweenRejectsOutsideRange(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 20:00:00'));
+        $event = $this->createEvent();
+        $event->between('09:00', '17:00');
+
+        $this->assertFalse($event->filtersPass($this->app));
+    }
+
+    /**
+     * @testdox T6.15 between evaluates lazily not at definition time
+     */
+    public function testBetweenEvaluatesLazilyNotAtDefinitionTime(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $event = $this->createEvent();
+        $event->between('09:00', '17:00');
+
+        // 定義時は範囲内
+        $this->assertTrue($event->filtersPass($this->app));
+
+        // clock を範囲外に変更
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 20:00:00'));
+
+        // 遅延評価なので新しい時刻で再評価される
+        $this->assertFalse($event->filtersPass($this->app));
+    }
+
+    /**
+     * @testdox T6.16 unlessBetween uses injected clock
+     */
+    public function testUnlessBetweenUsesInjectedClock(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 20:00:00'));
+        $event = $this->createEvent();
+        $event->unlessBetween('09:00', '17:00');
+
+        $this->assertTrue($event->filtersPass($this->app));
+    }
+
+    /**
+     * @testdox T6.17 unlessBetween rejects inside range
+     */
+    public function testUnlessBetweenRejectsInsideRange(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $event = $this->createEvent();
+        $event->unlessBetween('09:00', '17:00');
+
+        $this->assertFalse($event->filtersPass($this->app));
+    }
+
+    /**
+     * @testdox T6.18 between handles midnight crossing
+     */
+    public function testBetweenHandlesMidnightCrossing(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 23:30:00'));
+        $event = $this->createEvent();
+        $event->between('22:00', '06:00');
+
+        $this->assertTrue($event->filtersPass($this->app));
+    }
+
+    /**
+     * @testdox T6.19 environments affects isDue
+     */
+    public function testEnvironmentsAffectsIsDue(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $event = $this->createEvent();
+        $event->everyMinute()->environments(['production']);
+
+        $this->app->setEnvironment('testing');
+
+        $this->assertFalse($event->isDue($this->app));
+    }
+
+    /**
+     * @testdox T6.20 evenInMaintenanceMode affects isDue
+     */
+    public function testEvenInMaintenanceModeAffectsIsDue(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $event = $this->createEvent();
+        $event->everyMinute()->evenInMaintenanceMode();
+
+        $this->app->setIsDownForMaintenance(true);
+
+        $this->assertTrue($event->isDue($this->app));
+    }
+
+    /**
+     * @testdox T6.21 maintenance mode default blocks isDue
+     */
+    public function testMaintenanceModeDefaultBlocksIsDue(): void
+    {
+        $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $event = $this->createEvent();
+        $event->everyMinute();
+
+        $this->app->setIsDownForMaintenance(true);
+
+        $this->assertFalse($event->isDue($this->app));
+    }
+
+    /**
+     * @testdox T6.22 description is stored on event
+     */
+    public function testDescriptionIsStoredOnEvent(): void
+    {
+        $event = $this->createEvent();
+        $event->description('my-task');
+
+        $this->assertSame('my-task', $event->description);
     }
 }

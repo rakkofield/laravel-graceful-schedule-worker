@@ -4,6 +4,24 @@
 
 Laravel scheduler compatibility analysis for `laravel-graceful-worker`.
 
+## Clock Integration
+
+`ClockAwareEvent` overrides the following methods from Laravel's `Event` class to use the injected `ClockInterface` instead of `Carbon::now()`:
+
+### `expressionPasses()`
+
+Uses `$this->clock->now()` instead of `Carbon::now()` for cron expression evaluation. This ensures `isDue()` checks are consistent with the injected clock.
+
+### `between()` / `unlessBetween()`
+
+Overrides the parent's `ManagesFrequencies` trait methods. The parent uses `inTimeInterval()` (private), which evaluates `Carbon::now()` at **definition time** and captures it in a closure. In a long-running worker, this means the time check is frozen at startup.
+
+The `ClockAwareEvent` implementation evaluates `$this->clock->now()` lazily inside the closure, ensuring correct time checks on every evaluation.
+
+### Known Limitation: `lastDayOfMonth()`
+
+`lastDayOfMonth()` uses `Carbon::now()` to determine the current month and sets the cron expression's day field statically. In a long-running worker that spans month boundaries, this could become inaccurate. Fixing this would require dynamic cron expression re-evaluation, which adds significant complexity. This is documented as a known limitation.
+
 ## Two-Stage Filtering in Laravel Scheduler
 
 Laravel's `schedule:run` uses a two-stage filtering pipeline:
@@ -27,7 +45,7 @@ Normal dispatch (due events at the current minute) checks `filtersPass($app)` be
 
 Recovery dispatch (missed events detected at startup) does **not** check `filtersPass()`.
 
-**Rationale**: `between()`, `unlessBetween()`, and other time-based filters use `Carbon::now()` internally. Recovery targets a past `dueAt` time, so evaluating these filters at the current time would produce incorrect results.
+**Rationale**: `between()`, `unlessBetween()`, and other time-based filters evaluate the current time. Recovery targets a past `dueAt` time, so evaluating these filters at the current time would produce incorrect results.
 
 ## withoutOverlapping vs TrackingDispatcher Lock
 
@@ -49,8 +67,8 @@ Both can coexist. `withoutOverlapping()` is checked via `filtersPass()` before r
 |---|---|---|
 | Conditional execution | `when($callback)` | Supported |
 | Conditional skip | `skip($callback)` | Supported |
-| Time range | `between($start, $end)` | Supported |
-| Time range exclusion | `unlessBetween($start, $end)` | Supported |
+| Time range | `between($start, $end)` | Supported (clock-aware, lazy evaluation) |
+| Time range exclusion | `unlessBetween($start, $end)` | Supported (clock-aware, lazy evaluation) |
 | Overlap prevention | `withoutOverlapping($minutes)` | Supported |
 
 ### Supported (via isDue)
@@ -77,3 +95,9 @@ Both can coexist. `withoutOverlapping()` is checked via `filtersPass()` before r
 | Before/After callbacks | `before()`, `after()`, `then()` | Events are dispatched, not run directly by the orchestrator |
 | Ping URLs | `pingBefore()`, `thenPing()` | Same as above |
 | Email output | `emailOutputTo()` | Same as above |
+
+### Known Limitations
+
+| Feature | Method | Limitation |
+|---|---|---|
+| Last day of month | `lastDayOfMonth()` | Uses `Carbon::now()` at definition time to set cron day field. May be inaccurate across month boundaries in long-running workers. |

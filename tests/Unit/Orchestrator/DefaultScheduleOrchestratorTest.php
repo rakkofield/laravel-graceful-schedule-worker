@@ -632,6 +632,24 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
+     * @testdox T3.38 filtersPass with Closure condition that returns false → not dispatched
+     */
+    public function testFiltersPassWithClosureCondition(): void
+    {
+        $event = $this->createClockAwareEvent('echo test');
+        $event->everyMinute();
+        $event->when(function () {
+            return false;
+        });
+        $this->schedule->setDueEvents([$event]);
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
+
+        $this->assertSame(0, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
      * @testdox T3.37 filtersPass exception logs warning with details
      */
     public function testFiltersPassExceptionLogsWarning(): void

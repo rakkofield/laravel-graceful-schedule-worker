@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
-use Carbon\Carbon;
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\SchedulingMutex;
@@ -80,13 +79,10 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->innerDispatcher = new FakeDispatcher($defaultResult);
         $this->app = new FakeApplication();
-
-        Carbon::setTestNow(Carbon::parse('2024-01-15 12:00:00'));
     }
 
     protected function tearDown(): void
     {
-        Carbon::setTestNow(null);
         Container::setInstance(null);
         parent::tearDown();
     }
@@ -201,5 +197,49 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         // dispatch されたのは 'echo pass' のイベント
         $dispatched = $this->innerDispatcher->getDispatched();
         $this->assertStringContainsString('echo pass', (string) $dispatched[0]['event']->command);
+    }
+
+    /**
+     * @testdox TI.8 environments filter through pipeline → not dispatched
+     */
+    public function testEnvironmentsFilterThroughPipeline(): void
+    {
+        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule->exec('echo env-test')
+            ->everyMinute()
+            ->environments(['production']);
+
+        $this->app->setEnvironment('testing');
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
+
+        // environments(['production']) + app env=testing → isDue = false → dispatch されない
+        $this->assertSame(0, $this->innerDispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox TI.9 maintenance mode filter through pipeline → only evenInMaintenanceMode dispatched
+     */
+    public function testMaintenanceModeFilterThroughPipeline(): void
+    {
+        $this->app->setIsDownForMaintenance(true);
+
+        $schedule = new ClockAwareSchedule($this->clock);
+
+        $schedule->exec('echo maintenance-ok')
+            ->everyMinute()
+            ->evenInMaintenanceMode();
+
+        $schedule->exec('echo maintenance-blocked')
+            ->everyMinute();
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
+
+        // evenInMaintenanceMode() ありのイベントのみ dispatch される
+        $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
+        $dispatched = $this->innerDispatcher->getDispatched();
+        $this->assertStringContainsString('echo maintenance-ok', (string) $dispatched[0]['event']->command);
     }
 }
