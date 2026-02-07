@@ -169,6 +169,7 @@ classDiagram
     }
 
     class FixedClock {
+        <<テスト用: tests/Helper>>
         -fixedTime DateTimeImmutable
         +now() DateTimeImmutable
         +setTime(time)
@@ -208,6 +209,15 @@ classDiagram
     %% Orchestrator レイヤー
     class ScheduleOrchestratorInterface {
         <<interface>>
+        +run(schedule, app, shouldContinue) bool
+    }
+
+    class DefaultScheduleOrchestrator {
+        -dispatcher ScheduleDispatcherInterface
+        -tracker ExecutionTrackerInterface
+        -clock ClockInterface
+        -sleeper SleeperInterface
+        -logger LoggerInterface
         +run(schedule, app, shouldContinue) bool
     }
 
@@ -351,6 +361,13 @@ classDiagram
         +releaseLock(event, dueAt)
     }
 
+    class NullExecutionTracker {
+        +markExecuted(event, dueAt)
+        +getMissedDueIfRecoverable(event, now) null
+        +acquireLock(event, dueAt) true
+        +releaseLock(event, dueAt)
+    }
+
     %% インフラ層
     class GracefulScheduleWorkCommand {
         <<Command>>
@@ -384,6 +401,8 @@ classDiagram
     ScheduleDispatcherInterface <|.. StepFunctionsDispatcher
     TrackingDispatcher --> ScheduleDispatcherInterface : decorates
     ExecutionTrackerInterface <|.. CacheExecutionTracker
+    ExecutionTrackerInterface <|.. NullExecutionTracker
+    ScheduleOrchestratorInterface <|.. DefaultScheduleOrchestrator
 
     %% 依存関係
     ClockAwareSchedule --> ClockInterface : 注入
@@ -406,6 +425,12 @@ classDiagram
     GracefulScheduleWorkerProvider ..> ClockAwareSchedule : バインド
     GracefulScheduleWorkerProvider ..> ScheduleOrchestratorInterface : バインド
     GracefulScheduleWorkerProvider ..> CompositeDispatcher : バインド
+    GracefulScheduleWorkerProvider ..> ExecutionTrackerInterface : バインド
+
+    DefaultScheduleOrchestrator --> ScheduleDispatcherInterface : 使用
+    DefaultScheduleOrchestrator --> ExecutionTrackerInterface : 使用
+    DefaultScheduleOrchestrator --> ClockInterface : 使用
+    DefaultScheduleOrchestrator --> SleeperInterface : 使用
 ```
 
 #### シーケンス図
@@ -513,10 +538,10 @@ sequenceDiagram
 | レイヤー | オブジェクト | 責務 |
 |---------|-------------|------|
 | **スケジューリング層** | `ClockAwareSchedule`, `ClockAwareEvent` | Laravel の `Schedule` / `Event` を継承し、Clock 注入と Grace Period 管理を提供 |
-| **調整層** | `ScheduleOrchestratorInterface` | 毎分のループ制御、イベントごとのDispatcher呼び出し、取りこぼしチェック（`getMissedDueIfRecoverable`）、dueAt の決定 |
-| **時刻抽象層** | `ClockInterface`, `SystemClock`, `FixedClock` | 時刻取得の抽象化により、テスト時の時刻固定を実現 |
+| **調整層** | `ScheduleOrchestratorInterface`, `DefaultScheduleOrchestrator` | 毎分のループ制御、イベントごとのDispatcher呼び出し、取りこぼしチェック（`getMissedDueIfRecoverable`）、dueAt の決定 |
+| **時刻抽象層** | `ClockInterface`, `SystemClock`, `FixedClock`（テスト用） | 時刻取得の抽象化により、テスト時の時刻固定を実現 |
 | **ディスパッチ層** | `ScheduleDispatcherInterface`, `TrackingDispatcher`, `CompositeDispatcher`, `LocalDispatcher`, `StepFunctionsDispatcher` | タスク実行方法の抽象化。`TrackingDispatcher` はロック取得・実行記録を担当するデコレーター |
-| **トラッキング層** | `ExecutionTrackerInterface`, `CacheExecutionTracker` | 実行履歴の追跡、取りこぼし検出、ロック機構による重複実行防止 |
+| **トラッキング層** | `ExecutionTrackerInterface`, `CacheExecutionTracker`, `NullExecutionTracker` | 実行履歴の追跡、取りこぼし検出、ロック機構による重複実行防止。`NullExecutionTracker` はトラッキング無効時の Null Object |
 | **インフラ層** | `GracefulScheduleWorkCommand`, `GracefulScheduleWorkerProvider` | Artisan コマンドと DI コンテナへの登録 |
 
 #### Orchestrator と TrackingDispatcher の責務分担
@@ -544,13 +569,13 @@ sequenceDiagram
 ##### 依存性注入（DI）
 
 - **`ClockInterface` → `SystemClock` / `FixedClock`**
-  `GracefulScheduleWorkerProvider` で `ClockInterface` をバインドすることで、本番環境では `SystemClock`、テスト環境では `FixedClock` が注入されます。
+  `GracefulScheduleWorkerProvider` で `ClockInterface` を `SystemClock` にバインドします。テスト環境では `tests/Helper/FixedClock` をバインドして時刻を固定します。
 
 - **`ScheduleDispatcherInterface` → `LocalDispatcher` / `StepFunctionsDispatcher`**
   設定ファイル（`config/graceful-scheduler.php`）の `dispatch` 設定に応じて、適切な Dispatcher 実装が DI コンテナから解決されます。
 
-- **`ExecutionTrackerInterface` → `CacheExecutionTracker`**
-  設定ファイルの `tracker.enabled` が `true` の場合、`StepFunctionsDispatcher` に `CacheExecutionTracker` が注入されます。
+- **`ExecutionTrackerInterface` → `CacheExecutionTracker` / `NullExecutionTracker`**
+  設定ファイルの `tracker.enabled` が `true` の場合は `CacheExecutionTracker` が、`false` の場合は `NullExecutionTracker` が注入されます。
 
 ##### 制御フロー
 
@@ -657,10 +682,10 @@ interface ClockInterface
 }
 ```
 
-**実装例**:
+**実装**:
 
-- `SystemClock`: 本番環境で使用（実際の現在時刻を返す）
-- `FixedClock`: テスト環境で使用（固定時刻を返す）
+- `SystemClock`（`src/Clock/`）: 本番環境で使用（実際の現在時刻を返す）
+- `FixedClock`（`tests/Helper/`）: テスト環境で使用（固定時刻を返す）。ライブラリの配布対象には含めない
 
 ### ClockAwareEvent
 
@@ -884,11 +909,30 @@ $this->app->singleton(CompositeDispatcher::class, function ($app) {
     );
 });
 
+// ExecutionTrackerInterface は設定に応じて切り替え
+$this->app->singleton(ExecutionTrackerInterface::class, function ($app) {
+    if (config('graceful-scheduler.tracker.enabled')) {
+        return new CacheExecutionTracker(/* ... */);
+    }
+    return new NullExecutionTracker();
+});
+
 // ScheduleDispatcherInterface は TrackingDispatcher でラップ
 $this->app->singleton(ScheduleDispatcherInterface::class, function ($app) {
     return new TrackingDispatcher(
         $app->make(CompositeDispatcher::class),
         $app->make(ExecutionTrackerInterface::class),
+        $app->make(LoggerInterface::class)
+    );
+});
+
+// ScheduleOrchestratorInterface は DefaultScheduleOrchestrator
+$this->app->singleton(ScheduleOrchestratorInterface::class, function ($app) {
+    return new DefaultScheduleOrchestrator(
+        $app->make(ScheduleDispatcherInterface::class),
+        $app->make(ExecutionTrackerInterface::class),
+        $app->make(ClockInterface::class),
+        $app->make(SleeperInterface::class),
         $app->make(LoggerInterface::class)
     );
 });
@@ -1269,11 +1313,11 @@ interface ScheduleDispatcherInterface
 }
 ```
 
-**実装例**:
+**実装**:
 
 - `TrackingDispatcher`: ロック取得・実行記録を行うデコレーター
 - `CompositeDispatcher`: 複数のDispatcherを保持し、イベントのtypeに応じて委譲
-- `LocalDispatcher`: バックグラウンドプロセスとして起動（Process::start()）
+- `LocalDispatcher`: バックグラウンドプロセスとして起動（`Process::start()`）
 - `StepFunctionsDispatcher`: AWS Step Functions 経由で実行
 
 ### SkippedDispatchResultInterface
@@ -1439,62 +1483,150 @@ interface ExecutionTrackerInterface
 
 このセクションでは、TDD(テスト駆動開発)のためのテスト一覧を記載します。各テストは実装フェーズに対応しており、機能の正確な実装と品質保証を目的としています。
 
-### Phase 1: Clock抽象化
+### Phase 1: Clock 抽象化・スケジューリング層
 
-#### ClockInterface
+#### SystemClock
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T1.1 | SystemClock_now_returns_current_time | 現在時刻を返す |
-| T1.2 | FixedClock_now_returns_fixed_time | 固定時刻を返す |
-| T1.3 | FixedClock_setTime_changes_fixed_time | setTimeで時刻変更可能 |
+| T1.1 | testReturnsCurrentTime | 現在時刻を返す |
+| T1.2 | testAdvancesTimeOnConsecutiveCalls | 連続呼び出しで時刻が進む |
+
+> **Note**: `FixedClock` は `tests/Helper/` に配置されるテスト専用クラスのため、TDD テスト一覧からは除外。他のテストで間接的に検証される。
 
 #### ClockAwareEvent
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T1.5 | withGracePeriod_enables_recovery | recoverableがtrueになる |
-| T1.6 | withGracePeriod_sets_interval | gracePeriodが設定される |
-| T1.7 | enableRecovery_sets_unlimited_grace | 無制限猶予が設定される |
+| T1.4 | testCanInjectClock | Clock が注入可能 |
+| T1.5 | testCanSetGracePeriod | gracePeriod 設定可能 |
+| T1.5.1 | testWithGracePeriodSetsRecoverableToTrue | recoverable が true になる |
+| T1.5.2 | testWithGracePeriodSetsCorrectInterval | 正しい interval が設定される |
+| T1.5.3 | testWithGracePeriodWithNullSetsUnlimited | null で無制限設定 |
+| T1.6 | testCanEnableRecovery | enableRecovery が動作する |
+| T1.6.1 | testEnableRecoverySetsRecoverableWithUnlimitedGrace | 無制限猶予で recoverable 設定 |
+| T1.8 | testRecoverableIsFalseByDefault | デフォルトは recoverable=false |
+| T1.9 | testDispatchViaReturnsSelfForMethodChaining | メソッドチェーン可能 |
+| T1.10 | testGetDispatcherTypeReturnsNullByDefault | デフォルトは null |
+| T1.11 | testDispatchViaSetsDispatcherType | dispatcherType 設定可能 |
+| T1.12.1 | testBuildProcessCommandIncludesScheduleFinish | buildProcessCommand に schedule:finish 含む |
+| T1.12.2 | testBuildProcessCommandDoesNotEndWithAmpersand | & で終わらない |
 
 #### ClockAwareSchedule
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T1.8 | command_returns_ClockAwareEvent | ClockAwareEvent型を返す |
-| T1.9 | exec_returns_ClockAwareEvent | ClockAwareEvent型を返す |
-| T1.10 | events_receive_same_clock | 全イベントが同じClockを持つ |
+| T1.12 | testReturnsClockAwareEventFromCommand | command() が ClockAwareEvent 型を返す |
+| T1.13 | testReturnsClockAwareEventFromExec | exec() が ClockAwareEvent 型を返す |
+| T1.14 | testCreatesClockAwareEventsFromMultipleMethods | 複数メソッドで ClockAwareEvent を生成 |
+| T1.15 | testExecHandlesParametersCorrectly | exec() のパラメータが正しく処理される |
+| T1.16 | testCommandHandlesParametersCorrectly | command() のパラメータが正しく処理される |
 
-### Phase 2: Dispatcherパターン
+### Phase 2: Dispatcher パターン
 
-#### ScheduleDispatcher
+#### LocalDispatcher
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T2.1 | LocalDispatcher_dispatchEvent_executes_event | イベントが実行される |
-| T2.2 | LocalDispatcher_dispatchEvent_passes_event_correctly | イベントが正しく渡される |
-| T2.3 | StepFunctionsDispatcher_dispatchEvent_calls_startExecution | startExecutionが呼ばれる |
-| T2.4 | StepFunctionsDispatcher_dispatchEvent_sends_correct_input | 正しいinputが送信される |
+| T2.1 | testReturnsLocalDispatchResult | LocalDispatchResult を返す |
+| T2.2 | testReturnsStartedDispatchResultInterfaceOnSuccess | 成功時に StartedDispatchResultInterface |
+| T2.3 | testReturnsCorrectEventIdentifier | 正しいイベント識別子 |
+| T2.4 | testReturnsCorrectEventCommand | 正しいコマンド |
+| T2.5 | testReturnsCorrectDispatcherType | dispatcherType が 'local' |
+| T2.6 | testStartsProcessInBackground | バックグラウンドプロセスとして起動 |
+| T2.7 | testReturnsDispatchedAtTimestamp | dispatchedAt タイムスタンプ |
+| T2.10 | testHasRunningProcessImmediatelyAfterDispatch | dispatch 直後に running |
+| T2.11 | testBeforeCallbacksAreCalledBeforeDispatch | beforeCallbacks が先に実行 |
+| T2.12 | testBuildCommandIncludesScheduleFinish | schedule:finish を含む |
+| T2.13 | testRunInBackgroundIsPreservedAfterDispatch | runInBackground が保持される |
+| T2.14 | testOutputRedirectionIsIncludedInCommand | 出力リダイレクション含む |
+| T2.15 | testReturnsFailedWhenBeforeCallbackThrows | beforeCallback 例外で Failed |
+| T2.16 | testRethrowsErrorFromBeforeCallback | Error は再スロー |
+| T2.17 | testCleanupRemovesCompletedProcesses | cleanup で完了プロセス除去 |
+| T2.18 | testStopAllStopsAllRunningProcesses | stopAll で全プロセス停止 |
+| T2.19 | testStopAllHandlesAlreadyStoppedProcesses | 停止済みプロセスの graceful 処理 |
+| T2.20 | testDispatchEventAddsResultToRunningProcesses | 結果が running list に追加 |
+| T2.21 | testStopAllSendsSignalToAllProcesses | SIGTERM 送信 |
+| T2.22 | testStopAllSendsKillToProcessesThatDontStop | SIGKILL フォールバック |
+| T2.23 | testStopAllHandlesSignalExceptionGracefully | シグナル例外の graceful 処理 |
+| T2.24 | testStopAllSkipsSignalForNonRunningProcesses | 非 running プロセスをスキップ |
+| T2.25 | testForegroundEventRunsSynchronously | Foreground は同期実行 |
+| T2.26 | testForegroundEventCallsAfterCallbacks | Foreground で afterCallbacks 実行 |
+| T2.27 | testForegroundEventResultNotAddedToRunningProcesses | Foreground は running に追加しない |
+| T2.28 | testBackgroundEventRunsAsynchronously | Background は非同期実行 |
+| T2.29 | testClockAwareEventUseBuildProcessCommandInBackground | ClockAwareEvent で buildProcessCommand 使用 |
+| T2.30 | testForegroundNonZeroExitCodePassedToAfterCallbacks | 非ゼロ exit code が afterCallbacks に渡る |
+| T2.31 | testForegroundAfterCallbackExceptionReturnsStartedResult | afterCallback 例外でも StartedResult |
 
 #### CompositeDispatcher
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T2.5 | CompositeDispatcher_dispatchEvent_delegates_to_event_specified_dispatcher | イベント指定のDispatcherに委譲される |
-| T2.6 | CompositeDispatcher_dispatchEvent_uses_default_when_no_event_setting | 未指定時はdefaultTypeを使用 |
-| T2.7 | CompositeDispatcher_dispatchEvent_throws_on_unknown_type | 未登録typeで例外 |
-| T2.8 | CompositeDispatcher_constructor_receives_defaultType_via_DI | defaultTypeがDI経由で注入される |
+| T2.11 | testDelegatesToEventSpecifiedDispatcher | イベント指定の Dispatcher に委譲 |
+| T2.12 | testUsesDefaultWhenNoEventSetting | 未指定時は defaultType 使用 |
+| T2.13 | testUsesDefaultWhenDispatcherTypeIsNull | null 時も defaultType 使用 |
+| T2.14 | testThrowsOnUnknownType | 未登録 type で例外 |
+| T2.15 | testReceivesDefaultTypeViaConstructor | defaultType がコンストラクタ経由 |
+| T2.16 | testThrowsWhenDispatchersArrayIsEmpty | 空配列で例外 |
+| T2.17 | testThrowsWhenDefaultTypeNotInDispatchers | 未登録 defaultType で例外 |
+| T2.18 | testCleanupDelegatesToAllChildDispatchers | cleanup が全子に委譲 |
+| T2.19 | testStopAllDelegatesToAllChildDispatchers | stopAll が全子に委譲 |
+| T2.20 | testCleanupContinuesWhenChildThrows | 子の例外でも他の子に委譲 |
+| T2.21 | testStopAllContinuesWhenChildThrows | 子の例外でも他の子に委譲 |
+| T2.22 | testCleanupLogsWarningWhenChildThrows | 例外時に警告ログ |
+| T2.23 | testStopAllLogsWarningWhenChildThrows | 例外時に警告ログ |
 
-### Phase 3: Orchestrator
-
-#### ScheduleOrchestrator
+#### TrackingDispatcher
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T3.1 | run_executes_due_events | dueなイベントが実行される |
-| T3.2 | run_skips_non_due_events | dueでないイベントはスキップ |
-| T3.3 | run_calls_dispatcher_dispatchEvent_for_each_event | 各イベントに対してdispatcher.dispatchEvent()を呼ぶ |
-| T3.4 | run_stops_when_shouldContinue_false | falseでループ終了 |
+| TD1.1 | testDelegatesToInnerDispatcherWhenLockAcquired | ロック成功で内部に委譲 |
+| TD1.2 | testReturnsSkippedWhenLockNotAcquired | ロック失敗で SkippedDispatchResult |
+| TD1.3 | testMarksExecutedOnStartedResult | Started で markExecuted 呼出 |
+| TD1.4 | testMarksExecutedOnAlreadyRunningResult | AlreadyRunning で markExecuted 呼出 |
+| TD1.5 | testLogsErrorOnFailedResult | Failed でエラーログ |
+| TD1.6 | testLogsExceptionInContextOnFailedResult | 例外がコンテキストに含まれる |
+| TD1.7 | testThrowsLogicExceptionOnUnexpectedResultType | 予期しない型で LogicException |
+| TD1.8 | testCleanupDelegatesToInnerDispatcher | cleanup が内部に委譲 |
+| TD1.9 | testStopAllDelegatesToInnerDispatcher | stopAll が内部に委譲 |
+| TD1.10 | testSkippedDispatchResultReturnsTrackingType | dispatcherType が 'tracking' |
+| TD1.11 | testLogsDebugWhenLockNotAcquired | ロック失敗時に DEBUG ログ |
+
+#### StepFunctionsDispatcher
+
+| ID | テスト名 | 期待結果 |
+|----|---------|---------|
+| T5.1 | testReturnsStepFunctionsDispatchResultOnSuccess | 成功時に StartedStepFunctionsDispatchResult |
+| T5.2 | testReturnsAlreadyRunningOnExecutionAlreadyExists | 重複で AlreadyRunning |
+| T5.3 | testExecutionNameIsGeneratedFromMutexAndTimestamp | Execution Name 生成 |
+| T5.4 | testInputContainsRequiredFields | input に command, mutexName, dueAt |
+| T5.5 | testGetDispatcherTypeReturnsStepfunctions | dispatcherType が 'stepfunctions' |
+| T5.6 | testReturnsFailedOnGeneralError | 一般エラーで Failed |
+| T5.7 | testUsesCorrectStateMachineArn | 正しい stateMachineArn 使用 |
+| T5.8 | testReturnsExecutionArnOnSuccess | executionArn 取得可能 |
+| T5.9 | testReturnsCorrectEventIdentifier | 正しいイベント識別子 |
+| T5.10 | testReturnsCorrectEventCommand | 正しいコマンド |
+| T5.11 | testReturnsExceptionOnGeneralError | 例外取得可能 |
+| T5.12 | testCleanupIsNoOp | cleanup は no-op |
+| T5.13 | testStopAllIsNoOp | stopAll は no-op |
+
+### Phase 3: Orchestrator
+
+#### DefaultScheduleOrchestrator
+
+| ID | テスト名 | 期待結果 |
+|----|---------|---------|
+| T3.1 | testRunExecutesDueEvents | due なイベントが実行される |
+| T3.2 | testRunSkipsNonDueEvents | due でないイベントはスキップ |
+| T3.3 | testRunCallsDispatcherDispatchEventForEachEvent | 各イベントに対して dispatchEvent 呼出 |
+| T3.4 | testRunStopsWhenShouldContinueFalse | false でループ終了 |
+| T3.6 | testOnlyDispatchesOncePerMinute | 同一分で1回のみディスパッチ |
+| T3.7 | testSkipsDispatchWhenSecondIsNotZero | 秒≠0 でスキップ |
+| T3.8 | testPassesDueAtToDispatcher | dueAt が渡される |
+| T3.23 | testChecksMissedExecutionsAtStartupAndRecovers | 起動時に取りこぼしリカバリ |
+| T3.24 | testSkipsMissedEventWhenGetMissedDueIfRecoverableReturnsNull | null でスキップ |
+| T3.25 | testDoesNotRecoverNonRecoverableEvent | 非 recoverable イベントはリカバリしない |
+| T3.29 | testLogsInfoWhenRecoveringMissedEvent | リカバリ時に INFO ログ |
 
 ### Phase 4: ExecutionTracker
 
@@ -1502,23 +1634,50 @@ interface ExecutionTrackerInterface
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T4.1 | markExecuted_stores_timestamp | Cacheにタイムスタンプ保存 |
-| T4.2 | wasMissed_returns_false_on_first_run | 初回はfalse |
-| T4.3 | wasMissed_returns_true_when_missed | 漏れ検出時はtrue |
-| T4.4 | wasMissed_returns_false_when_on_schedule | 正常時はfalse |
-| T4.5 | acquireLock_returns_true_on_success | ロック取得成功 |
-| T4.6 | acquireLock_returns_false_when_locked | 重複ロックは失敗 |
-| T4.7 | releaseLock_removes_lock | ロック解放される |
+| T4.1 | testMarkExecutedStoresTimestamp | Cache にタイムスタンプ保存 |
+| T4.2 | testConstructorThrowsExceptionForNonPositiveLockTtl | 不正な lockTtl で例外 |
+| T4.3 | testGetMissedDueIfRecoverableReturnsNullOnFirstRun | 初回は null |
+| T4.4 | testGetMissedDueIfRecoverableReturnsMissedDue | 取りこぼし検出時に missedDue |
+| T4.5 | testGetMissedDueIfRecoverableReturnsNullWhenOnSchedule | 正常時は null |
+| T4.6 | testGetMissedDueIfRecoverableReturnsNullWhenGracePeriodExceeded | 猶予期間超過で null |
+| T4.7 | testGetMissedDueIfRecoverableReturnsMissedDueWithinGracePeriod | 猶予期間内で missedDue |
+| T4.8 | testGetMissedDueIfRecoverableThrowsOnInvalidCron | 不正 cron 式で例外 |
+| T4.9 | testAcquireLockReturnsTrueOnSuccess | ロック取得成功 |
+| T4.10 | testAcquireLockReturnsFalseWhenLocked | 重複ロックは失敗 |
+| T4.11 | testReleaseLockRemovesLock | ロック解放される |
+| T4.13 | testMarkExecutedUsesGracePeriodForTtl | gracePeriod で TTL 計算 |
+| T4.14 | testGetMissedDueIfRecoverableWorksWithNonClockAwareEvent | 非 ClockAwareEvent でも動作 |
+| T4.15 | testGetMissedDueIfRecoverableReturnsMissedDueWhenNoGracePeriod | gracePeriod 未設定でも missedDue |
 
-### Phase 5: 統合テスト
+#### NullExecutionTracker
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T5.1 | mixed_dispatchers_in_same_schedule | local/sfn混在で正しく振り分け |
-| T5.2 | recovery_within_grace_period | 猶予期間内のリカバリ実行 |
-| T5.3 | no_recovery_after_grace_period | 猶予期間超過でスキップ |
-| T5.4 | no_duplicate_execution_with_lock | ロックで重複防止 |
-| T5.5 | graceful_shutdown_waits_for_running | 実行中タスク完了を待機 |
+| T6.1 | testMarkExecutedDoesNothing | 例外なしで何もしない |
+| T6.2 | testGetMissedDueIfRecoverableAlwaysReturnsNull | 常に null |
+| T6.3 | testAcquireLockAlwaysReturnsTrue | 常に true |
+| T6.4 | testReleaseLockDoesNothing | 例外なしで何もしない |
+
+### Phase 5: 統合テスト・E2E テスト
+
+#### 統合テスト
+
+| ID | テスト名 | 期待結果 |
+|----|---------|---------|
+| TI.1 | testNormalDispatchFlow | Orchestrator → TrackingDispatcher → Dispatcher で markExecuted |
+| TI.2 | testRecoveryDispatchFlow | 取りこぼしイベント検出 → ロック → dispatch → markExecuted |
+| TI.3 | testCompositeRoutingFlow | dispatchVia による正しいルーティング |
+| TI.4 | testShutdownPropagation | shouldContinue=false で全 Dispatcher に stopAll |
+| T7.1-T7.7 | CacheExecutionTrackerRedis* | Redis を使用した統合テスト（ロック、TTL、並行アクセス） |
+| T8.1-T8.6 | TrackingDispatcherRedis* | Redis を使用した TrackingDispatcher 統合テスト |
+| T6.1-T6.3 | StepFunctionsDispatcherIntegration* | moto を使用した Step Functions 統合テスト |
+| T13.1-T13.4 | ProviderWiringIntegration* | ServiceProvider の DI 結線テスト |
+
+#### E2E テスト
+
+| ID | テスト名 | 期待結果 |
+|----|---------|---------|
+| T4.1 | testGracefulShutdownStopsGracefullyOnSigterm | SIGTERM で graceful shutdown |
 
 ---
 
@@ -1530,9 +1689,11 @@ interface ExecutionTrackerInterface
 ### ServiceProvider
 
 **責務**:
-- `ClockInterface` を DI コンテナに登録
+- `ClockInterface` を `SystemClock` として DI コンテナに登録
 - `ClockAwareSchedule` をシングルトンとして登録
-- 本番環境では `SystemClock`、テスト環境では `FixedClock` をバインド
+- `ExecutionTrackerInterface` を設定に応じて `CacheExecutionTracker` または `NullExecutionTracker` としてバインド
+- `ScheduleDispatcherInterface` を `TrackingDispatcher` でラップして登録
+- `ScheduleOrchestratorInterface` を `DefaultScheduleOrchestrator` として登録
 
 **重要なポイント**:
 - `Kernel.php` のタイプヒントを `ClockAwareSchedule` に変更するだけで拡張機能が利用可能
@@ -1550,16 +1711,18 @@ interface ExecutionTrackerInterface
 - 既存の Laravel Schedule API との完全な互換性を維持
 - `command()` の戻り値が `ClockAwareEvent` 型であることを型システムで保証
 
-### Clock 実装（SystemClock / FixedClock）
+### Clock 実装
 
 **責務**:
 - `ClockInterface` の具象実装を提供
-- `SystemClock`: 実際の現在時刻を返す（本番環境用）
-- `FixedClock`: 固定時刻を返し、時刻変更が可能（テスト用）
+- `SystemClock`（`src/Clock/`）: 実際の現在時刻を返す（本番環境用）
+- `FixedClock`（`tests/Helper/`）: 固定時刻を返し、時刻変更が可能（テスト用ヘルパー）
+- `AdvancingClock`（`tests/Helper/`）: 呼び出しごとに時刻を進める（Orchestrator テスト用）
 
 **重要なポイント**:
 - テスト時に時刻を完全に制御できるため、決定論的なテストが可能
-- `setTime()` メソッドで時刻を進めることで、時間経過のシミュレーションが可能
+- `FixedClock.setTime()` メソッドで時刻を進めることで、時間経過のシミュレーションが可能
+- `FixedClock` / `AdvancingClock` はライブラリの配布対象には含めない（`tests/Helper/` に配置）
 
 ### LocalDispatcher
 
@@ -1621,6 +1784,21 @@ interface ExecutionTrackerInterface
 - タイムアウト付きロックによる自動解放
 - At-least-once セマンティックの実現
 
+### NullExecutionTracker
+
+**責務**:
+- `ExecutionTrackerInterface` の Null Object 実装を提供
+- トラッキング無効時（`tracker.enabled = false`）に使用
+
+**動作**:
+- `markExecuted()` / `releaseLock()`: 何もしない
+- `getMissedDueIfRecoverable()`: 常に `null`（取りこぼしなし）
+- `acquireLock()`: 常に `true`（常に成功）
+
+**重要なポイント**:
+- ServiceProvider でのトラッキング有効/無効の分岐を `NullExecutionTracker` により簡潔に実装
+- `TrackingDispatcher` が常に同じインターフェースで動作できる
+
 ---
 
 ## エラーハンドリング戦略
@@ -1678,19 +1856,13 @@ Step Functions実装の詳細なエラーハンドリングについては、[ST
 
 ```
 src/
-├── Console/
-│   └── GracefulScheduleWorkCommand.php  # リファクタリング（Orchestrator を使用）
-├── Clock/                               # 新規: Clock パターン
-│   ├── ClockInterface.php               # 時刻抽象化
+├── Clock/
+│   ├── ClockInterface.php               # 時刻抽象化インターフェース
 │   ├── SystemClock.php                  # 本番環境実装
-│   ├── FixedClock.php                   # テスト用実装
 │   ├── SleeperInterface.php             # スリープ抽象化
 │   └── Sleeper.php                      # 本番環境実装
-├── Scheduling/                          # 新規: ClockAware 拡張
-│   ├── ClockAwareSchedule.php           # Schedule 拡張
-│   └── ClockAwareEvent.php              # Event 拡張（withGracePeriod、dispatchVia等）
-├── Orchestrator/                        # 新規: Orchestrator レイヤー
-│   └── ScheduleOrchestratorInterface.php # スケジュール実行調整
+├── Console/
+│   └── GracefulScheduleWorkCommand.php  # Artisan コマンド（Orchestrator を使用）
 ├── Dispatcher/
 │   ├── DispatchResultInterface.php                  # ディスパッチ結果基底インターフェース
 │   ├── StartedDispatchResultInterface.php           # 成功結果インターフェース（新規開始）
@@ -1705,7 +1877,7 @@ src/
 │   ├── FailedStepFunctionsDispatchResult.php        # StepFunctionsDispatcher 失敗結果
 │   ├── ScheduleDispatcherInterface.php       # Dispatcher インターフェース
 │   ├── TrackingDispatcher.php                # トラッキングデコレーター
-│   ├── CompositeDispatcher.php               # Dispatcher委譲クラス
+│   ├── CompositeDispatcher.php               # Dispatcher 委譲クラス
 │   ├── LocalDispatcher.php                   # バックグラウンドプロセス起動
 │   ├── StepFunctionsDispatcher.php           # AWS Step Functions 統合
 │   └── StepFunctions/                        # Step Functions 関連クラス
@@ -1716,34 +1888,75 @@ src/
 │       ├── StartExecutionResult.php          # startExecution 結果
 │       ├── StepFunctionsException.php        # 基底例外
 │       └── ExecutionAlreadyExistsException.php # 重複実行例外
-├── Tracker/
-│   ├── ExecutionTrackerInterface.php    # インターフェース
-│   └── CacheExecutionTracker.php        # Redis/Cache 実装（ロック機能追加）
-└── Providers/
-    └── GracefulScheduleWorkerProvider.php  # DI 設定追加
+├── Orchestrator/
+│   ├── ScheduleOrchestratorInterface.php # スケジュール実行調整インターフェース
+│   └── DefaultScheduleOrchestrator.php   # デフォルト実装
+├── Providers/
+│   └── GracefulScheduleWorkerProvider.php  # DI 設定
+├── Scheduling/
+│   ├── ClockAwareSchedule.php           # Schedule 拡張
+│   └── ClockAwareEvent.php              # Event 拡張（withGracePeriod、dispatchVia 等）
+└── Tracker/
+    ├── ExecutionTrackerInterface.php    # インターフェース
+    ├── CacheExecutionTracker.php        # Redis/Cache 実装（ロック機能付き）
+    └── NullExecutionTracker.php         # Null Object 実装（トラッキング無効時）
 
 config/
-└── graceful-scheduler.php               # 新規設定ファイル
+└── graceful-scheduler.php               # 設定ファイル
 
 tests/
-├── Clock/
-│   ├── SystemClockTest.php
-│   └── FixedClockTest.php
-├── Scheduling/
-│   ├── ClockAwareScheduleTest.php
-│   └── ClockAwareEventTest.php
-├── Orchestrator/                        # 新規
-│   └── ScheduleOrchestratorTest.php
-├── Dispatcher/
-│   ├── LocalDispatchResultTest.php
-│   ├── StepFunctionsDispatchResultTest.php
-│   ├── SkippedDispatchResultTest.php
-│   ├── TrackingDispatcherTest.php
-│   ├── CompositeDispatcherTest.php
-│   ├── LocalDispatcherTest.php
-│   └── StepFunctionsDispatcherTest.php
-└── Tracker/
-    └── CacheExecutionTrackerTest.php
+├── E2E/
+│   └── GracefulScheduleWorkerCommandTest.php  # SIGTERM グレースフルシャットダウン
+├── Helper/                                    # テスト用ヘルパークラス
+│   ├── AdvancingClock.php                     # 自動進行 Clock
+│   ├── FixedClock.php                         # 固定時刻 Clock
+│   ├── NullSleeper.php                        # no-op Sleeper
+│   ├── FakeDispatcher.php                     # Dispatcher Fake
+│   ├── FakeExecutionTracker.php               # Tracker Fake
+│   ├── FakeStepFunctionsClient.php            # Step Functions Client Fake
+│   ├── SpyLogger.php                          # Logger Spy
+│   └── ...                                    # その他 Fake/Stub/Spy
+├── Integration/
+│   ├── Dispatcher/
+│   │   ├── StepFunctionsDispatcherIntegrationTest.php  # moto 統合テスト
+│   │   └── TrackingDispatcherRedisIntegrationTest.php  # Redis 統合テスト
+│   ├── Orchestrator/
+│   │   └── OrchestratorFlowIntegrationTest.php         # フロー統合テスト
+│   ├── Providers/
+│   │   └── ProviderWiringIntegrationTest.php           # DI 結線テスト
+│   └── Tracker/
+│       └── CacheExecutionTrackerRedisTest.php          # Redis 統合テスト
+└── Unit/
+    ├── Clock/
+    │   ├── SystemClockTest.php
+    │   └── SleeperTest.php
+    ├── Console/
+    │   └── GracefulScheduleWorkCommandTest.php
+    ├── Dispatcher/
+    │   ├── StartedLocalDispatchResultTest.php
+    │   ├── FailedLocalDispatchResultTest.php
+    │   ├── StartedStepFunctionsDispatchResultTest.php
+    │   ├── AlreadyRunningStepFunctionsDispatchResultTest.php
+    │   ├── FailedStepFunctionsDispatchResultTest.php
+    │   ├── SkippedDispatchResultTest.php
+    │   ├── TrackingDispatcherTest.php
+    │   ├── CompositeDispatcherTest.php
+    │   ├── LocalDispatcherTest.php
+    │   ├── StepFunctionsDispatcherTest.php
+    │   └── StepFunctions/
+    │       ├── AwsSfnClientAdapterTest.php
+    │       ├── ExecutionNameGeneratorTest.php
+    │       └── StartExecutionResultTest.php
+    ├── Orchestrator/
+    │   └── DefaultScheduleOrchestratorTest.php
+    ├── Providers/
+    │   └── GracefulScheduleWorkerProviderTest.php
+    ├── Scheduling/
+    │   ├── ClockAwareScheduleTest.php
+    │   └── ClockAwareEventTest.php
+    └── Tracker/
+        ├── CacheExecutionTrackerTest.php
+        └── NullExecutionTrackerTest.php
 ```
 
 ---
@@ -1829,260 +2042,141 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 
 ## 実装フェーズ
 
-### Phase 1: 基盤リファクタリング（ClockAware 導入）
+### Phase 1: 基盤リファクタリング（ClockAware 導入） ✅ 完了
 
 **目的**: Clock パターンを導入し、時刻依存を外部化する
-
-**作業内容**:
-
-1. `ClockInterface` / `SystemClock` / `FixedClock` を作成
-2. `ClockAwareEvent` を実装（Event を継承）
-3. `ClockAwareSchedule` を実装（Schedule を継承）
-4. `ServiceProvider` で Schedule を ClockAwareSchedule にバインド
-5. 既存テストの確認
 
 **成果物**:
 
 - `src/Clock/ClockInterface.php`
 - `src/Clock/SystemClock.php`
-- `src/Clock/FixedClock.php`
+- `src/Clock/SleeperInterface.php`
+- `src/Clock/Sleeper.php`
 - `src/Scheduling/ClockAwareEvent.php`
 - `src/Scheduling/ClockAwareSchedule.php`
-- `tests/Clock/SystemClockTest.php`
-- `tests/Clock/FixedClockTest.php`
-- `tests/Scheduling/ClockAwareEventTest.php`
+- `tests/Helper/FixedClock.php`（テスト専用、src/ には配置しない）
+- `tests/Helper/AdvancingClock.php`（テスト専用）
+- `tests/Helper/NullSleeper.php`（テスト専用）
+- `tests/Unit/Clock/SystemClockTest.php`
+- `tests/Unit/Clock/SleeperTest.php`
+- `tests/Unit/Scheduling/ClockAwareEventTest.php`
+- `tests/Unit/Scheduling/ClockAwareScheduleTest.php`
 
-**検証**:
-
-- FixedClock を使用したテストが動作すること
-- 既存の動作が維持されること
-
-### Phase 2: Dispatcher 分離（後方互換維持）
+### Phase 2: Dispatcher 分離（後方互換維持） ✅ 完了
 
 **目的**: 既存のロジックを Dispatcher パターンに移行し、後方互換性を維持する
-
-**作業内容**:
-
-1. `ScheduleDispatcherInterface` インターフェースを作成
-2. `LocalDispatcher` を実装（既存ロジックを抽出）
-3. `GracefulScheduleWorkCommand` をリファクタリング
-   - `LocalDispatcher` を使用するように変更
-   - 既存の動作は完全に維持
-4. 設定ファイル `config/graceful-scheduler.php` を追加
-5. テストを追加・更新
 
 **成果物**:
 
 - `src/Dispatcher/ScheduleDispatcherInterface.php`
+- `src/Dispatcher/DispatchResultInterface.php` + サブインターフェース
 - `src/Dispatcher/LocalDispatcher.php`
-- `src/Console/GracefulScheduleWorkCommand.php` (リファクタリング)
+- `src/Dispatcher/StartedLocalDispatchResult.php`
+- `src/Dispatcher/FailedLocalDispatchResult.php`
+- `src/Dispatcher/TrackingDispatcher.php`
+- `src/Dispatcher/SkippedDispatchResult.php`
 - `config/graceful-scheduler.php`
-- `tests/Dispatcher/LocalDispatcherTest.php`
+- `tests/Unit/Dispatcher/LocalDispatcherTest.php`
+- `tests/Unit/Dispatcher/TrackingDispatcherTest.php`
+- 各 DispatchResult のユニットテスト
 
-**検証**:
-
-- 既存のテストが全て通過すること
-- デモアプリケーションで動作確認
-- config による切り替えが動作すること
-
-### Phase 3: Orchestrator
+### Phase 3: Orchestrator ✅ 完了
 
 **目的**: スケジュール実行の調整層を導入し、責務を分離する
-
-**作業内容**:
-
-1. `ScheduleOrchestratorInterface` インターフェースと実装を作成
-2. `CompositeDispatcher` を実装
-   - 複数のDispatcherを保持
-   - イベントのdispatcherTypeに応じて適切なDispatcherに委譲
-   - defaultTypeをDI経由で注入（ServiceProviderでconfig参照）
-3. `ClockAwareEvent` に Dispatcher 指定メソッドを追加
-   - `dispatchVia(string $type)` - Dispatcher指定（'local' または 'stepfunctions'）
-   - `getDispatcherType()` - 指定されたDispatcher取得
-4. `GracefulScheduleWorkCommand` をリファクタリング
-   - Orchestrator を使用するように変更
-5. 設定ファイルでデフォルトDispatcherを指定可能に
 
 **成果物**:
 
 - `src/Orchestrator/ScheduleOrchestratorInterface.php`
+- `src/Orchestrator/DefaultScheduleOrchestrator.php`
 - `src/Dispatcher/CompositeDispatcher.php`
-- `src/Scheduling/ClockAwareEvent.php` (更新)
-- `src/Console/GracefulScheduleWorkCommand.php` (リファクタリング)
-- `src/Providers/GracefulScheduleWorkerProvider.php` (更新)
-- `tests/Orchestrator/ScheduleOrchestratorTest.php`
-- `tests/Dispatcher/CompositeDispatcherTest.php`
+- `src/Console/GracefulScheduleWorkCommand.php`（Orchestrator を使用）
+- `src/Providers/GracefulScheduleWorkerProvider.php`
+- `tests/Unit/Orchestrator/DefaultScheduleOrchestratorTest.php`
+- `tests/Unit/Dispatcher/CompositeDispatcherTest.php`
+- `tests/Unit/Console/GracefulScheduleWorkCommandTest.php`
+- `tests/Integration/Orchestrator/OrchestratorFlowIntegrationTest.php`
+- `tests/Integration/Providers/ProviderWiringIntegrationTest.php`
 
-**検証**:
-
-- 既存のテストが全て通過すること
-- イベント単位でDispatcher指定が動作すること
-- デフォルト設定が正しく適用されること
-- local/stepfunctions混在スケジュールが動作すること
-
-### Phase 4: Step Functions 対応
+### Phase 4: Step Functions 対応 ✅ 完了
 
 **目的**: AWS Step Functions を使用した外部実行機能を追加
-
-**作業内容**:
-
-1. `StepFunctionsDispatcher` を実装
-2. `GracefulScheduleWorkerProvider` で DI 設定を追加
-3. AWS SDK の依存関係を追加（オプショナル）
-4. Execution Name による重複防止を実装
 
 **成果物**:
 
 - `src/Dispatcher/StepFunctionsDispatcher.php`
-- `src/Providers/GracefulScheduleWorkerProvider.php` (更新)
-- `tests/Dispatcher/StepFunctionsDispatcherTest.php`
-- `composer.json` (aws/aws-sdk-php を suggest に追加)
+- `src/Dispatcher/StartedStepFunctionsDispatchResult.php`
+- `src/Dispatcher/AlreadyRunningStepFunctionsDispatchResult.php`
+- `src/Dispatcher/FailedStepFunctionsDispatchResult.php`
+- `src/Dispatcher/StepFunctions/StepFunctionsClientInterface.php`
+- `src/Dispatcher/StepFunctions/AwsSfnClientAdapter.php`
+- `src/Dispatcher/StepFunctions/ExecutionNameGeneratorInterface.php`
+- `src/Dispatcher/StepFunctions/ExecutionNameGenerator.php`
+- `src/Dispatcher/StepFunctions/StartExecutionResult.php`
+- `src/Dispatcher/StepFunctions/StepFunctionsException.php`
+- `src/Dispatcher/StepFunctions/ExecutionAlreadyExistsException.php`
+- `tests/Unit/Dispatcher/StepFunctionsDispatcherTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/AwsSfnClientAdapterTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/ExecutionNameGeneratorTest.php`
+- `tests/Integration/Dispatcher/StepFunctionsDispatcherIntegrationTest.php`（moto 使用）
 
-**検証**:
-
-- moto を使用した統合テスト
-- モックテストでエラーハンドリングを確認
-- 同じ ExecutionName での重複起動が拒否されること
-
-### Phase 5: At-least-once 対応（ExecutionTracker）
+### Phase 5: At-least-once 対応（ExecutionTracker） ✅ 完了
 
 **目的**: 取りこぼしタスクの検出とリカバリ機能を追加
-
-**作業内容**:
-
-1. `ExecutionTrackerInterface` インターフェースを作成（ロック機能を含む）
-2. `CacheExecutionTracker` を実装（Redis ロック対応）
-3. `StepFunctionsDispatcher` に Tracker 統合
-4. Cron 式パーサーの統合（cron-expression ライブラリ）
-5. 起動時リカバリロジックを実装
-6. heartbeat 機構（オプション）
 
 **成果物**:
 
 - `src/Tracker/ExecutionTrackerInterface.php`
 - `src/Tracker/CacheExecutionTracker.php`
-- `src/Dispatcher/StepFunctionsDispatcher.php` (更新)
-- `src/Console/GracefulScheduleWorkCommand.php` (更新)
-- `tests/Tracker/CacheExecutionTrackerTest.php`
+- `src/Tracker/NullExecutionTracker.php`
+- `tests/Unit/Tracker/CacheExecutionTrackerTest.php`
+- `tests/Unit/Tracker/NullExecutionTrackerTest.php`
+- `tests/Integration/Tracker/CacheExecutionTrackerRedisTest.php`
+- `tests/Integration/Dispatcher/TrackingDispatcherRedisIntegrationTest.php`
 
-**検証**:
-
-- Redis を使用した統合テスト
-- 取りこぼしシナリオのテスト
-- 起動時リカバリが動作すること
-- ロック機構による重複実行防止が動作すること
-
-### Phase 6: 拡張機能（Grace Period）
+### Phase 6: 拡張機能（Grace Period） ✅ 完了
 
 **目的**: リカバリ制御の拡張メソッドを実装
 
-**作業内容**:
-
-1. `ClockAwareEvent` に拡張メソッドを追加
-   - `withGracePeriod(?int $minutes = null)` - リカバリ有効化 + 猶予期間設定
-     - `$minutes` が `null` の場合は無制限
-     - `$minutes > 0` の場合は指定された分数
-   - `enableRecovery()` - リカバリ有効化（猶予期間なし = 無制限）
-2. ExecutionTracker でリカバリ判定時に Grace Period を考慮
-3. デフォルトはリカバリ無効（`$recoverable = false`）
-4. ドキュメント更新（利用例を追加）
-
 **成果物**:
 
-- `src/Scheduling/ClockAwareEvent.php` (更新)
-- `src/Tracker/CacheExecutionTracker.php` (更新)
-- `tests/Scheduling/ClockAwareEventTest.php` (更新)
-- `docs/DESIGN.md` (更新)
+- `src/Scheduling/ClockAwareEvent.php`（withGracePeriod、enableRecovery）
+- `src/Tracker/CacheExecutionTracker.php`（Grace Period 判定）
+- `tests/Unit/Scheduling/ClockAwareEventTest.php`
 
-**検証**:
+### E2E テスト ✅ 完了
 
-- デフォルトでリカバリが無効であること
-- withGracePeriod(30) でリカバリが有効化され、30分の猶予期間が設定されること
-- withGracePeriod(null) と enableRecovery() が同じ動作（無制限リカバリ）をすること
-- リカバリはタイムスタンプ順（古い順）に実行されること
+- `tests/E2E/GracefulScheduleWorkerCommandTest.php`（SIGTERM graceful shutdown）
 
 ---
 
 ## テスト戦略
 
-### 単体テスト
+### テスト方針
 
-**LocalDispatcher**:
+- **Mock 禁止**: Interface には Fake、実クラスには Stub/Spy を使用
+- **テスト用ヘルパー**: `tests/Helper/` に配置（1ファイル1クラス）
+- **テストID**: `@testdox` アノテーションで設計のテストIDと紐付け
 
-```php
-public function testRunExecutesScheduleRunEveryMinute()
-{
-    // モックを使用して Process の起動を検証
-}
+### テスト構成
 
-public function testGracefulShutdownStopsRunningProcesses()
-{
-    // shouldContinue が false を返した際の動作を検証
-}
-```
+| カテゴリ | テスト数 | 検証対象 |
+|---------|---------|---------|
+| Unit/Clock | 6 | SystemClock、Sleeper |
+| Unit/Scheduling | 17 | ClockAwareEvent、ClockAwareSchedule |
+| Unit/Dispatcher | 94 | LocalDispatcher、CompositeDispatcher、TrackingDispatcher、StepFunctionsDispatcher、各 DispatchResult |
+| Unit/Orchestrator | 11 | DefaultScheduleOrchestrator |
+| Unit/Tracker | 19 | CacheExecutionTracker、NullExecutionTracker |
+| Unit/Providers | 15 | GracefulScheduleWorkerProvider |
+| Unit/Console | 1 | GracefulScheduleWorkCommand |
+| Integration | 17 | Redis 統合、moto 統合、DI 結線、フロー統合 |
+| E2E | 1 | SIGTERM graceful shutdown |
+| **合計** | **228** | |
 
-**StepFunctionsDispatcher**:
+### 統合テスト環境
 
-```php
-public function testDispatchEventStartsExecution()
-{
-    // SfnClient のモックを使用して startExecution が呼ばれることを検証
-}
-
-public function testMissedEventsAreDetectedAndRecovered()
-{
-    // Tracker のモックを使用して取りこぼし検出ロジックを検証
-}
-```
-
-**CacheExecutionTracker**:
-
-```php
-public function testMarkExecutedStoresTimestamp()
-{
-    // Cache に正しく保存されることを検証
-}
-
-public function testWasMissedDetectsMissedSchedules()
-{
-    // 取りこぼし判定ロジックを検証
-}
-```
-
-### 統合テスト
-
-**moto を使用した Step Functions テスト**:
-
-```php
-public function testStepFunctionsIntegration()
-{
-    // moto の Step Functions エンドポイントを使用
-    // 実際の startExecution を実行して結果を検証
-}
-```
-
-**Redis を使用した Tracker テスト**:
-
-```php
-public function testTrackerWithRedis()
-{
-    // Redis コンテナを使用した実行履歴の永続化を検証
-}
-```
-
-### E2E テスト
-
-**デモアプリケーションでの検証**:
-
-```bash
-# ローカル環境
-cd demo
-docker compose up
-
-# StepFunctions 環境（moto）
-cd demo
-docker compose up -d
-```
+- **moto**: Step Functions の統合テスト（Docker コンテナ、`composer test` で自動起動）
+- **Redis**: CacheExecutionTracker と TrackingDispatcher の統合テスト（Docker コンテナ）
+- **skeleton**: Laravel アプリケーションとしての統合テスト
 
 ---
 
@@ -2223,6 +2317,6 @@ protected function schedule(ClockAwareSchedule $schedule)
 
 ---
 
-**Last Updated**: 2026-02-06
-**Version**: 3.4.0 (TrackingDispatcher導入、dueAtパラメータ追加、Orchestrator簡略化)
+**Last Updated**: 2026-02-07
+**Version**: 3.5.0 (コードベースとのギャップ解消、テスト一覧・ディレクトリ構成・実装フェーズを実態に同期)
 **Author**: Laravel Graceful Schedule Worker Team
