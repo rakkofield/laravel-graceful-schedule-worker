@@ -74,13 +74,13 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         $lastExecutionStartedAt = null;
 
         // 起動時に一度だけ取りこぼしチェック
-        $this->checkMissedExecutions($schedule, $app, $this->getCurrentTime());
+        $this->checkMissedExecutions($schedule, $app, $this->clock->now());
 
         while ($shouldContinue()) {
             // スリープを挟んで CPU 負荷を軽減
             $this->sleeper->sleep();
 
-            $now = $this->getCurrentTime();
+            $now = $this->clock->now();
             $currentMinute = $now->setTime((int) $now->format('H'), (int) $now->format('i'), 0);
 
             // 毎分0秒に一度だけイベントをディスパッチ
@@ -208,15 +208,5 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         } else {
             $doEvaluate();
         }
-    }
-
-    /**
-     * 現在時刻を取得
-     *
-     * @return \DateTimeImmutable
-     */
-    private function getCurrentTime(): \DateTimeImmutable
-    {
-        return $this->clock->now();
     }
 }
