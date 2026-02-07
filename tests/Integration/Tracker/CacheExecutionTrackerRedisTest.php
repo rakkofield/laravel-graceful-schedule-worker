@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
-use Carbon\Carbon;
+use DateTimeImmutable;
 use Illuminate\Cache\Repository;
 use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
@@ -93,14 +93,14 @@ class CacheExecutionTrackerRedisTest extends TestCase
     {
         $tracker = $this->createTracker();
         $event = $this->createEvent('php artisan test:redis-task');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         $tracker->markExecuted($event, $dueAt);
 
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertTrue($this->cache->has($key));
         // assertEquals は型を無視して比較するため、Redis が文字列を返しても一致する
-        $this->assertEquals($dueAt->timestamp, $this->cache->get($key));
+        $this->assertEquals($dueAt->getTimestamp(), $this->cache->get($key));
     }
 
     /**
@@ -110,7 +110,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     {
         $tracker = $this->createTracker();
         $event = $this->createEvent('php artisan test:redis-lock');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         $result = $tracker->acquireLock($event, $dueAt);
 
@@ -124,7 +124,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     {
         $tracker = $this->createTracker();
         $event = $this->createEvent('php artisan test:redis-lock-conflict');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         $first = $tracker->acquireLock($event, $dueAt);
         $second = $tracker->acquireLock($event, $dueAt);
@@ -140,7 +140,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     {
         $tracker = $this->createTracker();
         $event = $this->createEvent('php artisan test:redis-lock-release');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         $tracker->acquireLock($event, $dueAt);
         $tracker->releaseLock($event, $dueAt);
@@ -160,15 +160,15 @@ class CacheExecutionTrackerRedisTest extends TestCase
         $event->cron('0 * * * *'); // 毎時0分
 
         // 10:00 に実行記録
-        $tracker->markExecuted($event, Carbon::parse('2024-01-15 10:00:00'));
+        $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
         // 11:05 にチェック（11:00 が欠落している）
-        $now = Carbon::parse('2024-01-15 11:05:00');
+        $now = new DateTimeImmutable('2024-01-15 11:05:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
         $this->assertNotNull($result);
-        $this->assertSame(11, $result->hour);
-        $this->assertSame(0, $result->minute);
+        $this->assertSame('11', $result->format('H'));
+        $this->assertSame('00', $result->format('i'));
     }
 
     /**
@@ -180,7 +180,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
         $cache2 = $this->createRedisCache();
         $tracker2 = new CacheExecutionTracker($cache2, $cache2->getStore(), $this->logger);
         $event = $this->createEvent('php artisan test:concurrent');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         $result1 = $tracker1->acquireLock($event, $dueAt);
         $result2 = $tracker2->acquireLock($event, $dueAt);
@@ -198,7 +198,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
         $shortTtl = 2; // 2秒
         $tracker1 = $this->createTracker($shortTtl);
         $event = $this->createEvent('php artisan test:ttl-expiry');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         $tracker1->acquireLock($event, $dueAt);
 

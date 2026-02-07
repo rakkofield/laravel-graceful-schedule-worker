@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
-use Carbon\Carbon;
 use Cron\CronExpression;
 use DateInterval;
+use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Cache\Lock;
@@ -92,12 +92,9 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         }
 
         // cron 式から前回の実行予定時刻を計算（例外はそのまま伝播）
-        // DateTimeInterface を Carbon に変換して CronExpression に渡す
-        // Note: Carbon::parse() は DateTimeInterface を受け付ける
-        $nowCarbon = Carbon::parse($now->format(\DateTimeInterface::ATOM));
         try {
             $cron = new CronExpression($event->expression);
-            $previousRunDate = $cron->getPreviousRunDate($nowCarbon);
+            $previousRunDate = $cron->getPreviousRunDate($now);
         } catch (\Exception $e) {
             throw new InvalidArgumentException(
                 sprintf('Invalid cron expression: %s', $event->expression),
@@ -105,7 +102,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
                 $e
             );
         }
-        $missedDue = Carbon::instance($previousRunDate);
+        $missedDue = DateTimeImmutable::createFromMutable($previousRunDate);
 
         // 取りこぼしチェック（タイムスタンプで比較）
         if ($missedDue->getTimestamp() <= $lastExecutedDue->getTimestamp()) {
@@ -116,12 +113,12 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         if ($event instanceof ClockAwareEvent) {
             $gracePeriod = $event->getGracePeriod();
             if ($gracePeriod !== null) {
-                $deadline = $lastExecutedDue->copy()->add($gracePeriod);
+                $deadline = $lastExecutedDue->add($gracePeriod);
                 if ($now->getTimestamp() > $deadline->getTimestamp()) {
                     $this->logger->warning('[GracefulScheduleWorker] Skipping missed event: grace period exceeded', [
                         'event' => $event->mutexName(),
-                        'missedDue' => $missedDue->toDateTimeString(),
-                        'deadline' => $deadline->toDateTimeString(),
+                        'missedDue' => $missedDue->format('Y-m-d H:i:s'),
+                        'deadline' => $deadline->format('Y-m-d H:i:s'),
                     ]);
                     return null; // grace period 超過
                 }
@@ -164,9 +161,9 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
      * 最後に実行された予定時刻を取得する
      *
      * @param Event $event 対象イベント
-     * @return Carbon|null 最後の実行予定時刻（未実行なら null）
+     * @return DateTimeImmutable|null 最後の実行予定時刻（未実行なら null）
      */
-    private function getLastExecutedDue(Event $event): ?Carbon
+    private function getLastExecutedDue(Event $event): ?DateTimeImmutable
     {
         $key = $this->getLastExecutedKey($event);
         $timestamp = $this->cache->get($key);
@@ -175,7 +172,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
             return null;
         }
 
-        return Carbon::createFromTimestamp((int) $timestamp);
+        return new DateTimeImmutable('@' . (int) $timestamp);
     }
 
     /**
