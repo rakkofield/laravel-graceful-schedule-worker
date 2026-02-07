@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
 
 use Illuminate\Cache\RedisStore;
 use Illuminate\Cache\Repository;
-use Redis;
 
 trait RedisTestTrait
 {
@@ -24,22 +23,6 @@ trait RedisTestTrait
     private function getRedisPort(): int
     {
         return (int) (getenv('REDIS_PORT') ?: 6379);
-    }
-
-    /**
-     * @return bool
-     */
-    private function isRedisAvailable(): bool
-    {
-        try {
-            $redis = new Redis();
-            $redis->connect($this->getRedisHost(), $this->getRedisPort(), 1.0);
-            $redis->ping();
-            $redis->close();
-            return true;
-        } catch (\Exception $e) {
-            return false;
-        }
     }
 
     /**

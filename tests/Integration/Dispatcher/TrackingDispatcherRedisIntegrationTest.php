@@ -54,10 +54,6 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        if (!$this->isRedisAvailable()) {
-            $this->markTestSkipped('Redis server is not available');
-        }
-
         $this->container = new Container();
         Container::setInstance($this->container);
 

@@ -57,10 +57,6 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         // SFN_ENDPOINT を使用（phpunit.xml.dist で設定）
         $this->endpoint = getenv('SFN_ENDPOINT') ?: 'http://localhost:5001';
 
-        if (!$this->isSfnEndpointAvailable()) {
-            $this->markTestSkipped('Step Functions endpoint is not available: ' . $this->endpoint);
-        }
-
         $this->app = new Container();
         Container::setInstance($this->app);
         $this->mutex = new FakeEventMutex();
@@ -105,19 +101,6 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
                 throw $e;
             }
         }
-    }
-
-    private function isSfnEndpointAvailable(): bool
-    {
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 2,
-            ],
-        ]);
-
-        $healthUrl = $this->endpoint . '/moto-api/';
-        $response = @file_get_contents($healthUrl, false, $context);
-        return $response !== false;
     }
 
     private function createEvent(string $command): Event

@@ -43,10 +43,6 @@ class CacheExecutionTrackerRedisTest extends TestCase
     {
         parent::setUp();
 
-        if (!$this->isRedisAvailable()) {
-            $this->markTestSkipped('Redis server is not available');
-        }
-
         $this->mutex = new FakeEventMutex();
         $this->logger = new NullLogger();
         $this->cache = $this->createRedisCache();
