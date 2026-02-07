@@ -9,12 +9,12 @@ Laravel scheduler compatibility analysis for `laravel-graceful-worker`.
 Laravel's `schedule:run` uses a two-stage filtering pipeline:
 
 ```
-1. isDue($app)       -- cron expression + timezone check (via dueEvents())
+1. isDue($app)       -- cron expression + timezone + maintenance mode + environment check (via dueEvents())
 2. filtersPass($app)  -- when()/skip()/between()/withoutOverlapping() etc.
-3. Event::run()
+3. Event::run()       -- actual command execution
 ```
 
-`dueEvents($app)` returns events where `isDue()` is true.
+`dueEvents($app)` returns events where `isDue()` is true. `isDue()` checks the cron expression, timezone, maintenance mode (`evenInMaintenanceMode()`), and environment (`environments()`).
 `filtersPass($app)` evaluates runtime filters registered via `when()`, `skip()`, `between()`, `unlessBetween()`, `withoutOverlapping()`, etc.
 
 ## filtersPass and Recovery Dispatch
@@ -52,6 +52,11 @@ Both can coexist. `withoutOverlapping()` is checked via `filtersPass()` before r
 | Time range | `between($start, $end)` | Supported |
 | Time range exclusion | `unlessBetween($start, $end)` | Supported |
 | Overlap prevention | `withoutOverlapping($minutes)` | Supported |
+
+### Supported (via isDue)
+
+| Feature | Method | Status |
+|---|---|---|
 | Environment filter | `environments($envs)` | Supported |
 | Maintenance mode | `evenInMaintenanceMode()` | Supported |
 

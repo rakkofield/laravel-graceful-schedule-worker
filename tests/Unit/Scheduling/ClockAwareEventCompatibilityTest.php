@@ -32,9 +32,6 @@ class ClockAwareEventCompatibilityTest extends TestCase
     /** @var FixedClock */
     private $clock;
 
-    /** @var Container */
-    private $container;
-
     /** @var FakeApplication */
     private $app;
 
@@ -42,8 +39,8 @@ class ClockAwareEventCompatibilityTest extends TestCase
     {
         parent::setUp();
 
-        $this->container = new Container();
-        Container::setInstance($this->container);
+        $container = new Container();
+        Container::setInstance($container);
 
         $this->mutex = new FakeEventMutex();
         $this->clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
@@ -167,7 +164,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
         // Now lock the mutex (simulate a running event)
         $this->mutex->create($event);
 
-        // Create a new event with same command to test against locked mutex
+        // 同一コマンド ('echo test') → 同一 mutexName → ロック済み mutex にヒットする
         $event2 = $this->createEvent();
         $event2->withoutOverlapping();
 

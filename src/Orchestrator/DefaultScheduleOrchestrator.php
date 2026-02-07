@@ -100,7 +100,19 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 $nowCarbon = Carbon::instance($now);
 
                 foreach ($events as $event) {
-                    if (!$event->filtersPass($app)) {
+                    try {
+                        if (!$event->filtersPass($app)) {
+                            $this->logger->debug('[GracefulScheduleWorker] Event skipped by filters', [
+                                'event' => $event->mutexName(),
+                            ]);
+                            continue;
+                        }
+                    } catch (\Exception $e) {
+                        $this->logger->warning('[GracefulScheduleWorker] filtersPass threw exception, skipping event', [
+                            'event' => $event->mutexName(),
+                            'error' => $e->getMessage(),
+                            'exception' => $e,
+                        ]);
                         continue;
                     }
                     $this->dispatcher->dispatchEvent($event, $container, $nowCarbon);
@@ -170,7 +182,9 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
             'due' => $missedDueCarbon->toDateTimeString(),
         ]);
 
-        // TrackingDispatcher がロック取得・結果処理を担当
+        // リカバリでは filtersPass() をチェックしない。
+        // between()/unlessBetween() 等の時間ベースフィルタは Carbon::now() を使うため、
+        // 過去の dueAt に対して現在時刻で評価すると誤った結果になる。
         $this->dispatcher->dispatchEvent($event, $container, $missedDue);
     }
 

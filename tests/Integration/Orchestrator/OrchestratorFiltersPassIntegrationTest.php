@@ -57,6 +57,9 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
     /** @var FakeApplication */
     private $app;
 
+    /** @var FixedClock */
+    private $clock;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -69,6 +72,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         $this->lockProvider = new FakeLockProvider();
         $this->cache = new FakeCacheStore($this->lockProvider);
         $this->logger = new SpyLogger();
+        $this->clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
 
         $this->container->instance(EventMutex::class, $this->eventMutex);
         $this->container->instance(SchedulingMutex::class, $schedulingMutex);
@@ -76,6 +80,8 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->innerDispatcher = new FakeDispatcher($defaultResult);
         $this->app = new FakeApplication();
+
+        Carbon::setTestNow(Carbon::parse('2024-01-15 12:00:00'));
     }
 
     protected function tearDown(): void
@@ -91,6 +97,23 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
     private function createTracker(): CacheExecutionTracker
     {
         return new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+    }
+
+    /**
+     * @return DefaultScheduleOrchestrator
+     */
+    private function createOrchestrator(): DefaultScheduleOrchestrator
+    {
+        $tracker = $this->createTracker();
+        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+
+        return new DefaultScheduleOrchestrator(
+            $trackingDispatcher,
+            $this->clock,
+            $tracker,
+            $this->logger,
+            new NullSleeper()
+        );
     }
 
     /**
@@ -110,27 +133,14 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testRealScheduleWithFiltersPass(): void
     {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        Carbon::setTestNow(Carbon::parse('2024-01-15 12:00:00'));
-
-        $tracker = $this->createTracker();
-
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($this->clock);
         $schedule->exec('echo filtered')
             ->everyMinute()
             ->when(function () {
                 return false;
             });
 
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
-        $orchestrator = new DefaultScheduleOrchestrator(
-            $trackingDispatcher,
-            $clock,
-            $tracker,
-            $this->logger,
-            new NullSleeper()
-        );
-
+        $orchestrator = $this->createOrchestrator();
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
         // when(false) のため filtersPass で弾かれ、dispatch されない
@@ -142,12 +152,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testWithoutOverlappingBlocksViaMutex(): void
     {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        Carbon::setTestNow(Carbon::parse('2024-01-15 12:00:00'));
-
-        $tracker = $this->createTracker();
-
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($this->clock);
         $event = $schedule->exec('echo overlapping')
             ->everyMinute()
             ->withoutOverlapping();
@@ -155,15 +160,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         // mutex をロック済みにする（前回実行がまだ動いている状態をシミュレート）
         $this->eventMutex->create($event);
 
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
-        $orchestrator = new DefaultScheduleOrchestrator(
-            $trackingDispatcher,
-            $clock,
-            $tracker,
-            $this->logger,
-            new NullSleeper()
-        );
-
+        $orchestrator = $this->createOrchestrator();
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
         // withoutOverlapping + mutex locked → filtersPass でスキップ
@@ -175,12 +172,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testMixedConstraintsThroughPipeline(): void
     {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        Carbon::setTestNow(Carbon::parse('2024-01-15 12:00:00'));
-
-        $tracker = $this->createTracker();
-
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($this->clock);
 
         $schedule->exec('echo pass')
             ->everyMinute()
@@ -200,15 +192,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
                 return true;
             });
 
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
-        $orchestrator = new DefaultScheduleOrchestrator(
-            $trackingDispatcher,
-            $clock,
-            $tracker,
-            $this->logger,
-            new NullSleeper()
-        );
-
+        $orchestrator = $this->createOrchestrator();
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
         // 3 イベント中、1 つだけが filtersPass を通過

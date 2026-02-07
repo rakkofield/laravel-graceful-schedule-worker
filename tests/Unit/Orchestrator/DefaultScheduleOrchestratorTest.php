@@ -19,6 +19,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\NullSleeper;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpySchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
@@ -133,15 +134,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator();
-
-        // shouldContinue は 1 回だけ true を返してからすぐ false を返す
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
         $dispatched = $this->dispatcher->getDispatched();
@@ -157,14 +150,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([]);
 
         $orchestrator = $this->createOrchestrator();
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
@@ -180,14 +166,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event1, $event2, $event3]);
 
         $orchestrator = $this->createOrchestrator();
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertSame(3, $this->dispatcher->getDispatchCount());
         $dispatched = $this->dispatcher->getDispatched();
@@ -227,14 +206,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         $orchestrator = $this->createOrchestrator();
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $result = $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $result = $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertTrue($result);
     }
@@ -253,14 +225,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator();
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         // 正常にディスパッチされたことを確認
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
@@ -278,14 +243,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator();
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         // run() 終了後、dispatcher の stopAll() が呼ばれることを確認
         $this->assertSame(1, $this->dispatcher->getStopAllCallCount());
@@ -303,15 +261,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator();
-
-        // 3回ループする
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 3;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(3));
 
         // 各ループで cleanup() が呼ばれることを確認（3回）
         $this->assertSame(3, $this->dispatcher->getCleanupCallCount());
@@ -330,15 +280,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         // 時刻を毎分0秒に固定（setUp で 12:00:00 に設定済み）
         $orchestrator = $this->createOrchestrator();
-
-        // shouldContinue で 3 回ループを回す
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 3;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(3));
 
         // 3 回ループしても、同一分内なので 1 回しかディスパッチされない
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
@@ -365,14 +307,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
             $this->sleeper
         );
 
-        // shouldContinue で 2 回ループを回す
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 2;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(2));
 
         // 秒が 0 でないため、ディスパッチは呼ばれない
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
@@ -390,14 +325,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator();
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $dispatched = $this->dispatcher->getDispatched();
         $this->assertCount(1, $dispatched);
@@ -434,14 +362,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator($tracker);
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         // リカバリでディスパッチされることを確認
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
@@ -473,14 +394,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator($tracker);
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         // 取りこぼしなしのためディスパッチされないことを確認
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
@@ -509,14 +423,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator($tracker);
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         // recoverable でないためディスパッチされないことを確認
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
@@ -543,40 +450,25 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        // ログキャプチャ
-        $logMessages = [];
-        $spyLogger = $this->createMock(\Psr\Log\LoggerInterface::class);
-        $spyLogger->method('info')->willReturnCallback(function ($message, $context) use (&$logMessages) {
-            $logMessages[] = ['level' => 'info', 'message' => $message, 'context' => $context];
-        });
-
+        $spyLogger = new SpyLogger();
         $orchestrator = $this->createOrchestrator($tracker, $spyLogger);
-
-        $callCount = 0;
-        $shouldContinue = function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
-        };
-
-        $orchestrator->run($this->schedule, $this->app, $shouldContinue);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         // info ログが出力されていることを確認
-        $infoLogs = array_filter($logMessages, function ($log) {
-            return $log['level'] === 'info';
-        });
+        $infoLogs = $spyLogger->getLogsByLevel('info');
         $this->assertNotEmpty($infoLogs);
-        $this->assertStringContainsString('Recovering missed event', array_values($infoLogs)[0]['message']);
+        $this->assertStringContainsString('Recovering missed event', $infoLogs[0]['message']);
     }
 
     /**
+     * @param int $maxCalls
      * @return callable
      */
-    private function createShouldContinueOnce(): callable
+    private function createShouldContinue(int $maxCalls = 1): callable
     {
         $callCount = 0;
-        return function () use (&$callCount) {
-            $callCount++;
-            return $callCount <= 1;
+        return function () use (&$callCount, $maxCalls) {
+            return $callCount++ < $maxCalls;
         };
     }
 
@@ -592,7 +484,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         $orchestrator = $this->createOrchestrator();
-        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
     }
@@ -609,7 +501,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         $orchestrator = $this->createOrchestrator();
-        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
@@ -626,7 +518,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         $orchestrator = $this->createOrchestrator();
-        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
@@ -643,7 +535,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event]);
 
         $orchestrator = $this->createOrchestrator();
-        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
     }
@@ -671,7 +563,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([$event1, $event2, $event3]);
 
         $orchestrator = $this->createOrchestrator();
-        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
         $dispatched = $this->dispatcher->getDispatched();
@@ -703,9 +595,66 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher->setResult($result);
 
         $orchestrator = $this->createOrchestrator($tracker);
-        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
         // リカバリでは filtersPass を呼ばないためディスパッチされる
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox T3.36 filtersPass exception skips event and continues
+     */
+    public function testFiltersPassExceptionSkipsEventAndContinues(): void
+    {
+        $eventThatThrows = $this->createEvent('echo throw');
+        $eventThatThrows->when(function () {
+            throw new \RuntimeException('filter error');
+        });
+
+        $eventThatPasses = $this->createEvent('echo pass');
+        $eventThatPasses->when(function () {
+            return true;
+        });
+
+        $this->schedule->setDueEvents([$eventThatThrows, $eventThatPasses]);
+
+        $spyLogger = new SpyLogger();
+        $orchestrator = $this->createOrchestrator(null, $spyLogger);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
+
+        // 例外イベントはスキップされ、正常イベントのみディスパッチされる
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+        $dispatched = $this->dispatcher->getDispatched();
+        $this->assertSame($eventThatPasses, $dispatched[0]['event']);
+
+        // warning ログが出力されることを検証
+        $this->assertTrue($spyLogger->hasLogContaining('warning', 'filtersPass threw exception'));
+    }
+
+    /**
+     * @testdox T3.37 filtersPass exception logs warning with details
+     */
+    public function testFiltersPassExceptionLogsWarning(): void
+    {
+        $event = $this->createEvent('echo throw');
+        $event->when(function () {
+            throw new \RuntimeException('custom filter error');
+        });
+
+        $this->schedule->setDueEvents([$event]);
+
+        $spyLogger = new SpyLogger();
+        $orchestrator = $this->createOrchestrator(null, $spyLogger);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
+
+        // イベントはスキップされる
+        $this->assertSame(0, $this->dispatcher->getDispatchCount());
+
+        // warning ログの内容を検証
+        $warningLogs = $spyLogger->getLogsByLevel('warning');
+        $this->assertCount(1, $warningLogs);
+        $this->assertStringContainsString('filtersPass threw exception', $warningLogs[0]['message']);
+        $this->assertSame('custom filter error', $warningLogs[0]['context']['error']);
+        $this->assertInstanceOf(\RuntimeException::class, $warningLogs[0]['context']['exception']);
     }
 }
