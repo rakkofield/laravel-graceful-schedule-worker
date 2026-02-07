@@ -35,7 +35,7 @@ class Kernel extends ConsoleKernel
             $clock = $app->make(ClockInterface::class);
             $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone());
 
-            $this->schedule($schedule->useCache($this->scheduleCache()));
+            $this->gracefulSchedule($schedule->useCache($this->scheduleCache()));
 
             return $schedule;
         });
@@ -47,7 +47,7 @@ class Kernel extends ConsoleKernel
      * @param  ClockAwareSchedule  $schedule
      * @return void
      */
-    protected function schedule(Schedule $schedule)
+    protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
         $schedule->command('hello')->everyMinute()
             ->runInBackground()

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateTimeImmutable;
+use Illuminate\Console\Application;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FreezableClock;
 
@@ -26,6 +28,27 @@ class ClockAwareSchedule extends Schedule
         parent::__construct($timezone);
         $this->clock = $clock;
         $this->eventClock = new FreezableClock($clock);
+    }
+
+    /**
+     * Add a new Artisan command event to the schedule.
+     *
+     * @param string $command
+     * @param array<string, mixed> $parameters
+     * @return ClockAwareEvent
+     */
+    public function command($command, array $parameters = [])
+    {
+        if (class_exists($command)) {
+            /** @var \Illuminate\Console\Command $resolved */
+            $resolved = Container::getInstance()->make($command);
+            $command = $resolved->getName();
+        }
+
+        return $this->exec(
+            Application::formatCommandString((string) $command),
+            $parameters
+        );
     }
 
     /**

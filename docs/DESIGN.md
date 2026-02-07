@@ -591,9 +591,9 @@ sequenceDiagram
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Kernel.php                                  │
 │  defineConsoleSchedule() で ClockAwareSchedule を Schedule に登録   │
+│  → gracefulSchedule(ClockAwareSchedule) を呼び出し                 │
 │                                                                     │
-│  /** @param ClockAwareSchedule $schedule */                         │
-│  protected function schedule(Schedule $schedule)                    │
+│  protected function gracefulSchedule(ClockAwareSchedule $schedule)  │
 │  {                                                                  │
 │      $schedule->command('report:daily')                             │
 │          ->dailyAt('03:00')                                         │
@@ -656,7 +656,7 @@ sequenceDiagram
 
 **重要なポイント**:
 
-1. **型安全性**: `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし `ClockAwareSchedule` を登録。PHPDoc `@param ClockAwareSchedule` により IDE 補完と静的解析が効く
+1. **型安全性**: `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし `ClockAwareSchedule` を登録。`gracefulSchedule(ClockAwareSchedule $schedule)` メソッドにより完全な型ヒントで IDE 補完と静的解析が効く
 2. **テスタビリティ**: `ClockInterface` により時刻を固定でき、決定論的なテストが可能
 3. **拡張性**: Dispatcher パターンにより、新しい実行方法（例: Kubernetes Job）を簡単に追加可能
 4. **信頼性**: ExecutionTracker により At-least-once セマンティックを実現し、取りこぼしを防止
@@ -1700,7 +1700,7 @@ interface ExecutionTrackerInterface
 
 **重要なポイント**:
 - 利用側は `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし、`ClockAwareSchedule` を `Schedule` シングルトンとして登録する
-- PHPDoc `@param ClockAwareSchedule $schedule` により IDE 補完と静的解析ツールのサポートを維持
+- `gracefulSchedule(ClockAwareSchedule $schedule)` メソッドにより完全な型ヒントで IDE 補完と静的解析ツールのサポートを維持
 - 後方互換性を保ちながら段階的な移行が可能
 
 ### ClockAwareSchedule
@@ -2228,13 +2228,12 @@ class Kernel extends ConsoleKernel
         $this->app->singleton(Schedule::class, function ($app) {
             $clock = $app->make(ClockInterface::class);
             $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone());
-            $this->schedule($schedule->useCache($this->scheduleCache()));
+            $this->gracefulSchedule($schedule->useCache($this->scheduleCache()));
             return $schedule;
         });
     }
 
-    /** @param ClockAwareSchedule $schedule */
-    protected function schedule(Schedule $schedule)
+    protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
         // デフォルト: リカバリしない（安全）
         $schedule->command('heartbeat:send')
@@ -2258,8 +2257,7 @@ class Kernel extends ConsoleKernel
 ### 動的条件との組み合わせ
 
 ```php
-/** @param ClockAwareSchedule $schedule */
-protected function schedule(Schedule $schedule)
+protected function gracefulSchedule(ClockAwareSchedule $schedule)
 {
     // 休日はスキップ + リカバリ有効
     $schedule->command('business:process')
@@ -2284,8 +2282,7 @@ protected function schedule(Schedule $schedule)
 ### リカバリの制御パターン
 
 ```php
-/** @param ClockAwareSchedule $schedule */
-protected function schedule(Schedule $schedule)
+protected function gracefulSchedule(ClockAwareSchedule $schedule)
 {
     // パターン1: リカバリ不要（デフォルト）
     $schedule->command('heartbeat:send')
@@ -2323,8 +2320,7 @@ SCHEDULE_TRACKER_STORE=redis
 
 // Kernel.php（defineConsoleSchedule() は「基本的な使い方」と同じ）
 
-/** @param ClockAwareSchedule $schedule */
-protected function schedule(Schedule $schedule)
+protected function gracefulSchedule(ClockAwareSchedule $schedule)
 {
     $schedule->command('heavy:job')
         ->hourly()
