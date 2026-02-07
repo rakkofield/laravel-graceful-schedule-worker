@@ -100,6 +100,9 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 $nowCarbon = Carbon::instance($now);
 
                 foreach ($events as $event) {
+                    if (!$event->filtersPass($app)) {
+                        continue;
+                    }
                     $this->dispatcher->dispatchEvent($event, $container, $nowCarbon);
                 }
             }

@@ -567,4 +567,145 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->assertNotEmpty($infoLogs);
         $this->assertStringContainsString('Recovering missed event', array_values($infoLogs)[0]['message']);
     }
+
+    /**
+     * @return callable
+     */
+    private function createShouldContinueOnce(): callable
+    {
+        $callCount = 0;
+        return function () use (&$callCount) {
+            $callCount++;
+            return $callCount <= 1;
+        };
+    }
+
+    /**
+     * @testdox T3.30 filtersPass when(true) → event is dispatched
+     */
+    public function testFiltersPassWhenTrueEventIsDispatched(): void
+    {
+        $event = $this->createEvent('echo test');
+        $event->when(function () {
+            return true;
+        });
+        $this->schedule->setDueEvents([$event]);
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox T3.31 filtersPass when(false) → event is not dispatched
+     */
+    public function testFiltersPassWhenFalseEventIsNotDispatched(): void
+    {
+        $event = $this->createEvent('echo test');
+        $event->when(function () {
+            return false;
+        });
+        $this->schedule->setDueEvents([$event]);
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+
+        $this->assertSame(0, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox T3.32 filtersPass skip(true) → event is not dispatched
+     */
+    public function testFiltersPassSkipTrueEventIsNotDispatched(): void
+    {
+        $event = $this->createEvent('echo test');
+        $event->skip(function () {
+            return true;
+        });
+        $this->schedule->setDueEvents([$event]);
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+
+        $this->assertSame(0, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox T3.33 filtersPass skip(false) → event is dispatched
+     */
+    public function testFiltersPassSkipFalseEventIsDispatched(): void
+    {
+        $event = $this->createEvent('echo test');
+        $event->skip(function () {
+            return false;
+        });
+        $this->schedule->setDueEvents([$event]);
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox T3.34 filtersPass only dispatches events that pass filters
+     */
+    public function testFiltersPassOnlyDispatchesPassingEvents(): void
+    {
+        $event1 = $this->createEvent('echo pass');
+        $event1->when(function () {
+            return true;
+        });
+
+        $event2 = $this->createEvent('echo fail');
+        $event2->when(function () {
+            return false;
+        });
+
+        $event3 = $this->createEvent('echo skip');
+        $event3->skip(function () {
+            return true;
+        });
+
+        $this->schedule->setDueEvents([$event1, $event2, $event3]);
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+        $dispatched = $this->dispatcher->getDispatched();
+        $this->assertSame($event1, $dispatched[0]['event']);
+    }
+
+    /**
+     * @testdox T3.35 Recovery does not check filtersPass
+     */
+    public function testRecoveryDoesNotCheckFiltersPass(): void
+    {
+        $tracker = new FakeExecutionTracker();
+
+        $event = $this->createClockAwareEvent('echo test');
+        $event->cron('0 * * * *');
+        $event->enableRecovery();
+        // when(false) を設定 → filtersPass は false を返す
+        $event->when(function () {
+            return false;
+        });
+
+        $this->schedule->setDueEvents([]);
+        $this->schedule->addEvent($event);
+
+        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+        $tracker->setRecoverableResult($event->mutexName(), $missedDue);
+
+        $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $orchestrator = $this->createOrchestrator($tracker);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinueOnce());
+
+        // リカバリでは filtersPass を呼ばないためディスパッチされる
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+    }
 }
