@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\E2E;
 
 use Illuminate\Console\Application;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Process\PhpExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
@@ -27,26 +26,6 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
     private const SKELETON_PATH = __DIR__ . '/../../skeleton';
     private const MAX_WAIT_SECONDS = 10;
     private const POLL_INTERVAL_MICROSECONDS = 100000; // 100ms
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // Check the PHP binary that formatCommandString() will use
-        // It uses PhpExecutableFinder, not PHP_BINARY
-        $finder = new PhpExecutableFinder();
-        $phpBinary = $finder->find(false);
-
-        if ($phpBinary !== false) {
-            $versionOutput = shell_exec(escapeshellarg($phpBinary) . ' -r "echo PHP_VERSION_ID;"');
-            $binaryVersionId = (int) trim($versionOutput);
-
-            // Skip tests on PHP 8.5+ due to skeleton's Laravel 7.x incompatibility
-            if ($binaryVersionId >= 80500) {
-                $this->markTestSkipped('E2E tests require PHP 8.4 or lower (skeleton uses Laravel 7.x)');
-            }
-        }
-    }
 
     /**
      * @param Process $process

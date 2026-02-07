@@ -63,7 +63,7 @@ composer phpcs          # コーディング規約チェック
 composer phpcbf         # 自動修正
 
 # PHP インタープリターを指定する場合
-PHP_BINARY=/path/to/php8.1 composer phpstan
+PHP_SA_BINARY=/path/to/php8.1 composer phpstan
 ```
 
 ### タスク完了時

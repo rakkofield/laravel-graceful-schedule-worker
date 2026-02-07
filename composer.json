@@ -69,8 +69,8 @@
         "stepfunctions:down": "docker compose down",
         "skeleton:update": "cd skeleton && rm -rf vendor/rakko-inc && composer install --no-interaction",
         "tools:install": "cd tools && composer install --no-interaction --ignore-platform-reqs",
-        "phpstan": "${PHP_BINARY:-php} tools/vendor/bin/phpstan analyse -c tools/phpstan.neon --memory-limit=512M",
-        "phpcs": "${PHP_BINARY:-php} tools/vendor/bin/phpcs --standard=tools/phpcs.xml",
-        "phpcbf": "${PHP_BINARY:-php} tools/vendor/bin/phpcbf --standard=tools/phpcs.xml"
+        "phpstan": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpstan analyse -c tools/phpstan.neon --memory-limit=512M",
+        "phpcs": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpcs --standard=tools/phpcs.xml",
+        "phpcbf": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpcbf --standard=tools/phpcs.xml"
     }
 }
