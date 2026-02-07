@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
-use Carbon\Carbon;
 use DateTimeImmutable;
 use Illuminate\Cache\Repository;
 use Illuminate\Container\Container;
@@ -101,7 +100,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     {
         $event = $this->createEvent('echo test');
         $event->cron('0 * * * *');
-        $dueAt = Carbon::parse('2024-01-15 12:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 12:00:00');
 
         $this->innerDispatcher->setResult(
             FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake')
@@ -125,7 +124,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     {
         $event = $this->createEvent('echo test-lock');
         $event->cron('0 * * * *');
-        $dueAt = Carbon::parse('2024-01-15 12:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 12:00:00');
 
         $this->innerDispatcher->setResult(
             FakeStartedDispatchResult::create($event->mutexName(), 'echo test-lock', 'fake')
@@ -150,7 +149,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     {
         $event = $this->createEvent('echo test-fail');
         $event->cron('0 * * * *');
-        $dueAt = Carbon::parse('2024-01-15 12:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 12:00:00');
 
         $this->innerDispatcher->setResult(
             FakeFailedDispatchResult::create($event->mutexName(), 'echo test-fail', 'dispatch error')
@@ -172,7 +171,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     {
         $event = $this->createEvent('echo test-already');
         $event->cron('0 * * * *');
-        $dueAt = Carbon::parse('2024-01-15 12:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 12:00:00');
 
         $this->innerDispatcher->setResult(
             FakeAlreadyRunningDispatchResult::create($event->mutexName(), 'echo test-already', 'fake')
@@ -194,7 +193,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     {
         $event = $this->createEvent('echo test-error-log');
         $event->cron('0 * * * *');
-        $dueAt = Carbon::parse('2024-01-15 12:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 12:00:00');
 
         $exception = new \RuntimeException('connection lost');
         $this->innerDispatcher->setResult(
@@ -222,8 +221,8 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     {
         $event = $this->createEvent('echo test-dueat');
         $event->cron('0 * * * *');
-        $dueAt1 = Carbon::parse('2024-01-15 12:00:00');
-        $dueAt2 = Carbon::parse('2024-01-15 13:00:00');
+        $dueAt1 = new DateTimeImmutable('2024-01-15 12:00:00');
+        $dueAt2 = new DateTimeImmutable('2024-01-15 13:00:00');
 
         $this->innerDispatcher->setResult(
             FakeStartedDispatchResult::create($event->mutexName(), 'echo test-dueat', 'fake')
