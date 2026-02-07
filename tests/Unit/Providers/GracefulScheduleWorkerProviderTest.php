@@ -22,6 +22,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeLockProvider;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeNonLockProviderStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 class GracefulScheduleWorkerProviderTest extends TestCase
@@ -405,5 +406,70 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $tracker = $property->getValue($orchestrator);
 
         $this->assertInstanceOf(NullExecutionTracker::class, $tracker);
+    }
+
+    /**
+     * @testdox T3.16 config が未登録の場合は NullExecutionTracker を返す
+     */
+    public function testReturnsNullTrackerWhenConfigNotBound(): void
+    {
+        // config バインディングを削除するために新しい Container を構築
+        $app = new Container();
+        Container::setInstance($app);
+
+        $app->bind(EventMutex::class, function () {
+            return new FakeEventMutex();
+        });
+        $app->bind(SchedulingMutex::class, function () {
+            return new FakeSchedulingMutex();
+        });
+
+        $provider = new TestableGracefulScheduleWorkerProvider($app);
+        $provider->register();
+
+        $tracker = $app->make(ExecutionTrackerInterface::class);
+        $this->assertInstanceOf(NullExecutionTracker::class, $tracker);
+    }
+
+    /**
+     * @testdox T3.17 cache store が LockProvider を実装しない場合は RuntimeException をスローする
+     */
+    public function testThrowsRuntimeExceptionWhenStoreDoesNotImplementLockProvider(): void
+    {
+        // LockProvider を実装しない Store を使用
+        $nonLockProviderStore = new FakeNonLockProviderStore();
+        $cacheStore = new FakeCacheStore($nonLockProviderStore);
+        $this->app->singleton('cache', function () use ($cacheStore) {
+            return new class ($cacheStore) {
+                /** @var FakeCacheStore */
+                private $store;
+
+                /**
+                 * @param FakeCacheStore $store
+                 */
+                public function __construct(FakeCacheStore $store)
+                {
+                    $this->store = $store;
+                }
+
+                /**
+                 * @param string|null $name
+                 * @return FakeCacheStore
+                 */
+                public function store($name = null)
+                {
+                    return $this->store;
+                }
+            };
+        });
+
+        $this->app->make('config')->set('graceful-scheduler.tracker.enabled', true);
+
+        $this->provider->register();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('ExecutionTracker requires a cache driver that implements LockProvider');
+
+        $this->app->make(ExecutionTrackerInterface::class);
     }
 }

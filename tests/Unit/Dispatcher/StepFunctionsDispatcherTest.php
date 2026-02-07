@@ -270,4 +270,21 @@ class StepFunctionsDispatcherTest extends TestCase
         // no-op なので特にアサーションはないが、例外が発生しないことを確認
         $this->assertTrue(true);
     }
+
+    /**
+     * @testdox T5.14 json_encode 失敗時に FailedStepFunctionsDispatchResult を返す
+     */
+    public function testReturnsFailedResultOnJsonEncodeFailure(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        // 不正な UTF-8 文字列で json_encode を失敗させる
+        $event = $this->createEvent("\xFF\xFE");
+
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
+        $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
+        $this->assertNotNull($result->getException());
+        $this->assertStringContainsString('Failed to encode input JSON', $result->getError());
+    }
 }

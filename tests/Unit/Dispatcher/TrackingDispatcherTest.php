@@ -18,6 +18,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeExecutionTracker;
+use RakkoInc\LaravelGracefulScheduleWorker\Tracker\StubThrowingExecutionTracker;
 
 class TrackingDispatcherTest extends TestCase
 {
@@ -314,5 +315,54 @@ class TrackingDispatcherTest extends TestCase
         $this->assertStringContainsString('Lock not acquired, skipping dispatch', $debugLogs[0]['message']);
         $this->assertSame($event->mutexName(), $debugLogs[0]['context']['event']);
         $this->assertSame('2024-01-15T10:00:00+00:00', $debugLogs[0]['context']['dueAt']);
+    }
+
+    /**
+     * @testdox TD1.12 markExecuted の例外はキャッチされ warning ログが出力される
+     */
+    public function testCatchesMarkExecutedExceptionAndLogsWarning(): void
+    {
+        $exception = new \RuntimeException('Redis connection lost');
+        $throwingTracker = new StubThrowingExecutionTracker($exception);
+        $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
+        $innerDispatcher = new FakeDispatcher($startedResult);
+        $dispatcher = new TrackingDispatcher($innerDispatcher, $throwingTracker, $this->logger);
+
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        // 例外がスローされず、結果が返される
+        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+
+        $this->assertSame($startedResult, $result);
+
+        // warning ログが出力される
+        $warningLogs = $this->logger->getLogsByLevel('warning');
+        $this->assertCount(1, $warningLogs);
+        $this->assertStringContainsString('Failed to track execution result', $warningLogs[0]['message']);
+        $this->assertSame($event->mutexName(), $warningLogs[0]['context']['event']);
+        $this->assertSame('Redis connection lost', $warningLogs[0]['context']['error']);
+        $this->assertSame($exception, $warningLogs[0]['context']['exception']);
+    }
+
+    /**
+     * @testdox TD1.13 handleResult で LogicException がスローされた場合はキャッチされず再スローされる
+     */
+    public function testLogicExceptionFromHandleResultIsRethrown(): void
+    {
+        // LogicException をスローする tracker
+        $logicException = new \LogicException('Programming error');
+        $throwingTracker = new StubThrowingExecutionTracker($logicException);
+        $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
+        $innerDispatcher = new FakeDispatcher($startedResult);
+        $dispatcher = new TrackingDispatcher($innerDispatcher, $throwingTracker, $this->logger);
+
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Programming error');
+
+        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
     }
 }

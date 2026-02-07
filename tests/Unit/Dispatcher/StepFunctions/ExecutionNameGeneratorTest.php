@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\StubLongMutexEvent;
 
 /**
  * @testdox ExecutionNameGenerator
@@ -135,5 +136,41 @@ class ExecutionNameGeneratorTest extends TestCase
         $result = $this->generator->generate($event, $dueAt);
 
         $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
+    }
+
+    /**
+     * @testdox T4.1.8 80文字を超える mutexName ではハッシュで切り詰められ結果が80文字以内になる
+     */
+    public function testTruncatesWithHashWhenMutexNameExceeds80Chars(): void
+    {
+        // 標準の Event::mutexName() は常に固定長（sha1）なので 80 文字を超えない。
+        // 長い mutexName を持つ StubLongMutexEvent で切り詰めパスを検証する。
+        $longMutex = str_repeat('abcdefghij', 10); // 100文字
+        $event = new StubLongMutexEvent($this->mutex, 'test', $longMutex);
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
+
+        $result = $this->generator->generate($event, $dueAt);
+
+        $this->assertLessThanOrEqual(80, strlen($result));
+        $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
+    }
+
+    /**
+     * @testdox T4.1.9 切り詰められた名前にはハッシュサフィックスが含まれる
+     */
+    public function testTruncatedNameContainsHashSuffix(): void
+    {
+        $longMutex = str_repeat('abcdefghij', 10); // 100文字
+        $event = new StubLongMutexEvent($this->mutex, 'test', $longMutex);
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
+
+        $result = $this->generator->generate($event, $dueAt);
+
+        // 切り詰め結果は mutexPrefix + '_' + md5ハッシュ16文字
+        $parts = explode('_', $result);
+        $lastPart = end($parts);
+        // ハッシュ部分は16文字の16進数
+        $this->assertEquals(16, strlen($lastPart));
+        $this->assertRegExp('/^[a-f0-9]+$/', $lastPart);
     }
 }
