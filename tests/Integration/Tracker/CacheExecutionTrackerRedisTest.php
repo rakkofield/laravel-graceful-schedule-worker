@@ -195,14 +195,14 @@ class CacheExecutionTrackerRedisTest extends TestCase
      */
     public function testLockExpiresAfterTtlAllowingReAcquisition(): void
     {
-        $shortTtl = 2; // 2秒
+        $shortTtl = 1; // 1秒
         $tracker1 = $this->createTracker($shortTtl);
         $event = $this->createEvent('php artisan test:ttl-expiry');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         $tracker1->acquireLock($event, $dueAt);
 
-        sleep(3); // TTL より長く待機
+        usleep(1500000); // 1.5秒: TTL より長く待機
 
         $cache2 = $this->createRedisCache();
         $tracker2 = new CacheExecutionTracker($cache2, $cache2->getStore(), $this->logger);
