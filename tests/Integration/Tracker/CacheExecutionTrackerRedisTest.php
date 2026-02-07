@@ -202,11 +202,18 @@ class CacheExecutionTrackerRedisTest extends TestCase
 
         $tracker1->acquireLock($event, $dueAt);
 
-        usleep(1500000); // 1.5秒: TTL より長く待機
-
+        // TTL 満了をポーリングで待機（固定 sleep より無駄な待機を削減）
         $cache2 = $this->createRedisCache();
         $tracker2 = new CacheExecutionTracker($cache2, $cache2->getStore(), $this->logger);
-        $result = $tracker2->acquireLock($event, $dueAt);
+        $deadline = microtime(true) + 3.0;
+        $result = false;
+        while (microtime(true) < $deadline) {
+            usleep(50000); // 50ms 間隔
+            if ($tracker2->acquireLock($event, $dueAt)) {
+                $result = true;
+                break;
+            }
+        }
 
         $this->assertTrue($result);
     }
