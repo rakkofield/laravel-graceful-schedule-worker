@@ -96,7 +96,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         // Note: Carbon::parse() は DateTimeInterface を受け付ける
         $nowCarbon = Carbon::parse($now->format(\DateTimeInterface::ATOM));
         try {
-            $cron = CronExpression::factory($event->expression);
+            $cron = new CronExpression($event->expression);
             $previousRunDate = $cron->getPreviousRunDate($nowCarbon);
         } catch (\Exception $e) {
             throw new InvalidArgumentException(

@@ -130,7 +130,7 @@ class ClockAwareEvent extends Event
             $date = $date->setTimezone($tz);
         }
 
-        return CronExpression::factory($this->expression)->isDue($date->format('Y-m-d H:i:s'));
+        return (new CronExpression($this->expression))->isDue($date->format('Y-m-d H:i:s'));
     }
 
     /**
