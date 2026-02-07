@@ -126,4 +126,18 @@ class ClockAwareEvent extends Event
     {
         return $this->gracePeriod;
     }
+
+    /**
+     * Symfony Process で実行するためのコマンド文字列を構築する
+     *
+     * buildCommand() が付与する末尾の & を除去して返す。
+     * Process::start() が非同期実行を提供するため & は不要であり、
+     * & があると proc_terminate 時にプロセスグループ全体に SIGTERM が伝播する。
+     *
+     * @return string
+     */
+    public function buildProcessCommand()
+    {
+        return (string) preg_replace('/\s+&\s*$/', '', $this->buildCommand());
+    }
 }

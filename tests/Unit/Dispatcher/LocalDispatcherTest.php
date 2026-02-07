@@ -134,6 +134,7 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('sleep 0.1');
+        $event->runInBackground = true;
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
@@ -169,6 +170,7 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('sleep 2');
+        $event->runInBackground = true;
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
@@ -191,23 +193,24 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.12 buildCommand includes schedule:finish
+     * @testdox T2.12 background buildCommand includes schedule:finish
      */
     public function testBuildCommandIncludesScheduleFinish(): void
     {
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
+        $event->runInBackground = true;
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // buildCommand() が呼ばれると schedule:finish が含まれる
+        // runInBackground = true のとき schedule:finish が含まれる
         $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
     }
 
     /**
-     * @testdox T2.13 runInBackground is set to true after dispatch
+     * @testdox T2.13 runInBackground is preserved after dispatch
      */
-    public function testRunInBackgroundIsSetAfterDispatch(): void
+    public function testRunInBackgroundIsPreservedAfterDispatch(): void
     {
         $dispatcher = new LocalDispatcher();
         $event = $this->createEvent('echo test');
@@ -215,8 +218,8 @@ class LocalDispatcherTest extends TestCase
 
         $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // runInBackground は true に変更される（イベントは1回しかディスパッチされないため復元不要）
-        $this->assertTrue($event->runInBackground);
+        // runInBackground は変更されない（Event の設定を尊重する）
+        $this->assertFalse($event->runInBackground);
     }
 
     /**
@@ -272,15 +275,17 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher();
 
-        // 即座に完了するプロセスをディスパッチ
+        // 即座に完了するプロセスをディスパッチ（background）
         $event1 = $this->createEvent('echo test1');
+        $event1->runInBackground = true;
         $result1 = $dispatcher->dispatchEvent($event1, $this->app, $this->dueAt);
 
         // プロセスの完了を待つ
         $result1->getProcess()->wait();
 
-        // 長時間実行するプロセスをディスパッチ
+        // 長時間実行するプロセスをディスパッチ（background）
         $event2 = $this->createEvent('sleep 10');
+        $event2->runInBackground = true;
         $result2 = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
 
         // cleanup を呼ぶ
@@ -301,11 +306,13 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher();
 
-        // 複数のプロセスをディスパッチ
+        // 複数のプロセスをディスパッチ（background）
         $event1 = $this->createEvent('sleep 10');
+        $event1->runInBackground = true;
         $result1 = $dispatcher->dispatchEvent($event1, $this->app, $this->dueAt);
 
         $event2 = $this->createEvent('sleep 10');
+        $event2->runInBackground = true;
         $result2 = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
 
         // 両方とも実行中であることを確認
@@ -327,8 +334,9 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher();
 
-        // 即座に完了するプロセスをディスパッチ
+        // 即座に完了するプロセスをディスパッチ（background）
         $event = $this->createEvent('echo test');
+        $event->runInBackground = true;
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         // プロセスの完了を待つ
@@ -350,6 +358,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new LocalDispatcher();
 
         $event = $this->createEvent('sleep 5');
+        $event->runInBackground = true;
         $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         // stopAll で停止されることで、内部リストに追加されていることを間接的に確認
@@ -357,6 +366,7 @@ class LocalDispatcherTest extends TestCase
 
         // 再度ディスパッチしても問題ないことを確認（内部リストがクリアされている）
         $event2 = $this->createEvent('echo test');
+        $event2->runInBackground = true;
         $result = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
 
@@ -458,5 +468,74 @@ class LocalDispatcherTest extends TestCase
         $this->assertContains(SIGTERM, $runningProc->getReceivedSignals());
         // 停止済みプロセスにはシグナルが送信されない
         $this->assertEmpty($stoppedProc->getReceivedSignals());
+    }
+
+    /**
+     * @testdox T2.25 foreground event runs synchronously with Process::run()
+     */
+    public function testForegroundEventRunsSynchronously(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createEvent('echo foreground');
+        // runInBackground のデフォルトは false
+
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        // 同期実行なので、戻り時には既にプロセスが終了している
+        $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
+        $this->assertFalse($result->isRunning());
+        $this->assertSame(0, $result->getExitCode());
+    }
+
+    /**
+     * @testdox T2.26 foreground event calls afterCallbacksWithExitCode
+     */
+    public function testForegroundEventCallsAfterCallbacks(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createSpyEvent('echo test');
+        // runInBackground のデフォルトは false
+
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertSame(0, $event->getAfterCallbacksExitCode());
+    }
+
+    /**
+     * @testdox T2.27 foreground event result is not added to running processes
+     */
+    public function testForegroundEventResultNotAddedToRunningProcesses(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createEvent('echo test');
+        // runInBackground のデフォルトは false
+
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        // stopAll を呼んでも何もないことを確認（内部リストが空）
+        // cleanup 後に stopAll しても例外なし = 追跡リストに追加されていない
+        $dispatcher->cleanup();
+        $dispatcher->stopAll();
+
+        $this->assertTrue(true);
+    }
+
+    /**
+     * @testdox T2.28 background event runs asynchronously with Process::start()
+     */
+    public function testBackgroundEventRunsAsynchronously(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createEvent('sleep 2');
+        $event->runInBackground = true;
+
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        // 非同期実行なので、戻り時にはまだプロセスが実行中
+        $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
+        $this->assertTrue($result->isRunning());
+
+        $result->getProcess()->stop(0);
     }
 }

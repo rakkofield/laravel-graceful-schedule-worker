@@ -24,6 +24,16 @@ class SpyCallbackEvent extends Event
     private $afterCallbacksCalled = false;
 
     /**
+     * @var bool
+     */
+    private $afterCallbacksWithExitCodeCalled = false;
+
+    /**
+     * @var int|null
+     */
+    private $afterCallbacksExitCode = null;
+
+    /**
      * @var \Throwable|null
      */
     private $exceptionToThrow = null;
@@ -63,6 +73,18 @@ class SpyCallbackEvent extends Event
     }
 
     /**
+     * @param Container $container
+     * @param int $exitCode
+     * @return void
+     */
+    public function callAfterCallbacksWithExitCode(Container $container, $exitCode)
+    {
+        $this->afterCallbacksWithExitCodeCalled = true;
+        $this->afterCallbacksExitCode = (int) $exitCode;
+        parent::callAfterCallbacksWithExitCode($container, $exitCode);
+    }
+
+    /**
      * @return bool
      */
     public function wasBeforeCallbacksCalled(): bool
@@ -91,6 +113,22 @@ class SpyCallbackEvent extends Event
     }
 
     /**
+     * @return bool
+     */
+    public function wasAfterCallbacksWithExitCodeCalled(): bool
+    {
+        return $this->afterCallbacksWithExitCodeCalled;
+    }
+
+    /**
+     * @return int|null
+     */
+    public function getAfterCallbacksExitCode(): ?int
+    {
+        return $this->afterCallbacksExitCode;
+    }
+
+    /**
      * Reset spy state.
      *
      * @return void
@@ -99,6 +137,8 @@ class SpyCallbackEvent extends Event
     {
         $this->beforeCallbacksCalled = false;
         $this->afterCallbacksCalled = false;
+        $this->afterCallbacksWithExitCodeCalled = false;
+        $this->afterCallbacksExitCode = null;
         $this->exceptionToThrow = null;
     }
 }

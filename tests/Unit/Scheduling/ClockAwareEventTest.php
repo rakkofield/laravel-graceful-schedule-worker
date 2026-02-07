@@ -199,4 +199,32 @@ class ClockAwareEventTest extends TestCase
 
         $this->assertEquals('stepfunctions', $event->getDispatcherType());
     }
+
+    /**
+     * @testdox T1.12.1 buildProcessCommand includes schedule:finish
+     */
+    public function testBuildProcessCommandIncludesScheduleFinish(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+
+        $command = $event->buildProcessCommand();
+
+        $this->assertStringContainsString('schedule:finish', $command);
+    }
+
+    /**
+     * @testdox T1.12.2 buildProcessCommand does not end with &
+     */
+    public function testBuildProcessCommandDoesNotEndWithAmpersand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+
+        $command = $event->buildProcessCommand();
+
+        $this->assertNotRegExp('/\s+&\s*$/', $command);
+    }
 }

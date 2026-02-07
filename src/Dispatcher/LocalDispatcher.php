@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Symfony\Component\Process\Process;
 
 class LocalDispatcher implements ScheduleDispatcherInterface
@@ -48,11 +49,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     /**
      * 単一イベントをディスパッチする
      *
-     * Event をバックグラウンドプロセスとして実行します。
+     * Event の runInBackground 設定を尊重し、適切な実行パスを選択します。
      * - beforeCallbacks を親プロセスで同期実行
-     * - runInBackground を true に設定して buildCommand() を呼び出し
-     *   （これにより schedule:finish が含まれ、afterCallbacks が動作する）
-     * - Process::start() でバックグラウンド実行
+     * - runInBackground = true: buildCommand() から & を除去し Process::start() で非同期実行
+     *   （schedule:finish が含まれ、afterCallbacks は子プロセスが実行する）
+     * - runInBackground = false: buildCommand() で同期実行し、afterCallbacks を直接呼ぶ
      *
      * @param Event $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
@@ -64,30 +65,31 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $identifier = $event->mutexName();
 
         try {
-            // 1. beforeCallbacks を呼ぶ
             $event->callBeforeCallbacks($container);
 
-            // 2. runInBackground を true に設定して buildCommand を呼ぶ
-            //    これにより schedule:finish が含まれ、afterCallbacks が動作する
-            //    （イベントは1回しかディスパッチされないため元に戻す必要はない）
-            $event->runInBackground = true;
+            if ($event->runInBackground) {
+                // Background: schedule:finish を含むコマンドを生成し、& を除去して非同期実行
+                if ($event instanceof ClockAwareEvent) {
+                    $fullCommand = $event->buildProcessCommand();
+                } else {
+                    $fullCommand = $event->buildCommand();
+                    $fullCommand = (string) preg_replace('/\s+&\s*$/', '', $fullCommand);
+                }
+                $process = Process::fromShellCommandline($fullCommand, $this->basePath);
+                $process->start();
+
+                $result = new StartedLocalDispatchResult($process, $identifier, $fullCommand);
+                $this->runningProcesses[] = $result;
+                return $result;
+            }
+
+            // Foreground: クリーンなコマンドを同期実行し、afterCallbacks を直接呼ぶ
             $fullCommand = $event->buildCommand();
-
-            // 3. buildCommand() が付与する末尾の & を除去する
-            //    Process::start() が非同期実行を提供するため & は不要。
-            //    & があると proc_terminate 時に bash の termsig_handler が
-            //    killpg(0, SIGTERM) でプロセスグループ全体に SIGTERM を伝播させ、
-            //    親プロセスが巻き込まれる問題がある。
-            $fullCommand = (string) preg_replace('/\s+&\s*$/', '', $fullCommand);
-
-            // 4. Process::start() でバックグラウンド実行
             $process = Process::fromShellCommandline($fullCommand, $this->basePath);
-            $process->start();
+            $process->run();
+            $event->callAfterCallbacksWithExitCode($container, (int) $process->getExitCode());
 
-            $result = new StartedLocalDispatchResult($process, $identifier, $fullCommand);
-            $this->runningProcesses[] = $result;
-
-            return $result;
+            return new StartedLocalDispatchResult($process, $identifier, $fullCommand);
         } catch (\Exception $e) {
             $error = get_class($e) . ': ' . $e->getMessage();
 
