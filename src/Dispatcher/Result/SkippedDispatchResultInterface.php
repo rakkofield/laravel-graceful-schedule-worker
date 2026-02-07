@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 /**
  * スキップされたディスパッチ結果を表すマーカーインターフェース

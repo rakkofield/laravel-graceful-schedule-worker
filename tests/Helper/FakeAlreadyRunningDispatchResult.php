@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
 
 use DateTimeImmutable;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\AlreadyRunningDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispatchResultInterface;
 
 class FakeAlreadyRunningDispatchResult implements AlreadyRunningDispatchResultInterface
 {

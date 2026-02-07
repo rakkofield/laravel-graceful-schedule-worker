@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 /**
  * Dispatcher の結果を型安全に扱うためのインターフェース

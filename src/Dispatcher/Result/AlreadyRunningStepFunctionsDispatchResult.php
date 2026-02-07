@@ -2,20 +2,19 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
-use Symfony\Component\Process\Process;
 
 /**
- * LocalDispatcher の成功結果クラス
+ * StepFunctionsDispatcher で既に実行中の場合の結果クラス
  *
- * Process オブジェクトを保持し、プロセスの状態管理を可能にします。
+ * ExecutionAlreadyExists が発生した場合に使用します。
  */
-class StartedLocalDispatchResult implements StartedDispatchResultInterface
+class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatchResultInterface
 {
-    /** @var Process */
-    private $process;
+    /** @var string */
+    private $executionName;
 
     /** @var string */
     private $eventIdentifier;
@@ -27,18 +26,18 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     private $dispatchedAt;
 
     /**
-     * @param Process $process
+     * @param string $executionName
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
-        Process $process,
+        string $executionName,
         string $eventIdentifier,
         string $eventCommand,
         DateTimeImmutable $dispatchedAt
     ) {
-        $this->process = $process;
+        $this->executionName = $executionName;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->dispatchedAt = $dispatchedAt;
@@ -65,7 +64,7 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
      */
     public function getDispatcherType(): string
     {
-        return 'local';
+        return 'stepfunctions';
     }
 
     /**
@@ -77,32 +76,12 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     }
 
     /**
-     * Process オブジェクトを取得
+     * Execution Name を取得
      *
-     * @return Process
+     * @return string
      */
-    public function getProcess(): Process
+    public function getExecutionName(): string
     {
-        return $this->process;
-    }
-
-    /**
-     * プロセスが実行中かどうか
-     *
-     * @return bool
-     */
-    public function isRunning(): bool
-    {
-        return $this->process->isRunning();
-    }
-
-    /**
-     * プロセスの終了コードを取得
-     *
-     * @return int|null
-     */
-    public function getExitCode(): ?int
-    {
-        return $this->process->getExitCode();
+        return $this->executionName;
     }
 }

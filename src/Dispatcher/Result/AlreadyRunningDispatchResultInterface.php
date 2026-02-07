@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 /**
  * 既に実行中のタスクに対するディスパッチ結果を表すマーカーインターフェース

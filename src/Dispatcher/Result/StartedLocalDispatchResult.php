@@ -2,44 +2,45 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use Symfony\Component\Process\Process;
 
 /**
- * スキップされたディスパッチ結果クラス
+ * LocalDispatcher の成功結果クラス
  *
- * ロック取得失敗など、ディスパッチがスキップされた場合に使用します。
+ * Process オブジェクトを保持し、プロセスの状態管理を可能にします。
  */
-class SkippedDispatchResult implements SkippedDispatchResultInterface
+class StartedLocalDispatchResult implements StartedDispatchResultInterface
 {
+    /** @var Process */
+    private $process;
+
     /** @var string */
     private $eventIdentifier;
 
     /** @var string */
     private $eventCommand;
 
-    /** @var string */
-    private $reason;
-
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
     /**
+     * @param Process $process
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param string $reason スキップ理由
      * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
+        Process $process,
         string $eventIdentifier,
         string $eventCommand,
-        string $reason,
         DateTimeImmutable $dispatchedAt
     ) {
+        $this->process = $process;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
-        $this->reason = $reason;
         $this->dispatchedAt = $dispatchedAt;
     }
 
@@ -60,16 +61,11 @@ class SkippedDispatchResult implements SkippedDispatchResultInterface
     }
 
     /**
-     * Dispatcher 種別を取得
-     *
-     * SkippedDispatchResult は TrackingDispatcher 専用のため、
-     * 常に 'tracking' を返す。
-     *
-     * @return string
+     * {@inheritdoc}
      */
     public function getDispatcherType(): string
     {
-        return 'tracking';
+        return 'local';
     }
 
     /**
@@ -81,10 +77,32 @@ class SkippedDispatchResult implements SkippedDispatchResultInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Process オブジェクトを取得
+     *
+     * @return Process
      */
-    public function getReason(): string
+    public function getProcess(): Process
     {
-        return $this->reason;
+        return $this->process;
+    }
+
+    /**
+     * プロセスが実行中かどうか
+     *
+     * @return bool
+     */
+    public function isRunning(): bool
+    {
+        return $this->process->isRunning();
+    }
+
+    /**
+     * プロセスの終了コードを取得
+     *
+     * @return int|null
+     */
+    public function getExitCode(): ?int
+    {
+        return $this->process->getExitCode();
     }
 }

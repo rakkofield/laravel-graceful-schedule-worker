@@ -2,39 +2,37 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @testdox StartedStepFunctionsDispatchResult
+ * @testdox AlreadyRunningStepFunctionsDispatchResult
  */
-class StartedStepFunctionsDispatchResultTest extends TestCase
+class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
 {
     /**
-     * @testdox T5.1 StartedDispatchResultInterface を実装する
+     * @testdox T6.1 AlreadyRunningDispatchResultInterface を実装する
      */
-    public function testImplementsStartedDispatchResultInterface(): void
+    public function testImplementsAlreadyRunningDispatchResultInterface(): void
     {
-        $result = new StartedStepFunctionsDispatchResult(
-            'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
+        $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
             new DateTimeImmutable()
         );
 
-        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
+        $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result);
     }
 
     /**
-     * @testdox T5.4 getDispatcherType() が 'stepfunctions' を返す
+     * @testdox T6.2 getDispatcherType() が 'stepfunctions' を返す
      */
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
-        $result = new StartedStepFunctionsDispatchResult(
-            'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
+        $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -45,29 +43,11 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.5 getExecutionArn() が ARN を返す
-     */
-    public function testGetExecutionArnReturnsArn(): void
-    {
-        $arn = 'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1';
-        $result = new StartedStepFunctionsDispatchResult(
-            $arn,
-            'exec-1',
-            'framework/schedule-mutex',
-            'php artisan schedule:run',
-            new DateTimeImmutable()
-        );
-
-        $this->assertSame($arn, $result->getExecutionArn());
-    }
-
-    /**
-     * @testdox T5.6 getExecutionName() が Execution 名を返す
+     * @testdox T6.3 getExecutionName() が Execution 名を返す
      */
     public function testGetExecutionNameReturnsExecutionName(): void
     {
-        $result = new StartedStepFunctionsDispatchResult(
-            'arn:aws:states:ap-northeast-1:123:execution:sm:my-execution',
+        $result = new AlreadyRunningStepFunctionsDispatchResult(
             'my-execution',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -78,12 +58,11 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.7 getEventIdentifier() がイベント識別子を返す
+     * @testdox T6.4 getEventIdentifier() がイベント識別子を返す
      */
     public function testGetEventIdentifierReturnsIdentifier(): void
     {
-        $result = new StartedStepFunctionsDispatchResult(
-            'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
+        $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -94,12 +73,11 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.8 getEventCommand() がコマンドを返す
+     * @testdox T6.5 getEventCommand() がコマンドを返す
      */
     public function testGetEventCommandReturnsCommand(): void
     {
-        $result = new StartedStepFunctionsDispatchResult(
-            'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
+        $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -110,13 +88,12 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.9 getDispatchedAt() が DateTimeImmutable を返す
+     * @testdox T6.6 getDispatchedAt() が DateTimeImmutable を返す
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
         $now = new DateTimeImmutable();
-        $result = new StartedStepFunctionsDispatchResult(
-            'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
+        $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -128,13 +105,12 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.10 カスタム dispatchedAt を指定できる
+     * @testdox T6.7 カスタム dispatchedAt を指定できる
      */
     public function testAcceptsCustomDispatchedAt(): void
     {
         $customTime = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
-        $result = new StartedStepFunctionsDispatchResult(
-            'arn:aws:states:ap-northeast-1:123:execution:sm:exec-1',
+        $result = new AlreadyRunningStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',

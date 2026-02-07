@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 
-class FakeSkippedDispatchResult implements SkippedDispatchResultInterface
+/**
+ * スキップされたディスパッチ結果クラス
+ *
+ * ロック取得失敗など、ディスパッチがスキップされた場合に使用します。
+ */
+class SkippedDispatchResult implements SkippedDispatchResultInterface
 {
     /** @var string */
     private $eventIdentifier;
@@ -24,32 +28,19 @@ class FakeSkippedDispatchResult implements SkippedDispatchResultInterface
     /**
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param string $reason
-     * @param DateTimeImmutable|null $dispatchedAt
+     * @param string $reason スキップ理由
+     * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
         string $reason,
-        ?DateTimeImmutable $dispatchedAt = null
+        DateTimeImmutable $dispatchedAt
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->reason = $reason;
-        $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
-    }
-
-    /**
-     * Create a skipped result.
-     *
-     * @param string $identifier
-     * @param string $command
-     * @param string $reason
-     * @return self
-     */
-    public static function create(string $identifier, string $command, string $reason = 'lock_not_acquired'): self
-    {
-        return new self($identifier, $command, $reason);
+        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**
@@ -69,11 +60,16 @@ class FakeSkippedDispatchResult implements SkippedDispatchResultInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Dispatcher 種別を取得
+     *
+     * SkippedDispatchResult は TrackingDispatcher 専用のため、
+     * 常に 'tracking' を返す。
+     *
+     * @return string
      */
     public function getDispatcherType(): string
     {
-        return 'fake';
+        return 'tracking';
     }
 
     /**

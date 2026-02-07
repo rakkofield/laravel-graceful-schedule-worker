@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Helper;
 
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedLocalDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 
 /**
  * テスト用 LocalDispatcher
