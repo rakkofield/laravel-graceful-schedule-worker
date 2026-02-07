@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
-use Carbon\Carbon;
 use DateTimeImmutable;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
@@ -144,7 +143,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $event->withGracePeriod(120);
 
         // 10:00 に最終実行記録
-        $tracker->markExecuted($event, Carbon::parse('2024-01-15 10:00:00'));
+        $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
@@ -166,14 +165,14 @@ class OrchestratorFlowIntegrationTest extends TestCase
         // dispatch に渡された dueAt が 11:00（missed due）であることを確認
         $dispatched = $this->innerDispatcher->getDispatched();
         $dueAt = $dispatched[0]['dueAt'];
-        $this->assertSame(11, (int) Carbon::instance($dueAt)->format('H'));
-        $this->assertSame(0, (int) Carbon::instance($dueAt)->format('i'));
+        $this->assertSame('11', $dueAt->format('H'));
+        $this->assertSame('00', $dueAt->format('i'));
 
         // markExecuted がリカバリ時刻（11:00）で記録される
         $key = 'schedule:tracker:last:' . $event->mutexName();
-        $lastExecuted = Carbon::createFromTimestamp((int) $this->cache->get($key));
-        $this->assertSame(11, $lastExecuted->hour);
-        $this->assertSame(0, $lastExecuted->minute);
+        $lastExecuted = new DateTimeImmutable('@' . (int) $this->cache->get($key));
+        $this->assertSame('11', $lastExecuted->format('H'));
+        $this->assertSame('00', $lastExecuted->format('i'));
     }
 
     /**

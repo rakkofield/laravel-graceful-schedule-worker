@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
-use Carbon\Carbon;
+use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
@@ -39,7 +39,7 @@ class NullExecutionTrackerTest extends TestCase
     public function testMarkExecutedDoesNothing(): void
     {
         $event = $this->createEvent('php artisan test:task');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         // 例外なく完了すればOK
         $this->tracker->markExecuted($event, $dueAt);
@@ -52,7 +52,7 @@ class NullExecutionTrackerTest extends TestCase
     public function testGetMissedDueIfRecoverableAlwaysReturnsNull(): void
     {
         $event = $this->createEvent('php artisan test:task');
-        $now = Carbon::parse('2024-01-15 11:00:00');
+        $now = new DateTimeImmutable('2024-01-15 11:00:00');
 
         $result = $this->tracker->getMissedDueIfRecoverable($event, $now);
 
@@ -65,7 +65,7 @@ class NullExecutionTrackerTest extends TestCase
     public function testAcquireLockAlwaysReturnsTrue(): void
     {
         $event = $this->createEvent('php artisan test:task');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         // 1回目
         $result1 = $this->tracker->acquireLock($event, $dueAt);
@@ -82,7 +82,7 @@ class NullExecutionTrackerTest extends TestCase
     public function testReleaseLockDoesNothing(): void
     {
         $event = $this->createEvent('php artisan test:task');
-        $dueAt = Carbon::parse('2024-01-15 10:00:00');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         // 例外なく完了すればOK
         $this->tracker->releaseLock($event, $dueAt);

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
-use Carbon\Carbon;
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
@@ -355,7 +354,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->addEvent($event);
 
         // 取りこぼしを設定: missedDue を返す
-        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+        $missedDue = new DateTimeImmutable('2024-01-15 11:00:00');
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
@@ -416,7 +415,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->addEvent($event);
 
         // 取りこぼしを設定（ただし recoverable でないのでチェックされない）
-        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+        $missedDue = new DateTimeImmutable('2024-01-15 11:00:00');
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
@@ -441,7 +440,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event->cron('0 * * * *');
         $event->enableRecovery();
 
-        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+        $missedDue = new DateTimeImmutable('2024-01-15 11:00:00');
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
@@ -588,7 +587,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        $missedDue = Carbon::parse('2024-01-15 11:00:00');
+        $missedDue = new DateTimeImmutable('2024-01-15 11:00:00');
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
