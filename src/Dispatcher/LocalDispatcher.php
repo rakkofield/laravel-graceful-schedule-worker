@@ -53,6 +53,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      * - beforeCallbacks を親プロセスで同期実行
      * - runInBackground = true: buildCommand() から & を除去し Process::start() で非同期実行
      *   （schedule:finish が含まれ、afterCallbacks は子プロセスが実行する）
+     *   ClockAwareEvent の場合は buildProcessCommand() を使用する
      * - runInBackground = false: buildCommand() で同期実行し、afterCallbacks を直接呼ぶ
      *
      * @param Event $event 実行するスケジュールイベント
@@ -73,7 +74,8 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     $fullCommand = $event->buildProcessCommand();
                 } else {
                     $fullCommand = $event->buildCommand();
-                    $fullCommand = (string) preg_replace('/\s+&\s*$/', '', $fullCommand);
+                    // schedule:finish を含まないコマンドから末尾の & を除去
+                    $fullCommand = preg_replace('/\s+&\s*$/', '', $fullCommand) ?? $fullCommand;
                 }
                 $process = Process::fromShellCommandline($fullCommand, $this->basePath);
                 $process->start();
@@ -83,11 +85,22 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 return $result;
             }
 
-            // Foreground: クリーンなコマンドを同期実行し、afterCallbacks を直接呼ぶ
+            // Foreground: schedule:finish を含まないコマンドを同期実行し、afterCallbacks を直接呼ぶ
             $fullCommand = $event->buildCommand();
             $process = Process::fromShellCommandline($fullCommand, $this->basePath);
+            $process->setTimeout(null);
             $process->run();
-            $event->callAfterCallbacksWithExitCode($container, (int) $process->getExitCode());
+
+            try {
+                $event->callAfterCallbacksWithExitCode($container, (int) $process->getExitCode());
+            } catch (\Exception $e) {
+                $this->logger->warning('[GracefulScheduleWorker] afterCallback failed', [
+                    'event' => $identifier,
+                    'exitCode' => $process->getExitCode(),
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+            }
 
             return new StartedLocalDispatchResult($process, $identifier, $fullCommand);
         } catch (\Exception $e) {

@@ -39,6 +39,11 @@ class SpyCallbackEvent extends Event
     private $exceptionToThrow = null;
 
     /**
+     * @var \Throwable|null
+     */
+    private $afterExceptionToThrow = null;
+
+    /**
      * @param EventMutex $mutex
      * @param string $command
      */
@@ -81,6 +86,11 @@ class SpyCallbackEvent extends Event
     {
         $this->afterCallbacksWithExitCodeCalled = true;
         $this->afterCallbacksExitCode = (int) $exitCode;
+
+        if ($this->afterExceptionToThrow !== null) {
+            throw $this->afterExceptionToThrow;
+        }
+
         parent::callAfterCallbacksWithExitCode($container, $exitCode);
     }
 
@@ -113,6 +123,18 @@ class SpyCallbackEvent extends Event
     }
 
     /**
+     * Set an exception to throw when callAfterCallbacksWithExitCode is called.
+     *
+     * @param \Throwable $e
+     * @return self
+     */
+    public function throwOnAfterCallback(\Throwable $e): self
+    {
+        $this->afterExceptionToThrow = $e;
+        return $this;
+    }
+
+    /**
      * @return bool
      */
     public function wasAfterCallbacksWithExitCodeCalled(): bool
@@ -140,5 +162,6 @@ class SpyCallbackEvent extends Event
         $this->afterCallbacksWithExitCodeCalled = false;
         $this->afterCallbacksExitCode = null;
         $this->exceptionToThrow = null;
+        $this->afterExceptionToThrow = null;
     }
 }

@@ -134,10 +134,13 @@ class ClockAwareEvent extends Event
      * Process::start() が非同期実行を提供するため & は不要であり、
      * & があると proc_terminate 時にプロセスグループ全体に SIGTERM が伝播する。
      *
+     * runInBackground = true の状態で呼ぶことを前提とする。
+     *
      * @return string
      */
     public function buildProcessCommand()
     {
-        return (string) preg_replace('/\s+&\s*$/', '', $this->buildCommand());
+        $command = $this->buildCommand();
+        return preg_replace('/\s+&\s*$/', '', $command) ?? $command;
     }
 }

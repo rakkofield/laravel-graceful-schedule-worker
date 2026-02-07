@@ -11,9 +11,11 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\SpyCallbackEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\StubProcess;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\TestableLocalDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 class LocalDispatcherTest extends TestCase
 {
@@ -537,5 +539,56 @@ class LocalDispatcherTest extends TestCase
         $this->assertTrue($result->isRunning());
 
         $result->getProcess()->stop(0);
+    }
+
+    /**
+     * @testdox T2.29 ClockAwareEvent を background で dispatchEvent に渡すと buildProcessCommand() 経由でコマンドが生成される
+     */
+    public function testClockAwareEventUseBuildProcessCommandInBackground(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock);
+        $event->runInBackground = true;
+
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        // buildProcessCommand() により末尾の & が除去されている
+        $this->assertStringNotContainsString(' &', $result->getEventCommand());
+        // schedule:finish が含まれる（buildCommand は background で schedule:finish を付与する）
+        $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
+
+        $result->getProcess()->wait();
+    }
+
+    /**
+     * @testdox T2.30 Foreground で非ゼロ exit code のとき afterCallbacks に正しい exit code が渡される
+     */
+    public function testForegroundNonZeroExitCodePassedToAfterCallbacks(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createSpyEvent('exit 42');
+
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
+        $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertSame(42, $event->getAfterCallbacksExitCode());
+    }
+
+    /**
+     * @testdox T2.31 Foreground で afterCallbacks が例外をスローしても StartedLocalDispatchResult が返される
+     */
+    public function testForegroundAfterCallbackExceptionReturnsStartedResult(): void
+    {
+        $dispatcher = new LocalDispatcher();
+        $event = $this->createSpyEvent('echo test');
+        $event->throwOnAfterCallback(new \RuntimeException('afterCallback error'));
+
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
+        $this->assertFalse($result->isRunning());
+        $this->assertSame(0, $result->getExitCode());
     }
 }

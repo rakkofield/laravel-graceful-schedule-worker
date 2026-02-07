@@ -10,7 +10,7 @@ use Symfony\Component\Process\Process;
 /**
  * LocalDispatcher の成功結果クラス
  *
- * Process オブジェクトを保持し、バックグラウンドプロセスの管理を可能にします。
+ * Process オブジェクトを保持し、プロセスの状態管理を可能にします。
  */
 class StartedLocalDispatchResult implements StartedDispatchResultInterface
 {
