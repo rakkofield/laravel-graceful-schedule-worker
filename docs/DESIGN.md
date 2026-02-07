@@ -174,6 +174,17 @@ classDiagram
         +setTime(time)
     }
 
+    class SleeperInterface {
+        <<interface>>
+        +sleep() void
+    }
+
+    class Sleeper {
+        -microseconds int
+        +__construct(microseconds)
+        +sleep() void
+    }
+
     %% ClockAware 拡張
     class ClockAwareSchedule {
         -clock ClockInterface
@@ -192,7 +203,6 @@ classDiagram
         +enableRecovery() self
         +dispatchVia(type) self
         +getDispatcherType() ?string
-        +getCurrentTime() DateTimeImmutable
     }
 
     %% Orchestrator レイヤー
@@ -720,16 +730,6 @@ class ClockAwareEvent extends Event
         $this->recoverable = true;
         $this->gracePeriod = null;  // 無制限
         return $this;
-    }
-
-    /**
-     * 現在時刻を取得
-     *
-     * @return \DateTimeImmutable
-     */
-    public function getCurrentTime(): \DateTimeImmutable
-    {
-        return $this->clock->now();
     }
 
     /**
@@ -1453,7 +1453,6 @@ interface ExecutionTrackerInterface
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| T1.4 | getCurrentTime_returns_injected_clock_time | 注入されたClockの時刻を返す |
 | T1.5 | withGracePeriod_enables_recovery | recoverableがtrueになる |
 | T1.6 | withGracePeriod_sets_interval | gracePeriodが設定される |
 | T1.7 | enableRecovery_sets_unlimited_grace | 無制限猶予が設定される |
@@ -1684,7 +1683,9 @@ src/
 ├── Clock/                               # 新規: Clock パターン
 │   ├── ClockInterface.php               # 時刻抽象化
 │   ├── SystemClock.php                  # 本番環境実装
-│   └── FixedClock.php                   # テスト用実装
+│   ├── FixedClock.php                   # テスト用実装
+│   ├── SleeperInterface.php             # スリープ抽象化
+│   └── Sleeper.php                      # 本番環境実装
 ├── Scheduling/                          # 新規: ClockAware 拡張
 │   ├── ClockAwareSchedule.php           # Schedule 拡張
 │   └── ClockAwareEvent.php              # Event 拡張（withGracePeriod、dispatchVia等）
@@ -1710,6 +1711,7 @@ src/
 │   └── StepFunctions/                        # Step Functions 関連クラス
 │       ├── StepFunctionsClientInterface.php  # SfnClient 抽象化
 │       ├── AwsSfnClientAdapter.php           # AWS SDK アダプター
+│       ├── ExecutionNameGeneratorInterface.php # Execution Name 生成インターフェース
 │       ├── ExecutionNameGenerator.php        # Execution Name 生成
 │       ├── StartExecutionResult.php          # startExecution 結果
 │       ├── StepFunctionsException.php        # 基底例外

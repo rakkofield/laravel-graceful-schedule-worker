@@ -109,7 +109,23 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.6 結果は許可文字のみで構成される
+     * @testdox T4.1.6 80文字以下の名前はトランケーションされない
+     */
+    public function testNamesAtOrBelowLimitAreNotTruncated(): void
+    {
+        // 短いコマンドの場合、ハッシュが含まれないことを確認
+        $event = $this->createEvent('short');
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
+
+        $result = $this->generator->generate($event, $dueAt);
+
+        $this->assertLessThanOrEqual(80, strlen($result));
+        // 短い入力ではハッシュ（md5の16文字部分）が使われず、タイムスタンプが含まれる
+        $this->assertStringContainsString('2024-01-01T00-00-00', $result);
+    }
+
+    /**
+     * @testdox T4.1.7 結果は許可文字のみで構成される
      */
     public function testResultContainsOnlyValidCharacters(): void
     {

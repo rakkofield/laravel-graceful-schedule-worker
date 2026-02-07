@@ -11,6 +11,7 @@ use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StartedDispatchResultInterface;
@@ -236,5 +237,9 @@ class ProviderWiringIntegrationTest extends TestCase
         $loggerProp = $ref->getProperty('logger');
         $loggerProp->setAccessible(true);
         $this->assertInstanceOf(LoggerInterface::class, $loggerProp->getValue($orchestrator));
+
+        $sleeperProp = $ref->getProperty('sleeper');
+        $sleeperProp->setAccessible(true);
+        $this->assertInstanceOf(SleeperInterface::class, $sleeperProp->getValue($orchestrator));
     }
 }

@@ -14,7 +14,7 @@ interface ExecutionNameGeneratorInterface
      *
      * @param Event $event スケジュールイベント
      * @param DateTimeInterface $dueAt 実行予定時刻
-     * @return string Execution Name
+     * @return string Execution Name（最大80文字、使用可能文字: a-z, A-Z, 0-9, -, _）
      */
     public function generate(Event $event, DateTimeInterface $dueAt): string;
 }
