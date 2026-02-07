@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 
 use DateTimeImmutable;
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\AdvancingClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Helper\FixedClock;
@@ -82,14 +83,16 @@ class FreezableClockTest extends TestCase
         $inner = new FixedClock($innerTime);
         $clock = new FreezableClock($inner);
 
+        $exceptionThrown = false;
         try {
             $clock->withFrozenTime($frozenTime, function () {
                 throw new RuntimeException('test error');
             });
         } catch (RuntimeException $e) {
-            // expected
+            $exceptionThrown = true;
         }
 
+        $this->assertTrue($exceptionThrown, 'Expected RuntimeException to be propagated');
         $this->assertEquals($innerTime, $clock->now());
     }
 
@@ -112,6 +115,27 @@ class FreezableClockTest extends TestCase
             $this->assertEquals($frozenTime, $first);
             $this->assertEquals($frozenTime, $second);
             $this->assertEquals($frozenTime, $third);
+        });
+    }
+
+    /**
+     * @testdox T1.11
+     */
+    public function testThrowsOnNestedWithFrozenTime(): void
+    {
+        $inner = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $clock = new FreezableClock($inner);
+
+        $outerTime = new DateTimeImmutable('2024-01-15 10:00:00');
+        $innerTime = new DateTimeImmutable('2024-01-15 11:00:00');
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('FreezableClock::withFrozenTime() cannot be nested.');
+
+        $clock->withFrozenTime($outerTime, function () use ($clock, $innerTime) {
+            $clock->withFrozenTime($innerTime, function () {
+                // should not reach here
+            });
         });
     }
 }

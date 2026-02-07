@@ -11,14 +11,10 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FreezableClock;
 
 class ClockAwareSchedule extends Schedule
 {
-    /**
-     * @var ClockInterface
-     */
+    /** @var ClockInterface コンストラクタで注入された元の clock */
     protected $clock;
 
-    /**
-     * @var FreezableClock
-     */
+    /** @var FreezableClock 全 ClockAwareEvent で共有される freezable な clock ラッパー */
     private $eventClock;
 
     /**
@@ -54,6 +50,9 @@ class ClockAwareSchedule extends Schedule
 
     /**
      * 指定時刻で freeze した状態でコールバックを実行
+     *
+     * Orchestrator から呼ばれ、dueEvents() + filtersPass() の評価を
+     * 同一時刻で行うためのエントリーポイント。
      *
      * @param DateTimeImmutable $time 評価基準時刻
      * @param callable $callback 実行するコールバック

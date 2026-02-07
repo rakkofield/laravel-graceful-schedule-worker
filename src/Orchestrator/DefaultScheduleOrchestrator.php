@@ -161,8 +161,9 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         ]);
 
         // リカバリでは filtersPass() をチェックしない。
-        // between()/unlessBetween() 等の時間ベースフィルタは clock->now() を使うため、
-        // 過去の dueAt に対して現在時刻で評価すると誤った結果になる。
+        // リカバリ時は clock が freeze されていないため、between()/unlessBetween() 等の
+        // 時間ベースフィルタは現在時刻で評価される。過去の dueAt に対して現在時刻で
+        // 評価すると誤った結果になる。
         $this->dispatcher->dispatchEvent($event, $container, $missedDue);
     }
 
@@ -171,6 +172,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      *
      * ClockAwareSchedule の場合は evaluateAt() で時刻を固定し、
      * dueEvents() と filtersPass() が同一時刻で評価されることを保証する。
+     * 通常の Schedule の場合は freeze せずにそのまま評価する。
      *
      * @param Schedule $schedule
      * @param Application $app
