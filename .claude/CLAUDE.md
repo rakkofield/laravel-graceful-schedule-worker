@@ -20,17 +20,27 @@ composer test:coverage
 composer test:coverage-html
 ```
 
-### Step Functions テスト
-
-`composer test` 実行時に moto が自動起動し、Step Functions テストも実行されます。
+### 初回セットアップ
 
 ```bash
-# テスト実行（moto は自動起動）
+composer install
+composer tools:install
+composer skeleton:update
+```
+
+### Step Functions・Redis テスト
+
+`composer test` 実行時に moto と Redis が自動起動し、Step Functions テスト・Redis 統合テストも実行されます。
+
+```bash
+# テスト実行（moto・Redis は自動起動）
 composer test
 
 # 個別操作
-composer stepfunctions:up      # moto 起動（healthcheck で待機）
-composer stepfunctions:down    # moto 停止
+composer stepfunctions:up      # 全サービス起動（moto・Redis、healthcheck で待機）
+composer stepfunctions:down    # 全サービス停止
+composer redis:up              # Redis のみ起動
+composer redis:down            # Redis のみ停止
 ```
 
 **前提条件:**
@@ -68,33 +78,43 @@ PHP_BINARY=/path/to/php8.1 composer phpstan
 ## PHP バージョン
 
 - 最小要件: PHP 7.2.5
+- `ext-pcntl` 必須（シグナルハンドリング）
 - nullable types (`?string`) は PHP 7.1 からサポートされているため使用可能
 
 ## 設計ドキュメント
 
-- `docs/DESIGN.md` - 詳細な設計仕様
+- `docs/DESIGN.md` - メイン設計仕様（最初に参照）
+- `docs/` - その他の設計ドキュメント（ARCHITECTURE, STEPFUNCTIONS_IMPLEMENTATION 等）
 - `.claude/plans/` - 実装計画
 
 ## ディレクトリ構成
 
 ```
 src/
-├── Clock/           # 時刻抽象化（ClockInterface, SystemClock）
-├── Console/         # Artisan コマンド
-├── Dispatcher/      # タスクディスパッチャー
-├── Providers/       # ServiceProvider
-└── Scheduling/      # ClockAwareSchedule, ClockAwareEvent
+├── Clock/                # 時刻・Sleep 抽象化（ClockInterface, SleeperInterface）
+├── Console/              # Artisan コマンド（GracefulScheduleWorkCommand）
+├── Dispatcher/           # タスクディスパッチャー
+│   ├── Result/           # ディスパッチ結果型（Started, Failed, Skipped, AlreadyRunning）
+│   └── StepFunctions/    # Step Functions クライアント・例外・名前生成
+├── Orchestrator/         # スケジュール実行調整（DefaultScheduleOrchestrator）
+├── Providers/            # ServiceProvider
+├── Scheduling/           # ClockAwareSchedule, ClockAwareEvent
+└── Tracker/              # 実行履歴追跡（CacheExecutionTracker, NullExecutionTracker）
 
 tests/
-├── Unit/            # ユニットテスト
-├── Integration/     # 統合テスト（skeleton 使用）
-└── Helper/          # テストヘルパー（FixedClock 等）
+├── Unit/                 # ユニットテスト（src/ と同じディレクトリ構成）
+├── Integration/          # 統合テスト（skeleton 使用、Redis 必要）
+├── E2E/                  # E2E テスト
+├── Helper/               # テストヘルパー（Fake, Stub, Spy 等）
+└── StepFunctions/        # Step Functions テスト用設定（state-machine.json）
 
-skeleton/            # テスト用 Laravel アプリケーション
+skeleton/                 # テスト用 Laravel アプリケーション
 ```
 
 ## 重要な注意事項
 
+- コンポーネント依存: Command → Orchestrator → Dispatcher → Result
+- Dispatcher はデコレータパターン: CompositeDispatcher, TrackingDispatcher が ScheduleDispatcherInterface をラップ
 - ライブラリなので `Log::` などの Laravel ファサードに直接依存しない
 - `base_path()` などの Laravel ヘルパーも使用しない
 - ServiceProvider で Schedule を extend しない（利用側が ClockAwareSchedule を選択可能）
@@ -108,8 +128,3 @@ skeleton/            # テスト用 Laravel アプリケーション
 - Mock 禁止: Interface には Fake、実クラスには Stub/Spy を使用
 - テスト用ヘルパークラス（Fake, Stub, Spy, Testable 等）は `tests/Helper/` に配置（1ファイル1クラスを維持）
 
-## 作業方針
-
-- 複数タスクがある場合は TaskCreate でタスクリストを作成して管理
-- 独立した作業は並列実行する（複数の Write/Edit を同時に実行など）
-- プラン作成時は、実装タスクを TaskCreate で登録してから ExitPlanMode を呼ぶ
