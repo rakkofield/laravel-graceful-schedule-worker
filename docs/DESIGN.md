@@ -1582,17 +1582,17 @@ interface ExecutionTrackerInterface
 
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
-| TD1.1 | testDelegatesToInnerDispatcherWhenLockAcquired | ロック成功で内部に委譲 |
-| TD1.2 | testReturnsSkippedWhenLockNotAcquired | ロック失敗で SkippedDispatchResult |
-| TD1.3 | testMarksExecutedOnStartedResult | Started で markExecuted 呼出 |
-| TD1.4 | testMarksExecutedOnAlreadyRunningResult | AlreadyRunning で markExecuted 呼出 |
-| TD1.5 | testLogsErrorOnFailedResult | Failed でエラーログ |
-| TD1.6 | testLogsExceptionInContextOnFailedResult | 例外がコンテキストに含まれる |
-| TD1.7 | testThrowsLogicExceptionOnUnexpectedResultType | 予期しない型で LogicException |
-| TD1.8 | testCleanupDelegatesToInnerDispatcher | cleanup が内部に委譲 |
-| TD1.9 | testStopAllDelegatesToInnerDispatcher | stopAll が内部に委譲 |
-| TD1.10 | testSkippedDispatchResultReturnsTrackingType | dispatcherType が 'tracking' |
-| TD1.11 | testLogsDebugWhenLockNotAcquired | ロック失敗時に DEBUG ログ |
+| TD.1 | testDelegatesToInnerDispatcherWhenLockAcquired | ロック成功で内部に委譲 |
+| TD.2 | testReturnsSkippedWhenLockNotAcquired | ロック失敗で SkippedDispatchResult |
+| TD.3 | testMarksExecutedOnStartedResult | Started で markExecuted 呼出 |
+| TD.4 | testMarksExecutedOnAlreadyRunningResult | AlreadyRunning で markExecuted 呼出 |
+| TD.5 | testLogsErrorOnFailedResult | Failed でエラーログ |
+| TD.6 | testLogsExceptionInContextOnFailedResult | 例外がコンテキストに含まれる |
+| TD.7 | testThrowsLogicExceptionOnUnexpectedResultType | 予期しない型で LogicException |
+| TD.8 | testCleanupDelegatesToInnerDispatcher | cleanup が内部に委譲 |
+| TD.9 | testStopAllDelegatesToInnerDispatcher | stopAll が内部に委譲 |
+| TD.10 | testSkippedDispatchResultReturnsTrackingType | dispatcherType が 'tracking' |
+| TD.11 | testLogsDebugWhenLockNotAcquired | ロック失敗時に DEBUG ログ |
 
 #### StepFunctionsDispatcher
 

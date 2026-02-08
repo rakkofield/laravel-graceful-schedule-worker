@@ -76,7 +76,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.1 ロック取得成功時に内部 Dispatcher に委譲される
+     * @testdox TD.1 ロック取得成功時に内部 Dispatcher に委譲される
      */
     public function testDelegatesToInnerDispatcherWhenLockAcquired(): void
     {
@@ -96,7 +96,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.2 ロック取得失敗時に SkippedDispatchResult を返す
+     * @testdox TD.2 ロック取得失敗時に SkippedDispatchResult を返す
      */
     public function testReturnsSkippedWhenLockNotAcquired(): void
     {
@@ -121,7 +121,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.3 Started 結果で markExecuted が呼ばれる
+     * @testdox TD.3 Started 結果で markExecuted が呼ばれる
      */
     public function testMarksExecutedOnStartedResult(): void
     {
@@ -138,7 +138,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.4 AlreadyRunning 結果で markExecuted が呼ばれる
+     * @testdox TD.4 AlreadyRunning 結果で markExecuted が呼ばれる
      */
     public function testMarksExecutedOnAlreadyRunningResult(): void
     {
@@ -155,7 +155,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.5 Failed 結果でエラーログが出力される
+     * @testdox TD.5 Failed 結果でエラーログが出力される
      */
     public function testLogsErrorOnFailedResult(): void
     {
@@ -184,7 +184,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.6 Failed 結果に例外がある場合はコンテキストに含まれる
+     * @testdox TD.6 Failed 結果に例外がある場合はコンテキストに含まれる
      */
     public function testLogsExceptionInContextOnFailedResult(): void
     {
@@ -208,7 +208,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.7 予期しない結果型で LogicException がスローされる
+     * @testdox TD.7 予期しない結果型で LogicException がスローされる
      */
     public function testThrowsLogicExceptionOnUnexpectedResultType(): void
     {
@@ -251,7 +251,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.8 cleanup が内部 Dispatcher に委譲される
+     * @testdox TD.8 cleanup が内部 Dispatcher に委譲される
      */
     public function testCleanupDelegatesToInnerDispatcher(): void
     {
@@ -264,7 +264,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.9 stopAll が内部 Dispatcher に委譲される
+     * @testdox TD.9 stopAll が内部 Dispatcher に委譲される
      */
     public function testStopAllDelegatesToInnerDispatcher(): void
     {
@@ -277,7 +277,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.10 SkippedDispatchResult の dispatcherType は 'tracking' を返す
+     * @testdox TD.10 SkippedDispatchResult の dispatcherType は 'tracking' を返す
      */
     public function testSkippedDispatchResultReturnsTrackingType(): void
     {
@@ -295,7 +295,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.11 ロック取得失敗時に DEBUG ログが出力される
+     * @testdox TD.11 ロック取得失敗時に DEBUG ログが出力される
      */
     public function testLogsDebugWhenLockNotAcquired(): void
     {
@@ -318,7 +318,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.12 markExecuted の例外はキャッチされ warning ログが出力される
+     * @testdox TD.12 markExecuted の例外はキャッチされ warning ログが出力される
      */
     public function testCatchesMarkExecutedExceptionAndLogsWarning(): void
     {
@@ -346,7 +346,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD1.13 handleResult で LogicException がスローされた場合はキャッチされず再スローされる
+     * @testdox TD.13 handleResult で LogicException がスローされた場合はキャッチされず再スローされる
      */
     public function testLogicExceptionFromHandleResultIsRethrown(): void
     {
