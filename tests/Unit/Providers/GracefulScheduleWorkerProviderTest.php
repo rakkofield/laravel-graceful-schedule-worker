@@ -156,33 +156,6 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.3
-     */
-    public function testRegistersClockAwareScheduleAsSingleton(): void
-    {
-        $this->provider->register();
-
-        $this->assertTrue($this->app->bound(ClockAwareSchedule::class));
-        $this->assertTrue($this->app->isShared(ClockAwareSchedule::class));
-
-        $schedule = $this->app->make(ClockAwareSchedule::class);
-        $this->assertInstanceOf(ClockAwareSchedule::class, $schedule);
-    }
-
-    /**
-     * @testdox T3.4
-     */
-    public function testClockAwareScheduleReturnsSameInstance(): void
-    {
-        $this->provider->register();
-
-        $schedule1 = $this->app->make(ClockAwareSchedule::class);
-        $schedule2 = $this->app->make(ClockAwareSchedule::class);
-
-        $this->assertSame($schedule1, $schedule2);
-    }
-
-    /**
      * @testdox T3.5
      */
     public function testClockAwareScheduleReceivesClockInterface(): void

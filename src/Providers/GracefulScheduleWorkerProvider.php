@@ -25,7 +25,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
@@ -42,10 +41,6 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
 
         // ClockInterface をシングルトンとして登録
         $this->app->singleton(ClockInterface::class, SystemClock::class);
-
-        // ClockAwareSchedule をシングルトンとして登録
-        // 利用側が必要に応じて Schedule の代わりに使用可能
-        $this->app->singleton(ClockAwareSchedule::class);
 
         // LocalDispatcher を登録
         // Note: Foundation\Application の場合は basePath() が利用可能
