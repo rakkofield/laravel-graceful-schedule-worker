@@ -119,9 +119,24 @@ class Kernel extends ConsoleKernel
 }
 ```
 
+### 振る舞いの変化について
+
+trait を適用すると、全スケジュールイベントが `ClockAwareEvent` になります。`schedule:work` で実行する場合でも以下の振る舞いが変わります:
+
+| 箇所 | 変更前（Laravel 標準） | 変更後（ClockAwareEvent） |
+|---|---|---|
+| `expressionPasses()` | `Carbon::now()` | `SystemClock::now()`（`DateTimeImmutable`） |
+| `between()` / `unlessBetween()` | `Carbon::now()` を定義時に即時評価 | `clock->now()` を毎回遅延評価 |
+| `lastDayOfMonth()` | `Carbon::now()` | 変更なし（既知の制限） |
+
+`schedule:work`（毎分 1 回実行）では実質的な影響はほぼありませんが、時刻評価の内部実装が変わる点を認識しておいてください。問題が発生した場合は[ロールバック](#ロールバック方法)で即座に元に戻せます。
+
 ### schedule:work から schedule:graceful-work への切り替え
 
-デプロイ設定やスーパーバイザーの設定を更新します。
+Kernel の変更（trait 適用）とコマンドの切り替えは独立して行えます。段階的に移行する場合は以下の順序を推奨します:
+
+1. **まず Kernel を変更**し、`schedule:work` のまま運用して問題がないことを確認
+2. **次にコマンドを切り替え**（`schedule:graceful-work` に変更）
 
 ```diff
 -php artisan schedule:work
@@ -228,7 +243,7 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 |---|---|---|
 | `everyMinute()`, `hourly()`, `daily()` 等 | そのまま使える | |
 | `when()` / `skip()` | そのまま使える | |
-| `between()` / `unlessBetween()` | そのまま使える | Clock-aware に自動対応 |
+| `between()` / `unlessBetween()` | そのまま使える | 遅延評価に変更（[振る舞いの変化](#振る舞いの変化について)参照） |
 | `withoutOverlapping()` | そのまま使える | |
 | `runInBackground()` | そのまま使える（推奨） | |
 | `environments()` / `evenInMaintenanceMode()` | そのまま使える | |
@@ -247,7 +262,7 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 
 `UsesClockAwareSchedule` trait は `defineConsoleSchedule()` をオーバーライドするため、**共存はできません**。全てのタスクを `gracefulSchedule()` に移動する必要があります。
 
-ただし、メソッドの中身はほぼそのままコピーできるため、移行の手間は最小限です。
+ただし、メソッドの中身はほぼそのままコピーできるため、移行の手間は最小限です。trait を適用した後も `schedule:work` で動作するので、Kernel の変更とコマンドの切り替えは別々のタイミングで行えます（[振る舞いの変化について](#振る舞いの変化について)を参照）。
 
 ### Q: schedule:work と schedule:graceful-work を同時に動かせるか？
 
