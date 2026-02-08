@@ -1,29 +1,29 @@
-# 既存 Laravel スケジューラからの移行ガイド
+# Migration Guide from the Existing Laravel Scheduler
 
-## 概要
+## Overview
 
-このガイドでは、既存の Laravel スケジューラ（`schedule:work`）から `laravel-graceful-schedule-worker` への移行手順を段階的に説明します。
+This guide provides step-by-step instructions for migrating from the existing Laravel scheduler (`schedule:work`) to `laravel-graceful-schedule-worker`.
 
-**移行のポイント:**
+**Key Points:**
 
-- 既存の `schedule()` メソッドの中身は**ほぼそのままコピー**で動きます
-- 最小変更（3 ステップ）で始められます
-- リカバリ機能や Step Functions 連携は後から段階的に追加できます
-- いつでもロールバック可能です
+- The contents of your existing `schedule()` method can be **copied almost as-is**
+- You can start with minimal changes (3 steps)
+- Recovery features and Step Functions integration can be added incrementally later
+- You can roll back at any time
 
-## 移行の全体像
+## Migration Overview
 
-| フェーズ | 内容 | 必須 |
+| Phase | Description | Required |
 |---|---|---|
-| フェーズ 1 | パッケージ導入 + 基本移行 | はい |
-| フェーズ 2 | リカバリ機能の追加 | オプション |
-| フェーズ 3 | Step Functions 連携 | オプション |
+| Phase 1 | Package installation + basic migration | Yes |
+| Phase 2 | Add recovery features | Optional |
+| Phase 3 | Step Functions integration | Optional |
 
 ---
 
-## フェーズ 1: パッケージ導入
+## Phase 1: Package Installation
 
-### 変更前の Kernel.php
+### Kernel.php Before Changes
 
 ```php
 <?php
@@ -56,32 +56,32 @@ class Kernel extends ConsoleKernel
 }
 ```
 
-### 移行方法の選択
+### Choosing a Migration Method
 
-#### 方法 A: 一括移行（推奨: タスク数が少ない場合）
+#### Method A: All-at-once Migration (Recommended when you have few tasks)
 
-`schedule()` の中身を `gracefulSchedule()` にコピーして一括で切り替えます。以下の手順はこの方法を説明しています。
+Copy the contents of `schedule()` to `gracefulSchedule()` and switch everything at once. The steps below describe this method.
 
-#### 方法 B: 段階的移行（推奨: タスク数が多い・リスクを最小化したい場合）
+#### Method B: Gradual Migration (Recommended when you have many tasks or want to minimize risk)
 
-`schedule()` はそのままにして、タスクを 1 つずつ `gracefulSchedule()` に移動します。
+Keep `schedule()` as-is and move tasks one by one to `gracefulSchedule()`.
 
-- `schedule()` に残っているタスク → Laravel 標準の `Event`（振る舞い変化なし）
-- `gracefulSchedule()` に移動したタスク → `ClockAwareEvent`（新しい振る舞い）
+- Tasks remaining in `schedule()` -> Laravel standard `Event` (no behavior change)
+- Tasks moved to `gracefulSchedule()` -> `ClockAwareEvent` (new behavior)
 
 ```php
 class Kernel extends ConsoleKernel
 {
     use UsesClockAwareSchedule;
 
-    // まだ移行していないタスク（振る舞い変化なし）
+    // Tasks not yet migrated (no behavior change)
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('emails:send')->everyFiveMinutes();
         $schedule->command('cache:prune')->hourly();
     }
 
-    // 移行済みタスク（Clock-aware + リカバリ対応）
+    // Migrated tasks (clock-aware + recovery support)
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
         $schedule->command('reports:daily')->dailyAt('02:00')
@@ -91,33 +91,33 @@ class Kernel extends ConsoleKernel
 }
 ```
 
-> **注意:** 同じタスクを両方のメソッドに定義しないでください（二重実行になります）。
+> **Note:** Do not define the same task in both methods (it will result in duplicate execution).
 
-### 手順
+### Steps
 
-#### ステップ 1: パッケージのインストール
+#### Step 1: Install the Package
 
 ```shell
 composer require rakko-inc/laravel-graceful-schedule-worker
 ```
 
-ServiceProvider は自動検出されます。
+The ServiceProvider is auto-discovered.
 
-#### ステップ 2: 設定ファイルのパブリッシュ
+#### Step 2: Publish the Configuration File
 
 ```shell
 php artisan vendor:publish --provider="RakkoInc\LaravelGracefulScheduleWorker\Providers\GracefulScheduleWorkerProvider"
 ```
 
-#### ステップ 3: Kernel の変更
+#### Step 3: Modify the Kernel
 
-3 つの変更を行います:
+Make 3 changes:
 
-1. `UsesClockAwareSchedule` trait を追加
-2. `schedule(Schedule $schedule)` を `gracefulSchedule(ClockAwareSchedule $schedule)` にリネーム
-3. 各タスクに `runInBackground()` を追加（推奨）
+1. Add the `UsesClockAwareSchedule` trait
+2. Rename `schedule(Schedule $schedule)` to `gracefulSchedule(ClockAwareSchedule $schedule)`
+3. Add `runInBackground()` to each task (recommended)
 
-### 変更後の Kernel.php
+### Kernel.php After Changes
 
 ```php
 <?php
@@ -156,74 +156,74 @@ class Kernel extends ConsoleKernel
 }
 ```
 
-### 振る舞いの変化について
+### About Behavior Changes
 
-trait を適用すると、全スケジュールイベントが `ClockAwareEvent` になります。`schedule:work` で実行する場合でも以下の振る舞いが変わります:
+When the trait is applied, all schedule events become `ClockAwareEvent`. Even when running with `schedule:work`, the following behaviors change:
 
-| 箇所 | 変更前（Laravel 標準） | 変更後（ClockAwareEvent） |
+| Area | Before (Laravel Standard) | After (ClockAwareEvent) |
 |---|---|---|
-| `expressionPasses()` | `Carbon::now()` | `SystemClock::now()`（`DateTimeImmutable`） |
-| `between()` / `unlessBetween()` | `Carbon::now()` を定義時に即時評価 | `clock->now()` を毎回遅延評価 |
-| `lastDayOfMonth()` | `Carbon::now()` | 変更なし（既知の制限） |
+| `expressionPasses()` | `Carbon::now()` | `SystemClock::now()` (`DateTimeImmutable`) |
+| `between()` / `unlessBetween()` | `Carbon::now()` evaluated immediately at definition time | `clock->now()` lazy-evaluated on each check |
+| `lastDayOfMonth()` | `Carbon::now()` | No change (known limitation) |
 
-`schedule:work`（毎分 1 回実行）では実質的な影響はほぼありませんが、時刻評価の内部実装が変わる点を認識しておいてください。問題が発生した場合は[ロールバック](#ロールバック方法)で即座に元に戻せます。
+With `schedule:work` (runs once per minute), the practical impact is minimal, but be aware that the internal implementation of time evaluation changes. If problems occur, you can immediately revert using the [rollback procedure](#rollback-procedure).
 
-### schedule:work から schedule:graceful-work への切り替え
+### Switching from schedule:work to schedule:graceful-work
 
-Kernel の変更（trait 適用）とコマンドの切り替えは独立して行えます。段階的に移行する場合は以下の順序を推奨します:
+Kernel changes (trait application) and command switching can be done independently. For gradual migration, the following order is recommended:
 
-1. **まず Kernel を変更**し、`schedule:work` のまま運用して問題がないことを確認
-2. **次にコマンドを切り替え**（`schedule:graceful-work` に変更）
+1. **First, modify the Kernel** and verify there are no issues while still using `schedule:work`
+2. **Then switch the command** (change to `schedule:graceful-work`)
 
 ```diff
 -php artisan schedule:work
 +php artisan schedule:graceful-work
 ```
 
-### 動作確認方法
+### Verification
 
-1. `php artisan schedule:graceful-work` を起動
-2. スケジュールされたタスクが正常に実行されることを確認
-3. `Ctrl+C` または `kill <pid>` で SIGTERM を送信し、グレースフル停止を確認
+1. Start `php artisan schedule:graceful-work`
+2. Verify that scheduled tasks execute normally
+3. Send SIGTERM with `Ctrl+C` or `kill <pid>` and verify graceful shutdown
 
-### ロールバック方法
+### Rollback Procedure
 
-問題が発生した場合、以下の手順で元に戻せます:
+If problems occur, you can revert with the following steps:
 
-1. Kernel.php から `use UsesClockAwareSchedule;` を削除
-2. `gracefulSchedule(ClockAwareSchedule $schedule)` を `schedule(Schedule $schedule)` に戻す
-3. use 文を `Illuminate\Console\Scheduling\Schedule` に戻す
-4. コマンドを `schedule:work` に戻す
+1. Remove `use UsesClockAwareSchedule;` from Kernel.php
+2. Change `gracefulSchedule(ClockAwareSchedule $schedule)` back to `schedule(Schedule $schedule)`
+3. Change the use statement back to `Illuminate\Console\Scheduling\Schedule`
+4. Switch the command back to `schedule:work`
 
-パッケージ自体はインストールしたままでも問題ありません。
+The package itself can remain installed without any issues.
 
 ---
 
-## フェーズ 2: リカバリ機能の追加
+## Phase 2: Adding Recovery Features
 
-フェーズ 1 が安定稼働していることを確認してから進めてください。
+Proceed after verifying that Phase 1 is running stably.
 
-### .env の設定追加
+### Adding .env Configuration
 
 ```env
 SCHEDULE_TRACKER_ENABLED=true
 SCHEDULE_TRACKER_STORE=redis
 ```
 
-### withGracePeriod() の追加
+### Adding withGracePeriod()
 
-リカバリが必要なタスクにのみ追加します。
+Add only to tasks that need recovery.
 
 ```php
 protected function gracefulSchedule(ClockAwareSchedule $schedule)
 {
-    // 重要なタスク → リカバリ有効
+    // Important task -> recovery enabled
     $schedule->command('reports:daily')->dailyAt('02:00')
         ->runInBackground()
         ->withoutOverlapping(10)
-        ->withGracePeriod(30);  // 30 分以内の取りこぼしを自動リカバリ
+        ->withGracePeriod(30);  // Automatically recover missed executions within 30 minutes
 
-    // リカバリ不要なタスク → そのまま
+    // Task that doesn't need recovery -> leave as-is
     $schedule->command('emails:send')->everyFiveMinutes()
         ->runInBackground()
         ->when(function () {
@@ -236,107 +236,107 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 }
 ```
 
-### 冪等性の確認チェックリスト
+### Idempotency Verification Checklist
 
-`withGracePeriod()` を付けたタスクについて確認してください:
+Verify the following for tasks with `withGracePeriod()`:
 
-- [ ] 同じタスクが 2 回実行されても結果が変わらないか？
-- [ ] DB 操作に `updateOrInsert` やユニーク制約を使っているか？
-- [ ] 外部 API 呼び出しに重複排除の仕組みがあるか？
-- [ ] ファイル生成は決定論的な名前を使っているか？
+- [ ] Does the task produce the same result even if executed twice?
+- [ ] Do DB operations use `updateOrInsert` or unique constraints?
+- [ ] Do external API calls have deduplication mechanisms?
+- [ ] Do file generation operations use deterministic names?
 
-詳しくは [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) を参照してください。
-
----
-
-## フェーズ 3: Step Functions 連携（オプション）
-
-### 判断基準
-
-以下に当てはまる場合に Step Functions の導入を検討してください:
-
-- タスクのリトライ・タイムアウトを AWS 側で管理したい
-- タスク実行状況を Step Functions コンソールで可視化したい
-- 個別の ECS Task としてジョブを実行したい
-
-ローカル実行で十分な場合は不要です。
-
-### 概要設定手順
-
-1. `aws/aws-sdk-php` をインストール
-2. Step Functions State Machine を作成
-3. `.env` に `SCHEDULE_DISPATCH=stepfunctions` と `SCHEDULE_STATE_MACHINE_ARN` を設定
-4. 必要なタスクに `dispatchVia('stepfunctions')` を追加
-
-> **注意:** Step Functions 経由では `before()` / `after()` / `onSuccess()` / `onFailure()` / `appendOutputTo()` は動作しません。
-
-詳しくは [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) を参照してください。
+See [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) for details.
 
 ---
 
-## メソッド互換性テーブル
+## Phase 3: Step Functions Integration (Optional)
 
-| 既存の使い方 | gracefulSchedule() での対応 | 備考 |
+### Decision Criteria
+
+Consider introducing Step Functions if any of the following apply:
+
+- You want AWS to manage task retries and timeouts
+- You want to visualize task execution status through the Step Functions console
+- You want to execute jobs as individual ECS Tasks
+
+Not needed if local execution is sufficient.
+
+### Configuration Steps Overview
+
+1. Install `aws/aws-sdk-php`
+2. Create a Step Functions State Machine
+3. Set `SCHEDULE_DISPATCH=stepfunctions` and `SCHEDULE_STATE_MACHINE_ARN` in `.env`
+4. Add `dispatchVia('stepfunctions')` to the necessary tasks
+
+> **Note:** When using Step Functions, `before()` / `after()` / `onSuccess()` / `onFailure()` / `appendOutputTo()` do not work.
+
+See [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) for details.
+
+---
+
+## Method Compatibility Table
+
+| Existing Usage | Support in gracefulSchedule() | Notes |
 |---|---|---|
-| `everyMinute()`, `hourly()`, `daily()` 等 | そのまま使える | |
-| `when()` / `skip()` | そのまま使える | |
-| `between()` / `unlessBetween()` | そのまま使える | 遅延評価に変更（[振る舞いの変化](#振る舞いの変化について)参照） |
-| `withoutOverlapping()` | そのまま使える | |
-| `runInBackground()` | そのまま使える（推奨） | |
-| `environments()` / `evenInMaintenanceMode()` | そのまま使える | |
-| `timezone()` | そのまま使える | |
-| `before()` / `after()` / `onSuccess()` / `onFailure()` | Local のみ | Step Functions 非対応 |
-| `appendOutputTo()` / `sendOutputTo()` | Local のみ | Step Functions 非対応 |
-| `pingBefore()` / `thenPing()` / `emailOutputTo()` | Local のみ | Step Functions 非対応 |
-| `$schedule->call(Closure)` | 非対応 | Artisan コマンドに変換が必要 |
-| `lastDayOfMonth()` | 制限あり | 月境界で不正確になる可能性 |
+| `everyMinute()`, `hourly()`, `daily()`, etc. | Works as-is | |
+| `when()` / `skip()` | Works as-is | |
+| `between()` / `unlessBetween()` | Works as-is | Changed to lazy evaluation (see [Behavior Changes](#about-behavior-changes)) |
+| `withoutOverlapping()` | Works as-is | |
+| `runInBackground()` | Works as-is (recommended) | |
+| `environments()` / `evenInMaintenanceMode()` | Works as-is | |
+| `timezone()` | Works as-is | |
+| `before()` / `after()` / `onSuccess()` / `onFailure()` | Local only | Not supported with Step Functions |
+| `appendOutputTo()` / `sendOutputTo()` | Local only | Not supported with Step Functions |
+| `pingBefore()` / `thenPing()` / `emailOutputTo()` | Local only | Not supported with Step Functions |
+| `$schedule->call(Closure)` | Not supported | Must be converted to an Artisan command |
+| `lastDayOfMonth()` | Limited | May be inaccurate at month boundaries |
 
 ---
 
-## よくある質問
+## FAQ
 
-### Q: schedule() と gracefulSchedule() を共存できるか？
+### Q: Can schedule() and gracefulSchedule() coexist?
 
-**はい、共存できます。** `schedule()` に残したタスクは Laravel 標準の `Event` として動作し（振る舞い変化なし）、`gracefulSchedule()` に移動したタスクは `ClockAwareEvent` として動作します。これにより、タスク単位での段階的移行が可能です。
+**Yes, they can coexist.** Tasks left in `schedule()` operate as Laravel standard `Event` (no behavior change), while tasks moved to `gracefulSchedule()` operate as `ClockAwareEvent`. This allows gradual migration on a per-task basis.
 
-詳しくは[移行方法の選択](#移行方法の選択)を参照してください。
+See [Choosing a Migration Method](#choosing-a-migration-method) for details.
 
-> **注意:** 同じタスクを `schedule()` と `gracefulSchedule()` の両方に定義すると二重実行になります。移動する際は必ず元のメソッドから削除してください。
+> **Note:** Defining the same task in both `schedule()` and `gracefulSchedule()` will cause duplicate execution. Always remove the task from the original method when moving it.
 
-### Q: schedule:work と schedule:graceful-work を同時に動かせるか？
+### Q: Can schedule:work and schedule:graceful-work run simultaneously?
 
-技術的には可能ですが、**同じタスクの二重実行が発生するため推奨しません**。切り替えは同時に行ってください。
+Technically possible, but **not recommended as it causes duplicate execution of the same tasks**. Switch them at the same time.
 
-### Q: Closure ジョブ（$schedule->call()）はどうなるか？
+### Q: What about Closure jobs ($schedule->call())?
 
-`$schedule->call(Closure)` は対応していません。Artisan コマンドに変換してください。
+`$schedule->call(Closure)` is not supported. Convert them to Artisan commands.
 
 ```php
-// 変更前（非対応）
+// Before (not supported)
 $schedule->call(function () {
     DB::table('recent_users')->delete();
 })->daily();
 
-// 変更後
-// 1. Artisan コマンドを作成
+// After
+// 1. Create an Artisan command
 //    php artisan make:command PruneRecentUsers
-// 2. スケジュールに登録
+// 2. Register in the schedule
 $schedule->command('users:prune-recent')->daily()
     ->runInBackground();
 ```
 
-### Q: withoutOverlapping() はそのまま使えるか？
+### Q: Can withoutOverlapping() be used as-is?
 
-はい、そのまま使えます。`withoutOverlapping()` は Laravel の `EventMutex` を使用しており、パッケージの `TrackingDispatcher` のロックとは別の仕組みです。両者は問題なく共存します。
+Yes, it works as-is. `withoutOverlapping()` uses Laravel's `EventMutex`, which is a separate mechanism from the package's `TrackingDispatcher` lock. Both coexist without issues.
 
-### Q: runInBackground() は必須か？
+### Q: Is runInBackground() required?
 
-必須ではありませんが、**強く推奨します**。`runInBackground()` を付けないとタスクが直列実行になり、前のタスクが終わるまで次のタスクが開始されません。
+It is not required, but **strongly recommended**. Without `runInBackground()`, tasks run sequentially, and the next task won't start until the previous one finishes.
 
 ---
 
-## 注意事項
+## Important Notes
 
-- リカバリ機能は **At-least-once セマンティック** で動作します。リカバリ対象のタスクは冪等に設計してください。
-- `ext-pcntl` が必須です（シグナルハンドリングに使用）。
-- PHP 7.2.5 以上が必要です。
+- The recovery feature operates with **at-least-once semantics**. Design recovery-target tasks to be idempotent.
+- `ext-pcntl` is required (used for signal handling).
+- PHP 7.2.5 or later is required.

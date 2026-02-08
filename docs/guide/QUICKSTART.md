@@ -1,47 +1,47 @@
-# クイックスタートガイド
+# Quick Start Guide
 
-## はじめに
+## Introduction
 
-このガイドでは、`laravel-graceful-schedule-worker` の導入手順を段階的に説明します。
+This guide provides step-by-step instructions for setting up `laravel-graceful-schedule-worker`.
 
-### 対象読者
+### Target Audience
 
-- Laravel 6.x / 7.x でスケジュールタスクを運用している開発者
-- ECS / Kubernetes 等のコンテナ環境でスケジューラを動かしたい方
+- Developers running scheduled tasks on Laravel 6.x / 7.x
+- Those who want to run the scheduler in container environments such as ECS / Kubernetes
 
-### 前提条件
+### Prerequisites
 
 - PHP ^7.2.5 || ~8.0
 - Laravel 6.x / 7.x
-- ext-pcntl（シグナルハンドリングに必要）
+- ext-pcntl (required for signal handling)
 
 ---
 
-## レベル 1: 最小構成（ローカル実行）
+## Level 1: Minimal Configuration (Local Execution)
 
-まずは最小限の変更でパッケージを導入します。
+Start by introducing the package with minimal changes.
 
-### パッケージインストール
+### Package Installation
 
 ```shell
 composer require rakko-inc/laravel-graceful-schedule-worker
 ```
 
-ServiceProvider は自動検出されるため、手動登録は不要です。
+The ServiceProvider is auto-discovered, so manual registration is not required.
 
-### 設定ファイルパブリッシュ
+### Publish Configuration File
 
 ```shell
 php artisan vendor:publish --provider="RakkoInc\LaravelGracefulScheduleWorker\Providers\GracefulScheduleWorkerProvider"
 ```
 
-`config/graceful-scheduler.php` が作成されます。デフォルト設定のままで動作します。
+This creates `config/graceful-scheduler.php`. It works with the default settings.
 
-### Kernel の変更
+### Kernel Changes
 
-`app/Console/Kernel.php` を以下のように変更します。
+Modify `app/Console/Kernel.php` as follows.
 
-**変更前:**
+**Before:**
 
 ```php
 <?php
@@ -61,7 +61,7 @@ class Kernel extends ConsoleKernel
 }
 ```
 
-**変更後:**
+**After:**
 
 ```php
 <?php
@@ -87,101 +87,101 @@ class Kernel extends ConsoleKernel
 }
 ```
 
-変更点は 3 つだけです:
+There are only 3 changes:
 
-1. `UsesClockAwareSchedule` trait を追加
-2. `schedule()` を `gracefulSchedule()` にリネーム（中身はほぼそのまま）
-3. `runInBackground()` を追加（推奨）
+1. Add the `UsesClockAwareSchedule` trait
+2. Rename `schedule()` to `gracefulSchedule()` (contents remain mostly the same)
+3. Add `runInBackground()` (recommended)
 
-> **ヒント:** タスク数が多い場合は、`schedule()` をそのまま残してタスクを段階的に `gracefulSchedule()` に移動することもできます。詳しくは [MIGRATION.md](./MIGRATION.md#移行方法の選択) を参照してください。
+> **Hint:** If you have many tasks, you can keep `schedule()` as-is and gradually move tasks to `gracefulSchedule()`. See [MIGRATION.md](./MIGRATION.md#choosing-a-migration-method) for details.
 
-### コマンド実行
+### Command Execution
 
 ```shell
 php artisan schedule:graceful-work
 ```
 
-`schedule:work` の代わりにこのコマンドを使います。SIGTERM/SIGINT を受信すると、実行中のタスクが終了するのを待ってから安全に停止します。
+Use this command instead of `schedule:work`. When SIGTERM/SIGINT is received, it waits for running tasks to complete before shutting down safely.
 
-### 動作確認
+### Verification
 
-- タスクが正常にスケジュール実行されることを確認
-- `Ctrl+C` で停止した際、実行中のタスクが正常終了してから停止することを確認
+- Verify that tasks execute on schedule
+- Verify that when stopped with `Ctrl+C`, running tasks complete normally before the process exits
 
 ---
 
-## レベル 2: リカバリ機能の有効化
+## Level 2: Enabling Recovery
 
-### なぜリカバリが必要か
+### Why Recovery Is Needed
 
-ECS タスクの停止やデプロイ時にスケジューラが再起動すると、その間にスケジュールされていたタスクが実行されない可能性があります。リカバリ機能はこの「取りこぼし」を検出して自動的に再実行します。
+When the scheduler restarts due to ECS task termination or deployment, tasks that were scheduled during the gap may not execute. The recovery feature detects these "missed executions" and automatically re-executes them.
 
-### Redis の準備
+### Redis Setup
 
-リカバリには実行履歴の記録が必要です。Redis または Memcached が利用できる環境を準備してください。
+Recovery requires recording execution history. Prepare an environment with Redis or Memcached available.
 
-### .env の設定
+### .env Configuration
 
 ```env
 SCHEDULE_TRACKER_ENABLED=true
 SCHEDULE_TRACKER_STORE=redis
 ```
 
-| 変数 | デフォルト | 説明 |
+| Variable | Default | Description |
 |---|---|---|
-| `SCHEDULE_TRACKER_ENABLED` | `false` | 実行追跡を有効化 |
-| `SCHEDULE_TRACKER_STORE` | `null` | キャッシュストア名（`redis` 等） |
-| `SCHEDULE_TRACKER_LOCK_TTL` | `3600` | ロックの TTL（秒） |
+| `SCHEDULE_TRACKER_ENABLED` | `false` | Enable execution tracking |
+| `SCHEDULE_TRACKER_STORE` | `null` | Cache store name (e.g., `redis`) |
+| `SCHEDULE_TRACKER_LOCK_TTL` | `3600` | Lock TTL (seconds) |
 
-### withGracePeriod() の追加
+### Adding withGracePeriod()
 
-リカバリ対象にするタスクに `withGracePeriod()` を追加します。
+Add `withGracePeriod()` to tasks that should be recovery targets.
 
 ```php
 protected function gracefulSchedule(ClockAwareSchedule $schedule)
 {
-    // 30 分以内の取りこぼしを自動リカバリ
+    // Automatically recover missed executions within 30 minutes
     $schedule->command('reports:daily')->dailyAt('02:00')
         ->runInBackground()
         ->withGracePeriod(30);
 
-    // リカバリ不要なタスクはそのまま
+    // Tasks that don't need recovery remain as-is
     $schedule->command('cache:clear')->hourly()
         ->runInBackground();
 }
 ```
 
-### 冪等性の確認
+### Verifying Idempotency
 
-リカバリ機能は **At-least-once セマンティック**で動作するため、リカバリ対象のタスクは冪等である必要があります。
+The recovery feature operates with **at-least-once semantics**, so tasks targeted for recovery must be idempotent.
 
-チェックリスト:
+Checklist:
 
-- [ ] 同じタスクが 2 回実行されても結果が同じになるか？
-- [ ] DB 操作は `updateOrInsert` やユニーク制約で重複を防止しているか？
-- [ ] 外部 API 呼び出しにはトランザクション ID 等の重複排除キーがあるか？
+- [ ] Does the task produce the same result even if executed twice?
+- [ ] Do DB operations use `updateOrInsert` or unique constraints to prevent duplicates?
+- [ ] Do external API calls have deduplication keys such as transaction IDs?
 
-詳しくは [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) を参照してください。
+See [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) for details.
 
 ---
 
-## レベル 3: Step Functions 連携
+## Level 3: Step Functions Integration
 
-### いつ Step Functions を使うべきか
+### When to Use Step Functions
 
-- タスクのリトライやタイムアウトを AWS 側で管理したい場合
-- タスク実行の監視・オブザーバビリティを Step Functions コンソールで行いたい場合
-- ECS Task として個別にジョブを実行したい場合
+- When you want AWS to manage task retries and timeouts
+- When you want to monitor task execution through the Step Functions console
+- When you want to execute jobs as individual ECS Tasks
 
-ローカル実行で十分な場合は、この手順は不要です。
+If local execution is sufficient, this step is not needed.
 
-### aws/aws-sdk-php のインストール
+### Install aws/aws-sdk-php
 
 ```shell
 composer require aws/aws-sdk-php "^3.20.1"
 ```
 
-### .env の設定
+### .env Configuration
 
 ```env
 SCHEDULE_DISPATCH=stepfunctions
@@ -191,91 +191,91 @@ AWS_ACCESS_KEY_ID=your-key
 AWS_SECRET_ACCESS_KEY=your-secret
 ```
 
-| 変数 | デフォルト | 説明 |
+| Variable | Default | Description |
 |---|---|---|
-| `SCHEDULE_DISPATCH` | `local` | ディスパッチ方法（`local` / `stepfunctions`） |
-| `SCHEDULE_STATE_MACHINE_ARN` | `null` | State Machine の ARN |
-| `AWS_DEFAULT_REGION` | `ap-northeast-1` | AWS リージョン |
+| `SCHEDULE_DISPATCH` | `local` | Dispatch method (`local` / `stepfunctions`) |
+| `SCHEDULE_STATE_MACHINE_ARN` | `null` | State Machine ARN |
+| `AWS_DEFAULT_REGION` | `ap-northeast-1` | AWS region |
 
-### dispatchVia() の指定
+### Specifying dispatchVia()
 
-タスクごとに Dispatcher を指定できます。
+You can specify the Dispatcher per task.
 
 ```php
 protected function gracefulSchedule(ClockAwareSchedule $schedule)
 {
-    // Step Functions で実行
+    // Execute via Step Functions
     $schedule->command('reports:daily')->dailyAt('02:00')
         ->dispatchVia('stepfunctions')
         ->withGracePeriod(30);
 
-    // ローカルで実行（タスクごとに切替可能）
+    // Execute locally (can switch per task)
     $schedule->command('cache:clear')->hourly()
         ->dispatchVia('local')
         ->runInBackground();
 }
 ```
 
-> **注意:** Step Functions 経由の場合、`before()` / `after()` / `onSuccess()` / `onFailure()` / `appendOutputTo()` は動作しません。
+> **Note:** When using Step Functions, `before()` / `after()` / `onSuccess()` / `onFailure()` / `appendOutputTo()` do not work.
 
-詳細な設定は [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) を参照してください。
+See [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) for detailed configuration.
 
 ---
 
-## 設定リファレンス
+## Configuration Reference
 
-`config/graceful-scheduler.php` の全設定:
+All settings in `config/graceful-scheduler.php`:
 
-| 環境変数 | デフォルト | 説明 |
+| Environment Variable | Default | Description |
 |---|---|---|
-| `SCHEDULE_DISPATCH` | `local` | ディスパッチ方法: `local` / `stepfunctions` |
-| `SCHEDULE_TRACKER_ENABLED` | `false` | 実行追跡の有効化 |
-| `SCHEDULE_TRACKER_STORE` | `null` | 追跡用キャッシュストア |
-| `SCHEDULE_TRACKER_LOCK_TTL` | `3600` | ロック TTL（秒） |
+| `SCHEDULE_DISPATCH` | `local` | Dispatch method: `local` / `stepfunctions` |
+| `SCHEDULE_TRACKER_ENABLED` | `false` | Enable execution tracking |
+| `SCHEDULE_TRACKER_STORE` | `null` | Cache store for tracking |
+| `SCHEDULE_TRACKER_LOCK_TTL` | `3600` | Lock TTL (seconds) |
 | `SCHEDULE_STATE_MACHINE_ARN` | `null` | Step Functions State Machine ARN |
-| `AWS_DEFAULT_REGION` | `ap-northeast-1` | AWS リージョン |
+| `AWS_DEFAULT_REGION` | `ap-northeast-1` | AWS region |
 
 ---
 
-## ClockAwareEvent API リファレンス
+## ClockAwareEvent API Reference
 
-### 新規メソッド
+### New Methods
 
-| メソッド | 説明 |
+| Method | Description |
 |---|---|
-| `withGracePeriod($minutes)` | リカバリを有効化し、猶予期間を設定。`null` で無制限。 |
-| `enableRecovery()` | リカバリを有効化（猶予期間なし） |
-| `dispatchVia($type)` | Dispatcher タイプを指定: `'local'` / `'stepfunctions'` |
+| `withGracePeriod($minutes)` | Enable recovery and set the grace period. `null` for unlimited. |
+| `enableRecovery()` | Enable recovery (no grace period) |
+| `dispatchVia($type)` | Specify the Dispatcher type: `'local'` / `'stepfunctions'` |
 
-### 互換性テーブル
+### Compatibility Table
 
-| メソッド | 対応状況 | 備考 |
+| Method | Support Status | Notes |
 |---|---|---|
-| `everyMinute()`, `hourly()`, `daily()` 等 | そのまま使える | |
-| `when()` / `skip()` | そのまま使える | |
-| `between()` / `unlessBetween()` | そのまま使える | Clock-aware に自動対応 |
-| `withoutOverlapping()` | そのまま使える | |
-| `runInBackground()` | そのまま使える | 推奨 |
-| `environments()` / `evenInMaintenanceMode()` | そのまま使える | |
-| `timezone()` | そのまま使える | |
-| `before()` / `after()` / `onSuccess()` / `onFailure()` | Local のみ | Step Functions 非対応 |
-| `appendOutputTo()` / `sendOutputTo()` | Local のみ | Step Functions 非対応 |
-| `pingBefore()` / `thenPing()` / `emailOutputTo()` | Local のみ | Step Functions 非対応 |
-| `$schedule->call(Closure)` | 非対応 | Artisan コマンドに変換が必要 |
-| `lastDayOfMonth()` | 制限あり | 月境界で不正確になる可能性 |
+| `everyMinute()`, `hourly()`, `daily()`, etc. | Works as-is | |
+| `when()` / `skip()` | Works as-is | |
+| `between()` / `unlessBetween()` | Works as-is | Automatically clock-aware |
+| `withoutOverlapping()` | Works as-is | |
+| `runInBackground()` | Works as-is | Recommended |
+| `environments()` / `evenInMaintenanceMode()` | Works as-is | |
+| `timezone()` | Works as-is | |
+| `before()` / `after()` / `onSuccess()` / `onFailure()` | Local only | Not supported with Step Functions |
+| `appendOutputTo()` / `sendOutputTo()` | Local only | Not supported with Step Functions |
+| `pingBefore()` / `thenPing()` / `emailOutputTo()` | Local only | Not supported with Step Functions |
+| `$schedule->call(Closure)` | Not supported | Must be converted to an Artisan command |
+| `lastDayOfMonth()` | Limited | May be inaccurate at month boundaries |
 
-詳しくは [SCHEDULER_COMPATIBILITY.md](../internals/SCHEDULER_COMPATIBILITY.md) を参照してください。
+See [SCHEDULER_COMPATIBILITY.md](../internals/SCHEDULER_COMPATIBILITY.md) for details.
 
 ---
 
-## 次のステップ
+## Next Steps
 
-- [MIGRATION.md](./MIGRATION.md) — 既存 Laravel スケジューラからの移行ガイド
-- [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) — 冪等性ガイドライン
-- [ARCHITECTURE.md](../internals/ARCHITECTURE.md) — アーキテクチャ設計
-- [DESIGN.md](../internals/DESIGN.md) — 設計仕様
-- [SCHEDULER_COMPATIBILITY.md](../internals/SCHEDULER_COMPATIBILITY.md) — メソッド互換性の詳細
-- [SCHEDULE_EXECUTION_SEMANTICS.md](../internals/SCHEDULE_EXECUTION_SEMANTICS.md) — 実行保証の詳細
-- [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) — Step Functions 実装詳細
-- [STEPFUNCTIONS_CONSIDERATIONS.md](./STEPFUNCTIONS_CONSIDERATIONS.md) — Step Functions 検討事項
-- [SCHEDULER_COMPARISON.md](../internals/SCHEDULER_COMPARISON.md) — スケジューラ比較
+- [MIGRATION.md](./MIGRATION.md) -- Migration guide from the existing Laravel scheduler
+- [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) -- Idempotency guidelines
+- [ARCHITECTURE.md](../internals/ARCHITECTURE.md) -- Architecture design
+- [DESIGN.md](../internals/DESIGN.md) -- Design specification
+- [SCHEDULER_COMPATIBILITY.md](../internals/SCHEDULER_COMPATIBILITY.md) -- Method compatibility details
+- [SCHEDULE_EXECUTION_SEMANTICS.md](../internals/SCHEDULE_EXECUTION_SEMANTICS.md) -- Execution guarantee details
+- [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) -- Step Functions implementation details
+- [STEPFUNCTIONS_CONSIDERATIONS.md](./STEPFUNCTIONS_CONSIDERATIONS.md) -- Step Functions considerations
+- [SCHEDULER_COMPARISON.md](../internals/SCHEDULER_COMPARISON.md) -- Scheduler comparison

@@ -1,226 +1,226 @@
-# Laravel Graceful Schedule Worker - アーキテクチャ設計
+# Laravel Graceful Schedule Worker - Architecture Design
 
-## 目次
+## Table of Contents
 
-### Part 1: 設計概要
+### Part 1: Design Overview
 
-1. [概要と背景](#概要と背景)
-2. [実行保証モデル](#実行保証モデル)
-3. [アプローチ比較](#アプローチ比較)
-4. [課題の詳細](#課題の詳細)
-5. [ソリューション設計](#ソリューション設計)
+1. [Overview and Background](#overview-and-background)
+2. [Execution Guarantee Model](#execution-guarantee-model)
+3. [Approach Comparison](#approach-comparison)
+4. [Problem Details](#problem-details)
+5. [Solution Design](#solution-design)
 
-### Part 2: 制約と参考資料
+### Part 2: Constraints and References
 
-6. [制約と注意点](#制約と注意点)
-7. [用語集](#用語集)
-8. [参考資料](#参考資料)
-
----
-
-# Part 1: 設計概要
-
-## 概要と背景
-
-### パッケージの目的
-
-`laravel-graceful-schedule-worker` は、Laravel のスケジュールタスクをグレースフルに実行するための軽量パッケージです。`php artisan schedule:run` を長時間実行プロセスとして動作させ、SIGINT/SIGTERM シグナルを受信した際に実行中のタスクを適切に終了させることができます。
-
-**現在の主な機能:**
-
-- 毎分 `schedule:run` を子プロセスとして起動
-- 子プロセスの出力をリアルタイムでコンソールにストリーム
-- SIGINT/SIGTERM を受信した際のグレースフルシャットダウン
-- 実行中のタスクが完了してから終了
-
-### 拡張の動機
-
-**背景: ECS タスク停止時のジョブ中断問題**
-
-Amazon ECS 環境でこのパッケージを運用する際、以下の課題が発生します：
-
-1. **ECS タスクの停止時**: デプロイやスケールイン時に ECS タスクが停止される
-2. **グレースフル期間の制限**: ECS の停止猶予期間（デフォルト 30 秒、最大 120 秒）内に全てのスケジュールタスクを完了させる必要がある
-3. **長時間ジョブの中断**: 実行時間が長いタスクが中断され、次回以降も実行されない可能性がある
-
-### 提案するソリューションの全体像
-
-本設計では、**ClockAware Orchestrator パターン**を導入し、以下の問題を解決します：
-
-- **リソース分離**: スケジュールタスクを AWS Step Functions や EventBridge Scheduler を通じて別の ECS タスク/Lambda で実行
-- **取りこぼし防止**: 実行履歴をトラッキングし、未実行タスクを検出・リカバリ
-- **拡張性**: ローカル環境では従来通り動作し、本番環境では外部オーケストレータを使用する設計
-- **柔軟性**: `skip()` / `when()` などの動的条件に対応し、`withGracePeriod()` などの拡張メソッドを提供
+6. [Constraints and Notes](#constraints-and-notes)
+7. [Glossary](#glossary)
+8. [References](#references)
 
 ---
 
-## 実行保証モデル
+# Part 1: Design Overview
 
-### At-least-once セマンティック
+## Overview and Background
 
-本パッケージは **At-least-once セマンティック**を提供します。
+### Package Purpose
 
-**実行保証の定義**:
+`laravel-graceful-schedule-worker` is a lightweight package for gracefully executing Laravel scheduled tasks. It runs `php artisan schedule:run` as a long-running process and properly terminates running tasks when SIGINT/SIGTERM signals are received.
 
-- **スケジュールされたジョブは、リソースがある限り必ず最低1回は実行される**
-- **ネットワーク障害やクラッシュリカバリ時に、稀に重複実行される可能性がある**
+**Current main features:**
 
-### 責任分担
+- Launches `schedule:run` as a child process every minute
+- Streams child process output to the console in real-time
+- Graceful shutdown upon receiving SIGINT/SIGTERM
+- Waits for running tasks to complete before exiting
 
-| 層 | 責任内容 |
+### Motivation for Extension
+
+**Background: Job interruption problem during ECS task termination**
+
+When operating this package in an Amazon ECS environment, the following issues arise:
+
+1. **ECS task termination**: ECS tasks are stopped during deployments or scale-in events
+2. **Graceful period limitation**: All scheduled tasks must complete within ECS's stop timeout (default 30 seconds, maximum 120 seconds)
+3. **Long-running job interruption**: Tasks with long execution times may be interrupted and not executed subsequently
+
+### Proposed Solution Overview
+
+This design introduces the **ClockAware Orchestrator pattern** to solve the following problems:
+
+- **Resource isolation**: Execute scheduled tasks on separate ECS tasks/Lambda via AWS Step Functions or EventBridge Scheduler
+- **Missed execution prevention**: Track execution history to detect and recover unexecuted tasks
+- **Extensibility**: Works conventionally in local environments while using external orchestrators in production
+- **Flexibility**: Supports dynamic conditions like `skip()` / `when()` and provides extension methods like `withGracePeriod()`
+
+---
+
+## Execution Guarantee Model
+
+### At-least-once Semantics
+
+This package provides **at-least-once semantics**.
+
+**Execution guarantee definition**:
+
+- **Scheduled jobs are guaranteed to execute at least once, as long as resources are available**
+- **During network failures or crash recovery, duplicate execution may rarely occur**
+
+### Responsibility Distribution
+
+| Layer | Responsibility |
 |---|---------|
-| **Orchestrator（スケジューラ）** | At-least-once の起動保証、due 判定、取りこぼしリカバリ、実行履歴の永続化 |
-| **Step Functions（実行基盤）** | 実行の信頼性（リトライ、タイムアウト）、必要に応じて DynamoDB ロック等での重複防止 |
-| **Worker（アプリロジック）** | ビジネスロジックの冪等性、トランザクション境界の適切な設計 |
+| **Orchestrator (Scheduler)** | At-least-once launch guarantee, due determination, missed execution recovery, execution history persistence |
+| **Step Functions (Execution Platform)** | Execution reliability (retries, timeouts), duplicate prevention via DynamoDB locks as needed |
+| **Worker (Application Logic)** | Business logic idempotency, appropriate transaction boundary design |
 
-※ Step Functions と Worker は「アプリケーション側」の責務に含まれます。
+Note: Step Functions and Worker are included in "application-side" responsibilities.
 
-### 業界標準との整合性
+### Alignment with Industry Standards
 
-この責任分担は、クラウドネイティブシステムの標準的なアプローチです：
+This responsibility distribution follows the standard approach for cloud-native systems:
 
-- **AWS EventBridge Scheduler**: At-least-once 配信保証（リトライポリシー + DLQ）
-- **Apache Airflow**: Catchup/Backfill による自動リカバリ
-- **Kubernetes CronJob**: startingDeadlineSeconds による限定的な猶予期間
+- **AWS EventBridge Scheduler**: At-least-once delivery guarantee (retry policy + DLQ)
+- **Apache Airflow**: Automatic recovery via Catchup/Backfill
+- **Kubernetes CronJob**: Limited grace period via startingDeadlineSeconds
 
-詳細は [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) を参照してください。
+See [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) for details.
 
-> **Note**: アプリケーション側の冪等性実装については
-> [IDEMPOTENCY_GUIDE.md](../guide/IDEMPOTENCY_GUIDE.md) を参照
+> **Note**: For application-side idempotency implementation, see
+> [IDEMPOTENCY_GUIDE.md](../guide/IDEMPOTENCY_GUIDE.md)
 
 ---
 
-## アプローチ比較
+## Approach Comparison
 
-### スケジューラの選択: EventBridge Scheduler vs ClockAware Orchestrator
+### Scheduler Selection: EventBridge Scheduler vs ClockAware Orchestrator
 
-Laravel のスケジュールタスクを本番環境で運用する際、**スケジュール管理の方法**として2つのアプローチがあります。
+When operating Laravel scheduled tasks in production, there are two approaches for **schedule management**.
 
-| 観点 | EventBridge Scheduler | ClockAware Orchestrator |
+| Aspect | EventBridge Scheduler | ClockAware Orchestrator |
 |------|----------------------|------------------------|
-| **スケジュール定義** | IaC (Terraform/CDK) で管理 | Kernel.php (PHP) で管理 |
-| **動的条件 (when/skip)** | ✗ 不可<br>（cron 式のみ） | ✓ 対応<br>（Laravel の柔軟な構文） |
-| **配信保証** | At-least-once<br>（AWS マネージド） | At-least-once<br>（自前実装 + ExecutionTracker） |
-| **移行コスト** | 高<br>（スケジュール定義の書き換え） | 低<br>（パッケージ導入のみ） |
-| **運用複雑性** | 低<br>（AWS マネージド） | 中<br>（Orchestrator ECS Task + Redis が必要） |
-| **拡張性** | 低<br>（cron 式のみ） | 高<br>（withGracePeriod 等の拡張） |
-| **テスト容易性** | 低<br>（IaC のテストが必要） | 高<br>（既存の Laravel テスト） |
+| **Schedule definition** | Managed via IaC (Terraform/CDK) | Managed in Kernel.php (PHP) |
+| **Dynamic conditions (when/skip)** | Not possible<br>(cron expressions only) | Supported<br>(Laravel's flexible syntax) |
+| **Delivery guarantee** | At-least-once<br>(AWS managed) | At-least-once<br>(custom implementation + ExecutionTracker) |
+| **Migration cost** | High<br>(rewriting schedule definitions) | Low<br>(package installation only) |
+| **Operational complexity** | Low<br>(AWS managed) | Medium<br>(Orchestrator ECS Task + Redis required) |
+| **Extensibility** | Low<br>(cron expressions only) | High<br>(withGracePeriod, etc.) |
+| **Testability** | Low<br>(IaC testing required) | High<br>(existing Laravel tests) |
 
-**重要**: どちらのアプローチでも、**ジョブの実行は Step Functions 経由で行うことを推奨**します。
+**Important**: With either approach, **executing jobs via Step Functions is recommended**.
 
-### ジョブ実行の方法: Dispatcher の選択
+### Job Execution Method: Dispatcher Selection
 
-スケジューラがジョブを起動する際の実行方法（Dispatcher）を選択できます。
+You can choose the execution method (Dispatcher) when the scheduler invokes a job.
 
-| Dispatcher | 実行環境 | 用途 | リソース分離 |
+| Dispatcher | Execution Environment | Use Case | Resource Isolation |
 |-----------|---------|------|------------|
-| **LocalDispatcher** | 同一コンテナ内でプロセス起動 | ローカル開発、軽量ジョブ | ✗ なし |
-| **StepFunctionsDispatcher** | Step Functions 経由で ECS Task/Lambda | 本番環境、長時間ジョブ | ✓ あり |
+| **LocalDispatcher** | Process spawned in the same container | Local development, lightweight jobs | None |
+| **StepFunctionsDispatcher** | ECS Task/Lambda via Step Functions | Production, long-running jobs | Yes |
 
-**推奨構成**:
+**Recommended configuration**:
 ```
-ClockAware Orchestrator (スケジュール管理)
-  + StepFunctionsDispatcher (ジョブ実行)
-  + ExecutionTracker (取りこぼし検出)
+ClockAware Orchestrator (schedule management)
+  + StepFunctionsDispatcher (job execution)
+  + ExecutionTracker (missed execution detection)
 ```
 
-### 推奨判断基準
+### Recommended Decision Criteria
 
-**ClockAware Orchestrator を推奨する場合**:
+**Recommend ClockAware Orchestrator when**:
 
-- `skip()` / `when()` を使用している（動的条件が必要）
-- スケジュール定義を Kernel.php で管理したい
-- Laravel の柔軟なスケジューリング構文を活用したい
-- 既存のスケジュール定義をそのまま活用したい
-- withGracePeriod() などの拡張機能が必要
-- **ジョブ実行は StepFunctionsDispatcher で行う**
+- Using `skip()` / `when()` (dynamic conditions needed)
+- Want to manage schedule definitions in Kernel.php
+- Want to leverage Laravel's flexible scheduling syntax
+- Want to reuse existing schedule definitions as-is
+- Need extension features like withGracePeriod()
+- **Job execution uses StepFunctionsDispatcher**
 
-**EventBridge Scheduler を推奨する場合**:
+**Recommend EventBridge Scheduler when**:
 
-- 全てのスケジュールが固定 cron 式で表現できる
-- 動的条件（skip/when）を使用していない
-- 完全マネージドサービスを優先したい
-- スケジュール定義を IaC で管理したい
-- **スケジュール管理もジョブ実行も AWS に委譲する**
+- All schedules can be expressed with fixed cron expressions
+- Not using dynamic conditions (skip/when)
+- Prefer a fully managed service
+- Want to manage schedule definitions via IaC
+- **Delegate both schedule management and job execution to AWS**
 
-**重要**: 将来的に動的条件を除去できる場合は、EventBridge Scheduler への移行も選択肢として残ります。
+**Important**: If dynamic conditions can be removed in the future, migration to EventBridge Scheduler remains an option.
 
-### Dispatcher 選択のガイドライン
+### Dispatcher Selection Guidelines
 
-ジョブごとに適切な Dispatcher を選択することで、コストとパフォーマンスを最適化できます。
+Optimize cost and performance by selecting the appropriate Dispatcher per job.
 
-| 頻度 | 実行時間 | 推奨 Dispatcher | 理由 |
+| Frequency | Execution Time | Recommended Dispatcher | Reason |
 |------|---------|----------------|------|
-| everyMinute | < 30秒 | Local | オーバーヘッド・コストが見合わない |
-| everyMinute | 30秒〜5分 | 要検討 | リソース分離の重要度で判断 |
-| everyMinute | > 5分 | Step Functions | リソース分離が必須 |
-| everyFiveMinutes 以上 | 任意 | Step Functions | コスト効率が良い |
-| Closure ジョブ | 任意 | Local | シリアライズ不可のため |
+| everyMinute | < 30 seconds | Local | Overhead/cost not justified |
+| everyMinute | 30 seconds - 5 minutes | Case-by-case | Decide based on importance of resource isolation |
+| everyMinute | > 5 minutes | Step Functions | Resource isolation is essential |
+| everyFiveMinutes or less frequent | Any | Step Functions | Cost-effective |
+| Closure job | Any | Local | Cannot be serialized |
 
-**コスト試算例（everyMinute × 1ジョブ）**:
-- 1日: 1,440回
-- 1ヶ月: 約43,200回
-- Standard Workflow（$0.025/1,000遷移）:
-  - 最小構成（Start → Task → End = 3遷移）: 約$3.24/月
-- Express Workflow（実行回数 + 実行時間）:
-  - 実行時間10秒の場合: 約$0.50/月
+**Cost estimate example (everyMinute x 1 job)**:
+- Per day: 1,440 executions
+- Per month: ~43,200 executions
+- Standard Workflow ($0.025/1,000 transitions):
+  - Minimum configuration (Start -> Task -> End = 3 transitions): ~$3.24/month
+- Express Workflow (execution count + execution time):
+  - With 10-second execution time: ~$0.50/month
 
-**推奨アプローチ**:
-- デフォルトは Step Functions（リソース分離のメリット）
-- 高頻度・軽量ジョブはローカル実行にオーバーライド
-- Closure ジョブは自動的にローカル実行
+**Recommended approach**:
+- Default to Step Functions (resource isolation benefits)
+- Override high-frequency, lightweight jobs to local execution
+- Closure jobs automatically use local execution
 
 ---
 
-## 課題の詳細
+## Problem Details
 
-### 課題A: リソース分離の欠如
+### Problem A: Lack of Resource Isolation
 
-**現状**: 全てのスケジュールタスクが同一の ECS タスク内で実行される
+**Current state**: All scheduled tasks execute within the same ECS task
 
-- スケジューラプロセスと実際のジョブ実行が同じコンテナで動作
-- 長時間ジョブが実行中の場合、ECS タスク停止時に強制終了される
-- グレースフル期間内に完了しないジョブは中断される
+- The scheduler process and actual job execution run in the same container
+- Long-running jobs are forcefully terminated when the ECS task stops
+- Jobs that don't complete within the graceful period are interrupted
 
-**影響**:
-
-```
-[00:00] schedule:graceful-work 起動
-[00:01] 長時間ジョブ A 開始（予想実行時間: 5分）
-[00:02] ECS タスク停止シグナル受信
-[00:02] グレースフル期間開始（最大 120 秒）
-[00:04] ジョブ A がまだ実行中...
-[00:04] グレースフル期間終了、ジョブ A 強制終了 ❌
-```
-
-### 課題B: 取りこぼしリスク
-
-**現状**: グレースフルシャットダウン時に未実行のタスクが失われる
-
-シナリオ例：
+**Impact**:
 
 ```
-[00:59:50] schedule:graceful-work 実行中
-[00:59:55] SIGTERM 受信、running = false に設定
-[01:00:00] この時点で新しい schedule:run は起動されない
-           → 1:00 に実行予定だったタスクが実行されない ❌
+[00:00] schedule:graceful-work starts
+[00:01] Long-running job A begins (expected execution time: 5 minutes)
+[00:02] ECS task stop signal received
+[00:02] Graceful period begins (max 120 seconds)
+[00:04] Job A still running...
+[00:04] Graceful period ends, Job A forcefully terminated ❌
 ```
 
-**問題点**:
+### Problem B: Missed Execution Risk
 
-- シグナル受信後は新しいタスクを起動しない
-- 次の ECS タスクが起動するまで、該当分のスケジュールタスクは実行されない
-- hourly や daily のタスクの場合、次回実行まで長時間待つ必要がある
+**Current state**: Unexecuted tasks are lost during graceful shutdown
 
-### 課題C: Laravel スケジューラの制限
+Example scenario:
 
-**Laravel の `schedule:run` の仕様**:
+```
+[00:59:50] schedule:graceful-work running
+[00:59:55] SIGTERM received, running = false
+[01:00:00] At this point, no new schedule:run is launched
+           -> Tasks scheduled for 1:00 are not executed ❌
+```
 
-- 実行時刻の「分」単位でしか判定しない
-- 過去の未実行タスクを自動でリカバリする仕組みがない
-- グレースフルシャットダウンや取りこぼしを考慮していない
+**Issues**:
 
-**例**:
+- No new tasks are launched after signal reception
+- Scheduled tasks for that period are not executed until the next ECS task starts
+- For hourly or daily tasks, a long wait until the next execution
+
+### Problem C: Laravel Scheduler Limitations
+
+**Laravel's `schedule:run` specification**:
+
+- Only evaluates at "minute" granularity
+- No mechanism to automatically recover past unexecuted tasks
+- Does not account for graceful shutdown or missed executions
+
+**Example**:
 
 ```php
 // app/Console/Kernel.php
@@ -228,58 +228,58 @@ $schedule->command('report:daily')
     ->dailyAt('03:00');
 ```
 
-- 03:00 にタスクが実行されなかった場合、次回は翌日の 03:00 まで待つ
-- 中間でサーバーが再起動されても、過去の未実行は検出されない
+- If the task is not executed at 03:00, the next execution waits until 03:00 the following day
+- Even if the server restarts in between, past missed executions are not detected
 
 ---
 
-## ソリューション設計
+## Solution Design
 
-### ClockAware Orchestrator パターンの導入
+### Introducing the ClockAware Orchestrator Pattern
 
-**基本コンセプト**: Laravel の Schedule を拡張し、外部 Clock で due 判定を行う
+**Basic concept**: Extend Laravel's Schedule with due determination using an external Clock
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ Kernel.php (タイプヒントのみ変更)                       │
-│   use ClockAwareSchedule;                              │
-│   protected function schedule(ClockAwareSchedule $schedule)│
-│   - skip() / when() が使える（従来通り）                │
-│   - withGracePeriod() でリカバリ有効化（明示的）         │
-│   - IDE 補完が効く、PHPStan/Psalm も通る               │
-│   - デフォルトはリカバリしない（安全性優先）             │
-└─────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│ ClockAwareSchedule / ClockAwareEvent                    │
-│   - 外部 Clock で due 判定                              │
-│   - Laravel の Schedule / Event を継承（後方互換）      │
-└─────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│ Orchestrator (ECS Task)                                 │
-│   - サイクル単位でタイマー管理                            │
-│   - due 判定 → Dispatcher に dispatch                   │
-│   - ExecutionTracker で実行記録                         │
-│   - 起動時リカバリ                                       │
-└─────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│ ScheduleDispatcher                                      │
-│   ├─ LocalDispatcher (従来互換)                         │
-│   └─ StepFunctionsDispatcher                            │
-└─────────────────────────────────────────────────────────┘
++----------------------------------------------------------+
+| Kernel.php (only type hint changes)                       |
+|   use ClockAwareSchedule;                                |
+|   protected function schedule(ClockAwareSchedule $schedule)|
+|   - skip() / when() available (as before)                |
+|   - withGracePeriod() to enable recovery (explicit)      |
+|   - IDE completion works, PHPStan/Psalm passes           |
+|   - Default: no recovery (safety first)                  |
++----------------------------------------------------------+
+         |
+         v
++----------------------------------------------------------+
+| ClockAwareSchedule / ClockAwareEvent                      |
+|   - Due determination with external Clock                 |
+|   - Inherits Laravel's Schedule / Event (backward compat) |
++----------------------------------------------------------+
+         |
+         v
++----------------------------------------------------------+
+| Orchestrator (ECS Task)                                   |
+|   - Timer management per cycle                            |
+|   - Due determination -> dispatch to Dispatcher           |
+|   - Execution recording via ExecutionTracker              |
+|   - Startup recovery                                      |
++----------------------------------------------------------+
+         |
+         v
++----------------------------------------------------------+
+| ScheduleDispatcher                                        |
+|   +-- LocalDispatcher (backward compatible)               |
+|   +-- StepFunctionsDispatcher                             |
++----------------------------------------------------------+
 ```
 
-### ClockAware パターンの詳細
+### ClockAware Pattern Details
 
-#### Clock による依存性注入
+#### Clock Dependency Injection
 
 ```php
-// SystemClock: 本番環境
+// SystemClock: Production environment
 class SystemClock implements ClockInterface
 {
     public function now(): DateTimeImmutable
@@ -288,7 +288,7 @@ class SystemClock implements ClockInterface
     }
 }
 
-// FixedClock: テスト環境
+// FixedClock: Test environment
 class FixedClock implements ClockInterface
 {
     private DateTimeImmutable $fixedTime;
@@ -305,38 +305,38 @@ class FixedClock implements ClockInterface
 }
 ```
 
-#### ClockAwareEvent の拡張メソッド
+#### ClockAwareEvent Extension Methods
 
 ```php
-// Kernel.php での利用例
+// Usage example in Kernel.php
 
-// デフォルト: リカバリしない（安全）
+// Default: no recovery (safe)
 $schedule->command('heartbeat:send')
     ->everyMinute();
 
-// 重要なジョブのみリカバリを有効化
+// Enable recovery for important jobs only
 $schedule->command('metrics:aggregate')
     ->hourly()
-    ->withGracePeriod(30);  // リカバリ有効 + 30分の猶予期間
+    ->withGracePeriod(30);  // Recovery enabled + 30-minute grace period
 
 $schedule->command('reports:generate')
     ->dailyAt('03:00')
     ->skip(fn() => Holiday::isToday())
-    ->enableRecovery();  // リカバリ有効（猶予期間なし = 無制限）
+    ->enableRecovery();  // Recovery enabled (no grace period = unlimited)
 ```
 
-### 取りこぼし検出のタイミング
+### Missed Execution Detection Timing
 
-**推奨**: 起動時のみチェック（コストと確実性のバランス）
+**Recommended**: Check at startup only (balance of cost and reliability)
 
 ```php
 // GracefulScheduleWorkCommand::handle()
 public function handle()
 {
-    // 1. 起動時に取りこぼしをチェック
+    // 1. Check for missed executions at startup
     $this->recoverMissedEvents();
 
-    // 2. 通常のスケジュール実行
+    // 2. Normal schedule execution
     $this->runSchedule();
 }
 
@@ -351,71 +351,71 @@ private function recoverMissedEvents(): void
 }
 ```
 
-詳細は [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) を参照してください。
+See [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) for details.
 
-### アーキテクチャフロー
+### Architecture Flow
 
-#### LocalDispatcher（既存動作）
-
-```
-1. Scheduler: 実行すべきタスクを検出
-2. LocalDispatcher: Process::fromShellCommandline() で実行
-3. 子プロセスとして同一コンテナ内で実行
-```
-
-#### StepFunctionsDispatcher（新規）
+#### LocalDispatcher (Existing Behavior)
 
 ```
-1. Scheduler: 実行すべきタスクを検出
-2. StepFunctionsDispatcher: AWS SDK で Step Functions を起動
+1. Scheduler: Detects tasks to execute
+2. LocalDispatcher: Executes via Process::fromShellCommandline()
+3. Runs as a child process within the same container
+```
+
+#### StepFunctionsDispatcher (New)
+
+```
+1. Scheduler: Detects tasks to execute
+2. StepFunctionsDispatcher: Launches Step Functions via AWS SDK
    - Input: { "command": "report:daily", "options": [...] }
-   - ExecutionName: hash(command + dueAt) で重複防止
-3. Step Functions: ECS RunTask または Lambda Invoke を実行
-4. ExecutionTracker: 実行を記録
-5. Scheduler: 起動を待たずに次のタスク判定へ（Fire & Forget）
+   - ExecutionName: hash(command + dueAt) for duplicate prevention
+3. Step Functions: Executes ECS RunTask or Lambda Invoke
+4. ExecutionTracker: Records execution
+5. Scheduler: Proceeds to next task evaluation without waiting (Fire & Forget)
 ```
 
-### ジョブ別 Dispatcher 選択
+### Per-Job Dispatcher Selection
 
-デフォルト Dispatcher はグローバル設定で指定し、イベントごとにオーバーライド可能です。
+The default Dispatcher is specified via global configuration, and can be overridden per event.
 
-#### 設定ファイル
+#### Configuration File
 
 ```php
 // config/graceful-scheduler.php
 return [
-    // ローカル開発では local を推奨
-    // 本番環境では SCHEDULE_DISPATCH=stepfunctions を設定
+    // Local is recommended for local development
+    // Set SCHEDULE_DISPATCH=stepfunctions for production
     'dispatch' => env('SCHEDULE_DISPATCH', 'local'),
 ];
 ```
 
-#### Kernel.php での利用
+#### Usage in Kernel.php
 
 ```php
-// デフォルト（Step Functions）を使用
+// Use default (Step Functions)
 $schedule->command('heavy:job')
     ->hourly()
     ->withGracePeriod(60);
 
-// ローカル実行を強制（高頻度・軽量ジョブ）
+// Force local execution (high-frequency, lightweight jobs)
 $schedule->command('heartbeat:send')
     ->everyMinute()
     ->dispatchVia('local');
 
-// Closure ジョブ（自動的に local）
+// Closure job (automatically local)
 $schedule->call(fn() => $this->cleanup())
     ->hourly();
 ```
 
-#### ClockAwareEvent 拡張メソッド
+#### ClockAwareEvent Extension Method
 
-`dispatchVia()` メソッドにより、ジョブごとに Dispatcher を選択できます。
+The `dispatchVia()` method allows selecting the Dispatcher per job.
 
 ```php
 class ClockAwareEvent extends Event
 {
-    protected ?string $dispatcher = null;  // null = グローバル設定を使用
+    protected ?string $dispatcher = null;  // null = use global setting
 
     public function dispatchVia(string $dispatcher): self
     {
@@ -430,87 +430,87 @@ class ClockAwareEvent extends Event
 }
 ```
 
-**実装の詳細**:
-- `dispatcher` プロパティが `null` の場合、グローバル設定（`config('graceful-scheduler.dispatch')`）を使用
-- Closure ジョブは自動的に `LocalDispatcher` にフォールバック（シリアライズ不可のため）
-- `dispatchVia('local')` または `dispatchVia('stepfunctions')` で明示的に指定可能
+**Implementation details**:
+- When the `dispatcher` property is `null`, the global setting (`config('graceful-scheduler.dispatch')`) is used
+- Closure jobs automatically fall back to `LocalDispatcher` (cannot be serialized)
+- Can be explicitly specified with `dispatchVia('local')` or `dispatchVia('stepfunctions')`
 
-**判定ロジックの例**:
+**Resolution logic example**:
 
 ```php
-// ScheduleDispatcherFactory での解決ロジック（想定）
+// Resolution logic in ScheduleDispatcherFactory (conceptual)
 public function resolveDispatcher(ClockAwareEvent $event): ScheduleDispatcher
 {
-    // 1. Closure ジョブはシリアライズ不可のため強制的に Local
+    // 1. Closure jobs cannot be serialized, force Local
     if ($event->isClosure()) {
         return new LocalDispatcher();
     }
 
-    // 2. イベントに明示的な指定があればそれを使用
+    // 2. Use explicit specification if present on the event
     if ($dispatcher = $event->getDispatcher()) {
         return $this->createDispatcher($dispatcher);
     }
 
-    // 3. グローバル設定を使用
+    // 3. Use global setting
     return $this->createDispatcher(config('graceful-scheduler.dispatch'));
 }
 ```
 
 ---
 
-# Part 2: Step Functions 実装
+# Part 2: Step Functions Implementation
 
-> 詳細は [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) を参照
+> See [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) for details
 
 ---
 
-# Part 2: 制約と参考資料
+# Part 2: Constraints and References
 
-## 制約と注意点
+## Constraints and Notes
 
-### Laravel バージョンの制約
+### Laravel Version Constraints
 
-- **対応バージョン**: Laravel 6.x, 7.x
-- **PHP バージョン**: 7.2.5 以上
-- Laravel 8 以降は別途検証が必要
+- **Supported versions**: Laravel 6.x, 7.x
+- **PHP version**: 7.2.5 or later
+- Laravel 8+ requires separate verification
 
-### Closure ジョブの制限
+### Closure Job Limitations
 
-**問題**: Closure はシリアライズできないため、StepFunctions に渡せない
+**Problem**: Closures cannot be serialized and thus cannot be passed to Step Functions
 
 ```php
-// ❌ StepFunctionsDispatcher では実行できない
+// ❌ Cannot execute with StepFunctionsDispatcher
 $schedule->call(function () {
     // ...
 })->everyMinute();
 
-// ✅ Artisan コマンドは実行可能
+// ✅ Artisan commands can be executed
 $schedule->command('report:daily')->dailyAt('03:00');
 ```
 
-**対応策**:
+**Countermeasure**:
 
-- `StepFunctionsDispatcher` を使用する場合は、全てのスケジュールタスクを Artisan コマンドまたはジョブクラスとして定義する
-- Closure を使用している場合は、設定で `dispatch=local` を指定
+- When using `StepFunctionsDispatcher`, define all scheduled tasks as Artisan commands or job classes
+- If using Closures, specify `dispatch=local` in configuration
 
-### Redis/共有キャッシュの要件
+### Redis/Shared Cache Requirements
 
-**ExecutionTracker の前提条件**:
+**ExecutionTracker prerequisites**:
 
-- 複数の ECS タスク間で実行履歴を共有するため、Redis や DynamoDB などの共有ストレージが必要
-- ローカルキャッシュ（file, array）では複数インスタンス間で共有できない
+- Shared storage such as Redis or DynamoDB is required to share execution history across multiple ECS tasks
+- Local caches (file, array) cannot be shared across multiple instances
 
-**推奨構成**:
+**Recommended configuration**:
 
 ```
-ECS Task 1 (Scheduler) ──┐
-ECS Task 2 (Scheduler) ──┼──> ElastiCache (Redis)
-ECS Task 3 (Scheduler) ──┘
+ECS Task 1 (Scheduler) --+
+ECS Task 2 (Scheduler) --+----> ElastiCache (Redis)
+ECS Task 3 (Scheduler) --+
 ```
 
-### AWS 権限の要件
+### AWS Permission Requirements
 
-**StepFunctionsDispatcher を使用する場合**:
+**When using StepFunctionsDispatcher**:
 
 ```json
 {
@@ -527,67 +527,67 @@ ECS Task 3 (Scheduler) ──┘
 }
 ```
 
-### パフォーマンスの考慮事項
+### Performance Considerations
 
-**StepFunctions の制限**:
+**Step Functions limitations**:
 
-- StartExecution API のレート制限:
-  - Standard Workflow: 2,000 回/秒（デフォルト、引き上げ可能）
-  - Express Workflow: 100,000 回/秒（同期呼び出しの場合）
-- 大量のスケジュールタスクがある場合は、バッチ処理を検討
+- StartExecution API rate limits:
+  - Standard Workflow: 2,000 calls/second (default, can be increased)
+  - Express Workflow: 100,000 calls/second (for synchronous invocation)
+- Consider batch processing for a large number of scheduled tasks
 
-**Tracker のオーバーヘッド**:
+**Tracker overhead**:
 
-- 毎分の実行チェック時に全イベントをスキャン
-- イベント数が多い場合は、インデックスやフィルタリングを検討
+- Scans all events on each per-minute execution check
+- Consider indexing or filtering for a large number of events
 
 ---
 
-## 用語集
+## Glossary
 
-| 用語 | 説明 |
+| Term | Description |
 |------|------|
-| **グレースフルシャットダウン** | プロセスが SIGTERM を受信した際に、実行中のタスクを完了させてから終了すること |
-| **Fire & Forget** | 非同期処理を起動した後、結果を待たずに次の処理に進むパターン |
-| **取りこぼし** | スケジュールされたタスクが予定時刻に実行されず、スキップされること |
-| **Orchestrator** | 複数のサービスやタスクを調整・管理する役割を持つコンポーネント |
-| **ECS RunTask** | Amazon ECS で新しいタスクを起動する API |
-| **Step Functions** | AWS のサーバーレスオーケストレーションサービス |
+| **Graceful shutdown** | When a process receives SIGTERM, it waits for running tasks to complete before exiting |
+| **Fire & Forget** | A pattern where an asynchronous process is launched and the caller proceeds without waiting for the result |
+| **Missed execution** | A scheduled task that was not executed at its scheduled time and was skipped |
+| **Orchestrator** | A component responsible for coordinating and managing multiple services or tasks |
+| **ECS RunTask** | An API to launch a new task in Amazon ECS |
+| **Step Functions** | An AWS serverless orchestration service |
 
 ---
 
-## 参考資料
+## References
 
-### 内部ドキュメント
+### Internal Documents
 
-- [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) - Step Functions 実装詳細
-- [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) - 実行保証の理論的背景と責任分担
-- [SCHEDULER_COMPARISON.md](./SCHEDULER_COMPARISON.md) - 業界スケジューラーの比較（Kubernetes, Airflow, EventBridge, Celery Beat）
-- [IDEMPOTENCY_GUIDE.md](../guide/IDEMPOTENCY_GUIDE.md) - 冪等性ガイドライン
+- [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) - Step Functions implementation details
+- [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) - Theoretical background and responsibility distribution of execution guarantees
+- [SCHEDULER_COMPARISON.md](./SCHEDULER_COMPARISON.md) - Industry scheduler comparison (Kubernetes, Airflow, EventBridge, Celery Beat)
+- [IDEMPOTENCY_GUIDE.md](../guide/IDEMPOTENCY_GUIDE.md) - Idempotency guidelines
 
 ### Laravel
 
-- [Laravel Task Scheduling](https://laravel.com/docs/7.x/scheduling) - Laravel のスケジューリング機能
-- [Laravel Database Transactions](https://laravel.com/docs/7.x/database#database-transactions) - トランザクション処理
+- [Laravel Task Scheduling](https://laravel.com/docs/7.x/scheduling) - Laravel's scheduling feature
+- [Laravel Database Transactions](https://laravel.com/docs/7.x/database#database-transactions) - Transaction handling
 
 ### AWS
 
-- [AWS Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/) - Step Functions の公式ガイド
-- [Step Functions and Amazon ECS/Fargate](https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html) - Step Functions と ECS/Fargate の統合
-- [Step Functions Best Practices](https://docs.aws.amazon.com/step-functions/latest/dg/sfn-best-practices.html) - Step Functions のベストプラクティス
-- [Step Functions Service Quotas](https://docs.aws.amazon.com/step-functions/latest/dg/limits.html) - Step Functions のサービスクォータ
-- [Amazon ECS Task Lifecycle](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-lifecycle.html) - ECS タスクのライフサイクル
-- [EventBridge Scheduler](https://docs.aws.amazon.com/eventbridge/latest/userguide/using-eventbridge-scheduler.html) - EventBridge Scheduler の使い方
+- [AWS Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/) - Official Step Functions guide
+- [Step Functions and Amazon ECS/Fargate](https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html) - Step Functions and ECS/Fargate integration
+- [Step Functions Best Practices](https://docs.aws.amazon.com/step-functions/latest/dg/sfn-best-practices.html) - Step Functions best practices
+- [Step Functions Service Quotas](https://docs.aws.amazon.com/step-functions/latest/dg/limits.html) - Step Functions service quotas
+- [Amazon ECS Task Lifecycle](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-lifecycle.html) - ECS task lifecycle
+- [EventBridge Scheduler](https://docs.aws.amazon.com/eventbridge/latest/userguide/using-eventbridge-scheduler.html) - EventBridge Scheduler usage
 
-### 分散システム理論
+### Distributed Systems Theory
 
-- [Two Generals' Problem](https://en.wikipedia.org/wiki/Two_Generals%27_Problem) - 分散システムの理論的制約
-- [Idempotence - AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_tracking_change_management_use_automation.html) - AWS の冪等性ガイド
+- [Two Generals' Problem](https://en.wikipedia.org/wiki/Two_Generals%27_Problem) - Theoretical constraints of distributed systems
+- [Idempotence - AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_tracking_change_management_use_automation.html) - AWS idempotency guide
 
-### その他
+### Other
 
-- [Symfony Process Component](https://symfony.com/doc/current/components/process.html) - プロセス管理
-- [cron-expression Library](https://github.com/dragonmantank/cron-expression) - Cron 式パーサー
+- [Symfony Process Component](https://symfony.com/doc/current/components/process.html) - Process management
+- [cron-expression Library](https://github.com/dragonmantank/cron-expression) - Cron expression parser
 
 ---
 

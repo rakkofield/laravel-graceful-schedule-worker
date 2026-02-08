@@ -204,8 +204,8 @@ Migration requires minimal changes — your existing `schedule()` body can be co
 
 ### Usage Guides
 
-- [Quick Start Guide (Japanese)](docs/guide/QUICKSTART.md)
-- [Migration Guide (Japanese)](docs/guide/MIGRATION.md)
+- [Quick Start Guide](docs/guide/QUICKSTART.md)
+- [Migration Guide](docs/guide/MIGRATION.md)
 - [Idempotency Guide](docs/guide/IDEMPOTENCY_GUIDE.md)
 - [Step Functions Considerations](docs/guide/STEPFUNCTIONS_CONSIDERATIONS.md)
 

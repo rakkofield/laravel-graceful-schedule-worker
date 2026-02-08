@@ -1,107 +1,107 @@
-# Step Functions 実装考慮事項
+# Step Functions Implementation Considerations
 
-本ドキュメントでは、Laravel スケジューラーと AWS Step Functions を統合する際に考慮すべき事項をまとめる。
-
----
-
-## 目次
-
-1. [アーキテクチャ概要](#アーキテクチャ概要)
-2. [実行モデル](#実行モデル)
-3. [State Machine 設計](#state-machine-設計)
-4. [重複実行の防止](#重複実行の防止)
-5. [エラーハンドリング](#エラーハンドリング)
-6. [タイムアウト設計](#タイムアウト設計)
-7. [IAM 権限設計](#iam-権限設計)
-8. [コスト最適化](#コスト最適化)
-9. [監視とオブザーバビリティ](#監視とオブザーバビリティ)
-10. [運用考慮事項](#運用考慮事項)
+This document summarizes the considerations when integrating the Laravel scheduler with AWS Step Functions.
 
 ---
 
-## アーキテクチャ概要
+## Table of Contents
 
-### 責任分担
+1. [Architecture Overview](#architecture-overview)
+2. [Execution Model](#execution-model)
+3. [State Machine Design](#state-machine-design)
+4. [Preventing Duplicate Execution](#preventing-duplicate-execution)
+5. [Error Handling](#error-handling)
+6. [Timeout Design](#timeout-design)
+7. [IAM Permission Design](#iam-permission-design)
+8. [Cost Optimization](#cost-optimization)
+9. [Monitoring and Observability](#monitoring-and-observability)
+10. [Operational Considerations](#operational-considerations)
 
-| コンポーネント | 責任 |
-|--------------|------|
-| Orchestrator (ECS Task) | スケジュール due 判定、Step Functions 起動、取りこぼしリカバリ |
-| Step Functions | ジョブ実行の信頼性確保、リトライ、タイムアウト管理 |
-| ECS Task (Worker) | 実際のジョブ処理 |
+---
 
-### 処理フロー
+## Architecture Overview
+
+### Responsibility Distribution
+
+| Component | Responsibility |
+|-----------|---------------|
+| Orchestrator (ECS Task) | Schedule due determination, Step Functions invocation, missed execution recovery |
+| Step Functions | Ensuring job execution reliability, retries, timeout management |
+| ECS Task (Worker) | Actual job processing |
+
+### Processing Flow
 
 ```
 Orchestrator
-    │
-    ├─ due 判定 (ClockAware)
-    │
-    └─ StartExecution API
-           │
-           ▼
+    |
+    +-- Due determination (ClockAware)
+    |
+    +-- StartExecution API
+           |
+           v
     Step Functions State Machine
-           │
-           ├─ ECS RunTask
-           │      │
-           │      ▼
-           │   Worker Task (artisan command)
-           │      │
-           │      ▼
-           │   終了 (exit code)
-           │
-           └─ 成功/失敗の記録
+           |
+           +-- ECS RunTask
+           |      |
+           |      v
+           |   Worker Task (artisan command)
+           |      |
+           |      v
+           |   Exit (exit code)
+           |
+           +-- Record success/failure
 ```
 
 ---
 
-## 実行モデル
+## Execution Model
 
-### At-least-once セマンティック
+### At-least-once Semantics
 
-Step Functions は「少なくとも1回実行」を保証する。以下のケースで重複実行が発生しうる：
+Step Functions guarantees "at least one execution." Duplicate execution can occur in the following cases:
 
-1. **Orchestrator の再起動**: 起動時リカバリで過去分を再実行
-2. **Step Functions のリトライ**: ECS Task 失敗時の自動リトライ
-3. **ネットワーク障害**: StartExecution API のタイムアウト後のリトライ
+1. **Orchestrator restart**: Re-execution of past tasks during startup recovery
+2. **Step Functions retry**: Automatic retry on ECS Task failure
+3. **Network failure**: Retry after StartExecution API timeout
 
-**対策**: アプリケーション側で冪等性を担保する必要がある。
+**Countermeasure**: Idempotency must be ensured on the application side.
 
-### Exactly-once が必要な場合
+### When Exactly-once Is Required
 
-Step Functions の Execution Name による重複防止は「同一 State Machine に対する同一 Execution Name の並行実行」を防ぐ。ただし：
+Duplicate prevention through Step Functions Execution Name prevents "concurrent execution with the same Execution Name for the same State Machine." However:
 
-- 異なる Execution Name であれば並行実行される
-- Execution 終了後は同一 Name で再実行可能
+- Different Execution Names allow concurrent execution
+- After an Execution completes, it can be re-executed with the same Name
 
-完全な Exactly-once が必要な場合は、アプリケーション層でのロック機構が必要。
+If complete exactly-once is required, a locking mechanism at the application layer is necessary.
 
 ---
 
-## State Machine 設計
+## State Machine Design
 
-### 設計方針
+### Design Approach
 
-**推奨: シンプルな単一 Task State**
+**Recommended: Simple single Task State**
 
 ```
-Start → RunEcsTask → End
+Start -> RunEcsTask -> End
 ```
 
-複雑なワークフロー（分岐、並列、条件付き実行）が必要な場合は、Laravel 側で制御するか、別の State Machine として設計する。
+If complex workflows (branching, parallel execution, conditional execution) are needed, control them on the Laravel side or design them as separate State Machines.
 
-### Task State の構成
+### Task State Configuration
 
-ECS RunTask を使用する場合の考慮事項：
+Considerations when using ECS RunTask:
 
-| 項目 | 設定指針 |
-|-----|---------|
-| 統合パターン | `.sync` (同期実行) - タスク完了まで待機 |
-| コンテナ上書き | artisan コマンドを引数として渡す |
-| 結果パス | ECS Task の終了コードを取得 |
+| Item | Configuration Guideline |
+|------|------------------------|
+| Integration pattern | `.sync` (synchronous execution) - waits for task completion |
+| Container override | Pass the artisan command as arguments |
+| Result path | Retrieve the ECS Task exit code |
 
-### 入力設計
+### Input Design
 
-State Machine への入力として必要な情報：
+Information required as input to the State Machine:
 
 ```json
 {
@@ -113,237 +113,237 @@ State Machine への入力として必要な情報：
 }
 ```
 
-- `command`: 実行する artisan コマンド
-- `arguments`: コマンド引数
-- `dueAt`: 本来の due 時刻（冪等性チェックに使用可能）
-- `mutexName`: Laravel のイベント識別子
-- `isRecovery`: リカバリ実行かどうか
+- `command`: The artisan command to execute
+- `arguments`: Command arguments
+- `dueAt`: The original due time (can be used for idempotency checks)
+- `mutexName`: Laravel event identifier
+- `isRecovery`: Whether this is a recovery execution
 
 ---
 
-## 重複実行の防止
+## Preventing Duplicate Execution
 
-### Execution Name 戦略
+### Execution Name Strategy
 
-Execution Name は Step Functions 内で一意である必要がある。
+The Execution Name must be unique within Step Functions.
 
-**推奨フォーマット**:
+**Recommended format**:
 
 ```
 {mutexName}-{dueAtTimestamp}
 ```
 
-例: `schedule-reports-generate-1704067200`
+Example: `schedule-reports-generate-1704067200`
 
-**メリット**:
-- 同一 due 時刻のイベントは1回だけ実行される
-- Orchestrator が複数回 StartExecution を呼んでも安全
-- 実行履歴から due 時刻が判別可能
+**Benefits**:
+- Events with the same due time are executed only once
+- Safe even if the Orchestrator calls StartExecution multiple times
+- Due time can be determined from execution history
 
-**注意**:
-- Execution Name は最大 80 文字
-- 使用可能文字: `a-z`, `A-Z`, `0-9`, `-`, `_`
-- mutexName に特殊文字が含まれる場合はハッシュ化が必要
+**Notes**:
+- Execution Name maximum length is 80 characters
+- Allowed characters: `a-z`, `A-Z`, `0-9`, `-`, `_`
+- Hashing is required if mutexName contains special characters
 
-### ExecutionAlreadyExists エラー
+### ExecutionAlreadyExists Error
 
-同一 Execution Name で StartExecution を呼ぶと `ExecutionAlreadyExists` エラーが返る。
+Calling StartExecution with the same Execution Name returns an `ExecutionAlreadyExists` error.
 
-**対応方針**:
+**Response strategy**:
 
-1. **成功として扱う**: 既に実行中/完了なので、Orchestrator は正常終了とみなす
-2. **ログ記録**: 重複呼び出しが発生した事実を記録
-3. **ExecutionTracker 更新**: 実行済みとしてマーク
-
----
-
-## エラーハンドリング
-
-### エラーの分類
-
-| エラー種別 | 例 | 対応 |
-|-----------|---|------|
-| 一時的エラー | ECS 容量不足、ネットワークタイムアウト | リトライ |
-| 永続的エラー | コンテナイメージ不正、権限エラー | リトライせず失敗 |
-| アプリケーションエラー | 終了コード 1 | ビジネス要件による |
-
-### リトライ設計
-
-```
-ECS Task 失敗
-    │
-    ├─ 一時的エラー → 最大 3 回リトライ（バックオフ付き）
-    │
-    └─ 永続的エラー → 即時失敗
-```
-
-**リトライ間隔の目安**:
-- 初回: 30 秒後
-- 2回目: 2 分後
-- 3回目: 5 分後
-
-### 失敗通知
-
-Step Functions の失敗は以下の方法で検知：
-
-1. **CloudWatch Events**: State Machine の状態変化をトリガー
-2. **SNS 通知**: 失敗時にアラート
-3. **CloudWatch Logs Insights**: 失敗パターンの分析
+1. **Treat as success**: Since it's already running/completed, the Orchestrator considers it a normal completion
+2. **Log recording**: Record the fact that a duplicate call occurred
+3. **ExecutionTracker update**: Mark as executed
 
 ---
 
-## タイムアウト設計
+## Error Handling
 
-### タイムアウトの階層
+### Error Classification
+
+| Error Type | Examples | Response |
+|-----------|----------|----------|
+| Transient error | ECS capacity shortage, network timeout | Retry |
+| Permanent error | Invalid container image, permission error | Fail without retry |
+| Application error | Exit code 1 | Depends on business requirements |
+
+### Retry Design
+
+```
+ECS Task failure
+    |
+    +-- Transient error -> Maximum 3 retries (with backoff)
+    |
+    +-- Permanent error -> Immediate failure
+```
+
+**Retry interval guidelines**:
+- 1st retry: 30 seconds later
+- 2nd retry: 2 minutes later
+- 3rd retry: 5 minutes later
+
+### Failure Notification
+
+Step Functions failures can be detected by:
+
+1. **CloudWatch Events**: Trigger on State Machine state changes
+2. **SNS notifications**: Alert on failure
+3. **CloudWatch Logs Insights**: Analysis of failure patterns
+
+---
+
+## Timeout Design
+
+### Timeout Hierarchy
 
 ```
 Step Functions Execution Timeout
-    │
-    └─ Task State Timeout
-           │
-           └─ ECS Task Stop Timeout
-                  │
-                  └─ コンテナ SIGTERM → SIGKILL
+    |
+    +-- Task State Timeout
+           |
+           +-- ECS Task Stop Timeout
+                  |
+                  +-- Container SIGTERM -> SIGKILL
 ```
 
-各層のタイムアウトは外側 > 内側 の関係にする。
+Each layer's timeout should follow the relationship: outer > inner.
 
-### 推奨設定
+### Recommended Settings
 
-| 層 | 設定値 | 説明 |
-|---|-------|------|
-| Execution Timeout | ジョブ最大時間 + 5分 | リトライを含む全体の上限 |
-| Task Timeout | ジョブ最大時間 + 1分 | 単一実行の上限 |
-| ECS Stop Timeout | 30秒 | graceful shutdown の猶予 |
-| Heartbeat | 5分ごと | 長時間ジョブの生存確認 |
+| Layer | Setting | Description |
+|---|---------|-------------|
+| Execution Timeout | Max job time + 5 minutes | Overall limit including retries |
+| Task Timeout | Max job time + 1 minute | Single execution limit |
+| ECS Stop Timeout | 30 seconds | Graceful shutdown allowance |
+| Heartbeat | Every 5 minutes | Liveness check for long-running jobs |
 
-### Heartbeat の活用
+### Using Heartbeat
 
-長時間実行ジョブでは Heartbeat を使用：
+Use Heartbeat for long-running jobs:
 
-- ECS Task 内から定期的に `SendTaskHeartbeat` を送信
-- Heartbeat 停止 = 異常として検知
-- `HeartbeatTimeout` 超過で自動キャンセル
+- Periodically send `SendTaskHeartbeat` from within the ECS Task
+- Heartbeat stop = detected as anomaly
+- Auto-cancel on `HeartbeatTimeout` exceeded
 
 ---
 
-## IAM 権限設計
+## IAM Permission Design
 
-### 最小権限の原則
+### Principle of Least Privilege
 
-| ロール | 必要な権限 |
-|-------|----------|
+| Role | Required Permissions |
+|------|---------------------|
 | Orchestrator Task Role | `states:StartExecution`, `states:DescribeExecution` |
 | Step Functions Execution Role | `ecs:RunTask`, `ecs:DescribeTask`, `logs:*` |
-| Worker Task Role | アプリケーション固有の権限 |
+| Worker Task Role | Application-specific permissions |
 
-### リソースベースの制限
+### Resource-based Restrictions
 
-- Orchestrator は特定の State Machine のみ実行可能
-- Step Functions は特定の ECS クラスター/タスク定義のみ使用可能
-- 条件キーで VPC やタグによる制限を追加
-
----
-
-## コスト最適化
-
-### Step Functions の料金モデル
-
-- Standard Workflow: 状態遷移ごとに課金
-- Express Workflow: 実行回数と時間で課金
-
-**選択基準**:
-
-| 条件 | 推奨 |
-|-----|------|
-| 実行時間 5 分以内 | Express（コスト効率良） |
-| 実行時間 5 分超 | Standard |
-| 実行履歴が必要 | Standard（90 日保持） |
-| 高頻度実行 | Express |
-
-### ECS Fargate Spot の活用
-
-リトライ可能なジョブでは Fargate Spot を検討：
-
-- 最大 70% のコスト削減
-- 中断時は Step Functions が自動リトライ
-- 中断に弱いジョブには使用しない
+- Orchestrator can only execute specific State Machines
+- Step Functions can only use specific ECS clusters/task definitions
+- Add restrictions by VPC or tags using condition keys
 
 ---
 
-## 監視とオブザーバビリティ
+## Cost Optimization
 
-### メトリクス
+### Step Functions Pricing Model
 
-監視すべき主要メトリクス：
+- Standard Workflow: Charged per state transition
+- Express Workflow: Charged by execution count and duration
 
-| メトリクス | 意味 | アラート閾値 |
-|-----------|-----|------------|
-| ExecutionsFailed | 失敗した実行数 | > 0 |
-| ExecutionTime | 実行時間 | 予想時間の 2 倍 |
-| ExecutionsTimedOut | タイムアウト数 | > 0 |
-| ThrottledEvents | スロットリング数 | > 0 |
+**Selection criteria**:
 
-### ログ設計
+| Condition | Recommendation |
+|-----------|----------------|
+| Execution time within 5 minutes | Express (cost-efficient) |
+| Execution time over 5 minutes | Standard |
+| Execution history required | Standard (90-day retention) |
+| High-frequency execution | Express |
 
-Step Functions の実行ログは CloudWatch Logs に出力可能：
+### Using ECS Fargate Spot
 
-- `ALL`: 全状態遷移を記録
-- `ERROR`: エラーのみ
-- `FATAL`: 致命的エラーのみ
-- `OFF`: 無効
+Consider Fargate Spot for retryable jobs:
 
-**推奨**: 本番環境では `ERROR` 以上、デバッグ時は `ALL`
-
-### トレーシング
-
-X-Ray 統合により、以下を可視化：
-
-- Orchestrator → Step Functions → ECS Task の呼び出しチェーン
-- 各ステップのレイテンシ
-- エラー発生箇所の特定
+- Up to 70% cost reduction
+- Step Functions automatically retries on interruption
+- Do not use for jobs sensitive to interruption
 
 ---
 
-## 運用考慮事項
+## Monitoring and Observability
 
-### デプロイ戦略
+### Metrics
 
-State Machine の更新時：
+Key metrics to monitor:
 
-1. **バージョン管理**: State Machine には自動バージョニングがない
-2. **エイリアス**: 名前付きエイリアスで本番/ステージングを分離
-3. **ロールバック**: 問題発生時は Terraform/CDK で前バージョンに戻す
+| Metric | Meaning | Alert Threshold |
+|--------|---------|----------------|
+| ExecutionsFailed | Number of failed executions | > 0 |
+| ExecutionTime | Execution duration | 2x expected time |
+| ExecutionsTimedOut | Number of timeouts | > 0 |
+| ThrottledEvents | Number of throttling events | > 0 |
 
-### 実行中のデプロイ
+### Log Design
 
-実行中の State Machine を更新しても、実行中のものには影響しない。新規実行から新定義が適用される。
+Step Functions execution logs can be output to CloudWatch Logs:
 
-### クォータ管理
+- `ALL`: Record all state transitions
+- `ERROR`: Errors only
+- `FATAL`: Fatal errors only
+- `OFF`: Disabled
 
-AWS アカウントのクォータに注意：
+**Recommendation**: `ERROR` or above in production, `ALL` for debugging
 
-| リソース | デフォルト上限 |
+### Tracing
+
+X-Ray integration enables visualization of:
+
+- Orchestrator -> Step Functions -> ECS Task call chain
+- Latency at each step
+- Error location identification
+
+---
+
+## Operational Considerations
+
+### Deployment Strategy
+
+When updating a State Machine:
+
+1. **Version control**: State Machines do not have automatic versioning
+2. **Aliases**: Separate production/staging with named aliases
+3. **Rollback**: Revert to the previous version using Terraform/CDK if issues arise
+
+### Deploying During Execution
+
+Updating a State Machine while executions are in progress does not affect running executions. The new definition applies from new executions onward.
+
+### Quota Management
+
+Be aware of AWS account quotas:
+
+| Resource | Default Limit |
 |---------|--------------|
-| 同時実行数 (Standard) | 1,000,000 |
-| 状態遷移/秒 | 1,500 |
-| StartExecution/秒 | 200 |
-| ECS RunTask/秒 | リージョンによる |
+| Concurrent executions (Standard) | 1,000,000 |
+| State transitions/second | 1,500 |
+| StartExecution/second | 200 |
+| ECS RunTask/second | Region-dependent |
 
-高頻度スケジュール（毎分 × 多数のイベント）では StartExecution のレート制限に注意。
+For high-frequency schedules (every minute x many events), watch for StartExecution rate limits.
 
-### 障害時の対応
+### Failure Response
 
-| 障害シナリオ | 対応 |
-|------------|------|
-| Orchestrator 停止 | 再起動時にリカバリ実行 |
-| Step Functions 障害 | 手動で再実行、または次回 due を待つ |
-| ECS 容量不足 | Capacity Provider 設定、または手動スケール |
-| AWS リージョン障害 | マルチリージョン構成（要設計） |
+| Failure Scenario | Response |
+|-----------------|----------|
+| Orchestrator stops | Recovery execution on restart |
+| Step Functions failure | Manual re-execution, or wait for the next due time |
+| ECS capacity shortage | Capacity Provider configuration, or manual scaling |
+| AWS region failure | Multi-region setup (requires design) |
 
 ---
 
-## 参考資料
+## References
 
 - [AWS Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/latest/dg/)
 - [Step Functions and Amazon ECS/Fargate](https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html)

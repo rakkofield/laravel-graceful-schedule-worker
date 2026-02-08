@@ -1,180 +1,180 @@
-# スケジュール実行セマンティクス - 取りこぼし問題の理論的整理
+# Schedule Execution Semantics - Theoretical Analysis of the Missed Execution Problem
 
-**作成日**: 2026-01-24
-**対象**: Laravel Graceful Schedule Worker の拡張設計における実行保証の理論的基盤
-
----
-
-## 目次
-
-1. [問題の定義](#問題の定義)
-2. [実行セマンティクスの理論的基盤](#実行セマンティクスの理論的基盤)
-3. [問題が発生する根本原因](#問題が発生する根本原因)
-4. [At-least-once を実現するための要件](#at-least-onceを実現するための要件)
-5. [トレードオフの整理](#トレードオフの整理)
-6. [業界の先行事例](#業界の先行事例)
-7. [責任分担の明確化](#責任分担の明確化)
-8. [次のステップ](#次のステップ)
+**Created**: 2026-01-24
+**Subject**: Theoretical foundation for execution guarantees in the Laravel Graceful Schedule Worker extension design
 
 ---
 
-## 問題の定義
+## Table of Contents
 
-### 達成したいゴール
-
-**At-least-once セマンティック**: スケジュールされたジョブが最低1回は実行されることを保証したい
-
-### 現状
-
-**At-most-once セマンティック**: ジョブは最大1回実行されるが、実行されないこともある
-
-**具体的な問題**:
-- ECS タスク入れ替わり時にスケジューラが不在となり、その間のジョブが実行されない
-- Laravel の `schedule:run` は「現在時刻」のみを見て判定するため、過去の未実行を検出できない
-- グレースフルシャットダウン時に未実行のタスクが失われる
+1. [Problem Definition](#problem-definition)
+2. [Theoretical Foundation of Execution Semantics](#theoretical-foundation-of-execution-semantics)
+3. [Root Causes of the Problem](#root-causes-of-the-problem)
+4. [Requirements for Achieving At-least-once](#requirements-for-achieving-at-least-once)
+5. [Tradeoff Analysis](#tradeoff-analysis)
+6. [Industry Precedents](#industry-precedents)
+7. [Clarifying Responsibility Distribution](#clarifying-responsibility-distribution)
+8. [Next Steps](#next-steps)
 
 ---
 
-## 実行セマンティクスの理論的基盤
+## Problem Definition
 
-分散システムにおける実行保証は、以下の3つに分類される。
+### Desired Goal
 
-### 1. At-most-once（最大1回）
+**At-least-once semantics**: Guarantee that scheduled jobs are executed at least once
 
-**定義**: ジョブは実行されるかもしれないし、されないかもしれない。重複実行は絶対にない。
+### Current State
 
-**特徴**:
-- 「撃ちっ放し（Fire-and-forget）」とも呼ばれる
-- 最もシンプルな実装
-- データ欠損が許容される場合に使用
+**At-most-once semantics**: Jobs are executed at most once, but may not execute at all
 
-**実装例**:
+**Specific problems**:
+- When ECS tasks are swapped, the scheduler becomes absent, and jobs during that gap are not executed
+- Laravel's `schedule:run` only checks the "current time," so it cannot detect past missed executions
+- Tasks are lost during graceful shutdown
+
+---
+
+## Theoretical Foundation of Execution Semantics
+
+Execution guarantees in distributed systems are classified into the following three categories.
+
+### 1. At-most-once
+
+**Definition**: A job may or may not be executed. Duplicate execution never occurs.
+
+**Characteristics**:
+- Also known as "Fire-and-forget"
+- Simplest implementation
+- Used when data loss is acceptable
+
+**Implementation example**:
 ```
-1. ジョブをキューに追加
-2. 完了を待たずに次の処理へ
-3. キューが失われる可能性を許容
+1. Add job to queue
+2. Proceed to next processing without waiting for completion
+3. Accept the possibility that the queue may be lost
 ```
 
-**用途**:
-- データ欠損が許容されるログ収集
-- メトリクス送信（多少のデータポイント欠損は許容）
-- ベストエフォート通知
+**Use cases**:
+- Log collection where data loss is acceptable
+- Metrics submission (some data point loss is tolerable)
+- Best-effort notifications
 
-**現状の Laravel Graceful Worker**:
+**Current Laravel Graceful Worker**:
 ```php
-// GracefulScheduleWorkCommand の現在の動作
+// Current behavior of GracefulScheduleWorkCommand
 while ($running) {
     if (Carbon::now()->second === 0) {
-        // 現在時刻がスケジュールにマッチするかチェック
-        // 実行されなかった過去のジョブは検出されない
+        // Check if current time matches the schedule
+        // Past unexecuted jobs are not detected
         $process = Process::fromShellCommandline('schedule:run');
         $process->start();
     }
 }
-// → At-most-once セマンティック
+// -> At-most-once semantics
 ```
 
-### 2. At-least-once（少なくとも1回）
+### 2. At-least-once
 
-**定義**: ジョブは必ず成功するまで再試行される。ACK（確認応答）の喪失により、稀に重複実行される可能性がある。
+**Definition**: A job is retried until it succeeds. Due to ACK (acknowledgment) loss, duplicate execution may rarely occur.
 
-**特徴**:
-- クラウドネイティブシステムのデフォルト
-- 実行確認（ACK）を待つ仕組みが必要
-- 重複実行の可能性を許容
+**Characteristics**:
+- Default for cloud-native systems
+- Requires a mechanism to wait for execution confirmation (ACK)
+- Accepts the possibility of duplicate execution
 
-**実装例**:
+**Implementation example**:
 ```
-1. ジョブをキューに追加
-2. 実行完了の ACK を受信するまでリトライ
-3. ACK が喪失した場合、ジョブは再度実行される
-   → 重複実行が発生する可能性
-```
-
-**用途**:
-- 一般的なバッチ処理
-- データパイプライン
-- トランザクション処理（冪等性が保証されている場合）
-
-**重複実行が発生するシナリオ**:
-```
-[01:00:00] ジョブ A を実行開始
-[01:00:30] ジョブ A が完了
-[01:00:31] ACK を送信
-[01:00:31] ネットワーク障害で ACK が届かない
-[01:00:35] スケジューラが「タイムアウト」と判断
-[01:00:36] ジョブ A を再実行（重複実行）
+1. Add job to queue
+2. Retry until execution completion ACK is received
+3. If ACK is lost, the job is executed again
+   -> Duplicate execution may occur
 ```
 
-### 3. Exactly-once（正確に1回）
+**Use cases**:
+- General batch processing
+- Data pipelines
+- Transaction processing (when idempotency is guaranteed)
 
-**定義**: ジョブは重複なく、かつ欠落なく実行される。
-
-**特徴**:
-- 理想的だが、分散システムでは非常に高コスト
-- 完全な Exactly-once は理論的に不可能（Two Generals' Problem）
-- 実際には「At-least-once + 冪等性」として実装される
-
-**実装方法**:
-
-#### A. トランザクションベース
+**Duplicate execution scenario**:
 ```
-1. ジョブの実行を分散トランザクションで管理
-2. 2フェーズコミット（2PC）で一貫性を保証
-3. 非常に高コスト（パフォーマンス劣化）
+[01:00:00] Start executing Job A
+[01:00:30] Job A completes
+[01:00:31] Send ACK
+[01:00:31] ACK doesn't arrive due to network failure
+[01:00:35] Scheduler determines "timeout"
+[01:00:36] Re-execute Job A (duplicate execution)
 ```
 
-#### B. 冪等性による実現（一般的）
+### 3. Exactly-once
+
+**Definition**: A job is executed without duplication and without omission.
+
+**Characteristics**:
+- Ideal but extremely expensive in distributed systems
+- True exactly-once is theoretically impossible (Two Generals' Problem)
+- In practice, implemented as "At-least-once + idempotency"
+
+**Implementation methods**:
+
+#### A. Transaction-based
 ```
-1. At-least-once で実装（重複実行を許容）
-2. ジョブ自体を冪等に設計
-3. 結果的に「一度だけ実行されたのと同じ状態」を実現
+1. Manage job execution with distributed transactions
+2. Guarantee consistency with two-phase commit (2PC)
+3. Extremely high cost (performance degradation)
 ```
 
-**用途**:
-- 金融トランザクション
-- 決済処理
-- データベースのマイグレーション
+#### B. Achieved through idempotency (common approach)
+```
+1. Implement with at-least-once (accept duplicate execution)
+2. Design the job itself to be idempotent
+3. Achieve "the same state as if executed exactly once" as a result
+```
 
-**冪等性の実装例**:
+**Use cases**:
+- Financial transactions
+- Payment processing
+- Database migrations
+
+**Idempotency implementation example**:
 
 ```php
-// 冪等でない例（危険）
+// Non-idempotent example (dangerous)
 DB::table('balances')->increment('amount', 100);
-// → 重複実行されると残高が200増えてしまう
+// -> If executed twice, the balance increases by 200
 
-// 冪等な例（安全）
+// Idempotent example (safe)
 DB::table('transactions')
     ->updateOrInsert(
         [
             'job_id' => $jobId,
-            'execution_date' => $dueAt,  // ← ユニークキー
+            'execution_date' => $dueAt,  // <- Unique key
         ],
         [
             'amount' => 100,
             'processed_at' => now(),
         ]
     );
-// → 重複実行されても、同じレコードが更新されるだけ
+// -> If executed twice, only the same record is updated
 ```
 
-### 重要な洞察
+### Key Insight
 
-> **クラウドネイティブなジョブスケジューラの実行保証とは、多くの場合「冪等なジョブ設計を前提とした、信頼性の高い再試行メカニズムと状態収束の提供」と同義となる**
+> **Execution guarantees in cloud-native job schedulers, in most cases, are synonymous with "providing a reliable retry mechanism and state convergence, premised on idempotent job design"**
 
-つまり:
-- **スケジューラの責任**: At-least-once を確実に提供（リソースがある限り必ず起動、クラッシュしたら再起動）
-- **アプリケーションの責任**: 冪等性による Exactly-once の結果保証（同じ入力で二度実行されてもデータが壊れない）
+In other words:
+- **Scheduler's responsibility**: Reliably provide at-least-once (always start as long as resources are available, restart if crashed)
+- **Application's responsibility**: Guarantee exactly-once results through idempotency (data is not corrupted even if executed twice with the same input)
 
 ---
 
-## 問題が発生する根本原因
+## Root Causes of the Problem
 
-### 1. Laravel スケジューラの設計上の制約
+### 1. Design Constraints of the Laravel Scheduler
 
-Laravel の `schedule:run` は「現在時刻」ベースで設計されている。
+Laravel's `schedule:run` is designed based on the "current time."
 
-**Laravel のソースコード（概念）**:
+**Laravel source code (conceptual)**:
 
 ```php
 // Illuminate/Console/Scheduling/Schedule.php
@@ -186,169 +186,169 @@ public function dueEvents($app)
 // Illuminate/Console/Scheduling/Event.php
 protected function expressionPasses()
 {
-    $date = Date::now();  // ← 現在時刻のみ
+    $date = Date::now();  // <- Current time only
     return CronExpression::factory($this->expression)->isDue($date);
 }
 ```
 
-**制約**:
-- 過去の未実行を検出する仕組みがない
-- 実行履歴を記録・参照しない
-- 各実行が独立しており、前回の状態を知らない
+**Constraints**:
+- No mechanism to detect past missed executions
+- Does not record or reference execution history
+- Each execution is independent and unaware of the previous state
 
-**対比: Kubernetes の宣言的モデル**:
-
-```
-Kubernetes のアプローチ:
-- 「あるべき状態（Desired State）」を宣言
-- 「現在の状態（Actual State）」を永続的に監視
-- 差異を埋めるように動作（Reconciliation Loop）
-
-Laravel のアプローチ:
-- 手続き型（Imperative）
-- 現在時刻でのスケジュール判定のみ
-- 過去の状態を記録しない
-```
-
-### 2. コンテナ入れ替わり時のギャップ
-
-ECS/Kubernetes 環境でデプロイ時にスケジューラが不在になる瞬間が発生する。
-
-**タイムライン例**:
+**Contrast: Kubernetes declarative model**:
 
 ```
-00:00:00 - 旧コンテナで schedule:run 実行（hourly ジョブ実行）
-00:30:00 - デプロイ開始、旧コンテナに SIGTERM
-         - $running = false に設定
-         - 新しい schedule:run は起動しない（グレースフルシャットダウン中）
+Kubernetes approach:
+- Declare the "desired state"
+- Continuously monitor the "actual state" persistently
+- Operate to reconcile differences (Reconciliation Loop)
 
-01:00:00 - スケジューラ不在（hourly ジョブの実行時刻）
-         - この時点では旧コンテナは終了済み
-         - 新コンテナはまだ起動していない
-         - 01:00 の hourly ジョブは誰も実行しない ❌
-
-01:05:00 - 新コンテナ起動、schedule:run 開始
-         - isDue() は 01:05 の時刻で判定
-         - hourly (0 * * * *) は 01:00～01:00:59 の間のみ true
-         - 01:05 の時点では false
-         - 01:00 の hourly ジョブは永久に実行されない ❌
-
-02:00:00 - 次の hourly ジョブは正常に実行される
+Laravel approach:
+- Imperative
+- Schedule determination based on current time only
+- Does not record past state
 ```
 
-**問題の本質**:
-- スケジューラの不在期間が発生する
-- 不在期間中のスケジュールは検出されない
-- 復旧後も過去の未実行を検出する仕組みがない
+### 2. Gap During Container Swaps
 
-### 3. CronExpression の「分単位」判定
+In ECS/Kubernetes environments, there are moments during deployment when the scheduler is absent.
 
-`dragonmantank/cron-expression` の `isDue()` メソッドは秒を切り捨てて「分」単位で判定する。
+**Timeline example**:
 
-**動作例**:
+```
+00:00:00 - schedule:run executes on old container (hourly job runs)
+00:30:00 - Deployment starts, SIGTERM sent to old container
+         - $running set to false
+         - New schedule:run is not started (graceful shutdown in progress)
+
+01:00:00 - Scheduler absent (hourly job's execution time)
+         - Old container has already terminated
+         - New container has not yet started
+         - 01:00 hourly job is not executed by anyone X
+
+01:05:00 - New container starts, schedule:run begins
+         - isDue() evaluates at 01:05
+         - hourly (0 * * * *) is only true during 01:00~01:00:59
+         - At 01:05, it returns false
+         - 01:00 hourly job is permanently not executed X
+
+02:00:00 - Next hourly job executes normally
+```
+
+**Essence of the problem**:
+- A period of scheduler absence occurs
+- Schedules during the absence period are not detected
+- No mechanism to detect past missed executions after recovery
+
+### 3. CronExpression "Minute-level" Evaluation
+
+The `dragonmantank/cron-expression` library's `isDue()` method truncates seconds and evaluates at the "minute" level.
+
+**Behavior example**:
 
 ```php
 use Cron\CronExpression;
 
 $cron = CronExpression::factory('0 * * * *'); // hourly
 
-// 01:00:00～01:00:59 の間
-$cron->isDue('2024-01-01 01:00:00'); // → true
-$cron->isDue('2024-01-01 01:00:30'); // → true
-$cron->isDue('2024-01-01 01:00:59'); // → true
+// During 01:00:00~01:00:59
+$cron->isDue('2024-01-01 01:00:00'); // -> true
+$cron->isDue('2024-01-01 01:00:30'); // -> true
+$cron->isDue('2024-01-01 01:00:59'); // -> true
 
-// 01:01:00 以降
-$cron->isDue('2024-01-01 01:01:00'); // → false
-$cron->isDue('2024-01-01 01:01:01'); // → false
+// After 01:01:00
+$cron->isDue('2024-01-01 01:01:00'); // -> false
+$cron->isDue('2024-01-01 01:01:01'); // -> false
 ```
 
-つまり、**その分（60秒間の猶予）を逃すと二度と検出されない**。
+In other words, **if that minute (60-second window) is missed, it is never detected again**.
 
-**Laravel での影響**:
+**Impact on Laravel**:
 
 ```php
 // GracefulScheduleWorkCommand
 if (Carbon::now()->second === 0) {
-    // second === 0 の瞬間（1秒間）しかチェックされない
-    // hourly ジョブは 01:00:00 の1秒間のみ検出される
+    // Only checked at the moment second === 0 (1-second window)
+    // Hourly job is only detected during the 1 second at 01:00:00
     $process->start();
 }
 ```
 
-実際には、`second === 0` でなくても `isDue()` は 01:00:00～01:00:59 の間は `true` を返すが、現在の実装では秒が 0 の時しかチェックされない。
+In reality, even without `second === 0`, `isDue()` returns `true` during 01:00:00~01:00:59, but the current implementation only checks when the second is 0.
 
-### 4. グレースフルシャットダウン時の取りこぼし
+### 4. Missed Executions During Graceful Shutdown
 
-**シナリオ**:
+**Scenario**:
 
 ```
-00:59:50 - schedule:graceful-work 実行中
-00:59:55 - SIGTERM 受信
-         - $running = false に設定
-         - 新しい schedule:run は起動しない
+00:59:50 - schedule:graceful-work running
+00:59:55 - SIGTERM received
+         - $running set to false
+         - New schedule:run is not started
 
-01:00:00 - この時刻に hourly ジョブが実行されるべき
-         - しかし while ($running) が false なのでループを抜ける
-         - 01:00 のジョブは実行されない ❌
+01:00:00 - Hourly job should execute at this time
+         - However, while ($running) is false, so the loop exits
+         - 01:00 job is not executed X
 
-01:00:05 - プロセス終了
+01:00:05 - Process exits
 
-01:05:00 - 新コンテナ起動
-         - 01:00 のジョブは永久に実行されない ❌
+01:05:00 - New container starts
+         - 01:00 job is permanently not executed X
 ```
 
-**根本原因**:
-- グレースフルシャットダウン中は新しいジョブを起動しない
-- 終了前の最後の分のジョブが失われる
-- 次回起動時も過去の未実行を検出しない
+**Root cause**:
+- New jobs are not started during graceful shutdown
+- The job for the last minute before exit is lost
+- Past missed executions are not detected on next startup
 
 ---
 
-## At-least-once を実現するための要件
+## Requirements for Achieving At-least-once
 
-### 要件1: 実行履歴の永続化
+### Requirement 1: Persistent Execution History
 
-「いつ、何を実行したか」を記録する必要がある。
+"When and what was executed" needs to be recorded.
 
-**必要な情報**:
+**Required information**:
 
 ```php
 [
-    'event_id' => 'hash(command + cron_expression)',  // イベントの一意識別子
-    'last_executed_due' => '2024-01-01 01:00:00',    // 最終実行時刻（実行予定時刻ベース）
-    'next_due' => '2024-01-01 02:00:00',             // 次回実行予定時刻
+    'event_id' => 'hash(command + cron_expression)',  // Unique event identifier
+    'last_executed_due' => '2024-01-01 01:00:00',    // Last execution time (based on scheduled due time)
+    'next_due' => '2024-01-01 02:00:00',             // Next scheduled execution time
 ]
 ```
 
-**実装例（Redis）**:
+**Implementation example (Redis)**:
 
 ```php
-// 実行を記録
+// Record execution
 $cache->put(
     "schedule:executed:{$eventId}",
     $dueAt->timestamp,
     now()->addDays(7)
 );
 
-// 最終実行時刻を取得
+// Get last execution time
 $lastDueTimestamp = $cache->get("schedule:executed:{$eventId}");
 $lastDue = Carbon::createFromTimestamp($lastDueTimestamp);
 ```
 
-### 要件2: 取りこぼしの検出
+### Requirement 2: Missed Execution Detection
 
-起動時に「実行されるべきだったが、されていないジョブ」を検出する。
+Detect "jobs that should have been executed but were not" at startup.
 
-**検出ロジック**:
+**Detection logic**:
 
 ```
-1. 最終実行時刻を取得（last_executed_due）
-2. Cron 式から次回実行予定時刻を計算（next_due）
-3. 現在時刻（now）と比較
-4. next_due < now なら取りこぼし
+1. Get last execution time (last_executed_due)
+2. Calculate next scheduled execution time from cron expression (next_due)
+3. Compare with current time (now)
+4. If next_due < now, it's a missed execution
 ```
 
-**実装例**:
+**Implementation example**:
 
 ```php
 public function wasMissed(Event $event, Carbon $now): bool
@@ -356,37 +356,37 @@ public function wasMissed(Event $event, Carbon $now): bool
     $lastDue = $this->getLastExecutedDue($event);
 
     if ($lastDue === null) {
-        return false; // 初回実行
+        return false; // First execution
     }
 
-    // Cron 式から次回実行予定時刻を計算
+    // Calculate next scheduled execution time from cron expression
     $nextDue = $this->calculateNextDue($event, $lastDue);
 
-    // 現在時刻が次回実行予定時刻を過ぎている場合は取りこぼし
+    // Missed if current time has passed the next scheduled execution time
     return $nextDue && $now->greaterThan($nextDue->addMinutes(1));
 }
 ```
 
-**計算例**:
+**Calculation example**:
 
 ```
-hourly ジョブ (0 * * * *) の場合:
+For hourly job (0 * * * *):
 
-最終実行: 2024-01-01 01:00:00
-次回予定: 2024-01-01 02:00:00
-現在時刻: 2024-01-01 02:05:00
+Last execution: 2024-01-01 01:00:00
+Next scheduled: 2024-01-01 02:00:00
+Current time:   2024-01-01 02:05:00
 
-→ 02:05 > 02:00 → 取りこぼし検出 ✅
+-> 02:05 > 02:00 -> Missed execution detected
 ```
 
-### 要件3: 効率的なフィルタリング
+### Requirement 3: Efficient Filtering
 
-スケジュール数が多い場合でも、取りこぼしを高速に検出する。
+Detect missed executions quickly even when there are many schedules.
 
-**非効率な実装（O(n)）**:
+**Inefficient implementation (O(n))**:
 
 ```php
-// 全イベントをループしてチェック
+// Loop through all events and check
 foreach ($schedule->events() as $event) {
     if ($this->wasMissed($event, $now)) {
         $this->recover($event);
@@ -394,44 +394,44 @@ foreach ($schedule->events() as $event) {
 }
 ```
 
-**効率的な実装（O(log n + m)）**:
+**Efficient implementation (O(log n + m))**:
 
-Redis Sorted Set を使用:
+Using Redis Sorted Set:
 
 ```php
-// 実行時に次回予定時刻でスコアを設定
+// Set score as next scheduled time upon execution
 $redis->zadd(
     'schedule:next_due',
     $nextDue->timestamp,
     $eventId
 );
 
-// 取りこぼし検出（現在時刻より前の予定のみ取得）
+// Missed execution detection (get only schedules before current time)
 $missedEvents = $redis->zrangebyscore(
     'schedule:next_due',
     '-inf',
     $now->timestamp
 );
-// → インデックスで高速に抽出
+// -> Fast extraction using index
 ```
 
-**パフォーマンス比較**:
+**Performance comparison**:
 
-| スケジュール数 | O(n) | O(log n + m) |
-|--------------|------|--------------|
+| Number of schedules | O(n) | O(log n + m) |
+|--------------------|------|--------------|
 | 10 | 10ms | 1ms |
 | 100 | 100ms | 5ms |
 | 1,000 | 1,000ms | 10ms |
 | 10,000 | 10,000ms | 20ms |
 
-### 要件4: 冪等性の確保（アプリケーション側）
+### Requirement 4: Ensuring Idempotency (Application Side)
 
-At-least-once では重複実行の可能性があるため、ジョブ自体が冪等である必要がある。
+Since at-least-once allows the possibility of duplicate execution, jobs themselves must be idempotent.
 
-**冪等でない例（危険）**:
+**Non-idempotent example (dangerous)**:
 
 ```php
-// 毎回残高を増やす → 重複実行で二重課金
+// Increment balance each time -> Double charge on duplicate execution
 class PaymentJob
 {
     public function handle()
@@ -441,10 +441,10 @@ class PaymentJob
 }
 ```
 
-**冪等な例（安全）**:
+**Idempotent example (safe)**:
 
 ```php
-// トランザクション ID で重複排除
+// Deduplication using transaction ID
 class PaymentJob
 {
     private $transactionId;
@@ -463,81 +463,81 @@ class PaymentJob
                     'processed_at' => now(),
                 ]
             );
-        // → 重複実行されても同じレコードが更新されるだけ
+        // -> Even if executed twice, only the same record is updated
     }
 }
 ```
 
-**決定論的な名前付け**:
+**Deterministic naming**:
 
 ```php
-// ジョブの実行ごとに一意の ID を生成
+// Generate a unique ID per job execution
 $executionId = hash('sha256', $command . $dueAt->toIso8601String());
 
-// Step Functions の実行名として使用
+// Use as Step Functions execution name
 $this->client->startExecution([
     'stateMachineArn' => $this->stateMachineArn,
-    'name' => $executionId,  // ← 同じ入力なら同じ名前
+    'name' => $executionId,  // <- Same name for the same input
     // ...
 ]);
-// → AWS 側で重複実行を防止（同じ名前の実行は拒否される）
+// -> AWS prevents duplicate execution (execution with the same name is rejected)
 ```
 
-### 要件5: 重複実行の防止メカニズム
+### Requirement 5: Duplicate Execution Prevention Mechanism
 
-Kubernetes の Finalizers や楽観的ロックに相当する仕組み。
+A mechanism equivalent to Kubernetes Finalizers or optimistic locking.
 
-#### Finalizers パターン（Kubernetes）
+#### Finalizers Pattern (Kubernetes)
 
 ```
-1. 実行開始前にロックを取得
-2. 実行完了後にステータスを更新
-3. ステータス更新が永続化されたことを確認
-4. ロックを解放
+1. Acquire lock before execution starts
+2. Update status after execution completes
+3. Confirm that status update has been persisted
+4. Release lock
 ```
 
-**実装例（Redis ロック）**:
+**Implementation example (Redis Lock)**:
 
 ```php
 public function executeWithLock(Event $event, Carbon $dueAt): void
 {
     $lockKey = "schedule:lock:{$eventId}:{$dueAt->timestamp}";
 
-    // ロック取得（30秒間）
+    // Acquire lock (30 seconds)
     $lock = Cache::lock($lockKey, 30);
 
     if ($lock->get()) {
         try {
-            // ジョブ実行
+            // Execute job
             $this->dispatchEvent($event, $dueAt);
 
-            // 実行を記録
+            // Record execution
             $this->tracker->markExecuted($event, $dueAt);
         } finally {
-            // ロック解放
+            // Release lock
             $lock->release();
         }
     } else {
-        // 他のインスタンスが実行中
+        // Another instance is executing
         Log::info("Job already running: {$eventId}");
     }
 }
 ```
 
-#### 楽観的ロック（ResourceVersion）
+#### Optimistic Locking (ResourceVersion)
 
-Kubernetes etcd のアプローチ:
+Kubernetes etcd approach:
 
 ```
-1. 読み取った時点のバージョンをリクエストに含める
-2. 他のクライアントが先に更新した場合は競合エラー
-3. リトライして再取得
+1. Include the version at the time of read in the request
+2. If another client has updated first, a conflict error occurs
+3. Retry and re-fetch
 ```
 
-**実装例（DynamoDB の条件付き書き込み）**:
+**Implementation example (DynamoDB conditional write)**:
 
 ```php
-// バージョン付きで実行記録を保存
+// Save execution record with version
 $dynamodb->putItem([
     'TableName' => 'schedule_executions',
     'Item' => [
@@ -550,122 +550,122 @@ $dynamodb->putItem([
         ':current_version' => $currentVersion,
     ],
 ]);
-// → 他のインスタンスが先に更新した場合は ConditionalCheckFailedException
+// -> ConditionalCheckFailedException if another instance has already updated
 ```
 
 ---
 
-## トレードオフの整理
+## Tradeoff Analysis
 
-### 複雑さ vs 確実性
+### Complexity vs. Reliability
 
-| アプローチ | 複雑さ | 確実性 | 適用場面 |
-|-----------|-------|--------|---------|
-| 現状維持<br>（At-most-once） | 低 | 低 | 取りこぼし許容<br>ログ収集、メトリクス送信 |
-| 起動時のみチェック<br>（部分的 At-least-once） | 中 | 中 | デプロイ時のギャップを最小化<br>一般的なバッチ処理 |
-| 常時チェック<br>（完全な At-least-once） | 高 | 高 | データパイプライン<br>金融トランザクション |
+| Approach | Complexity | Reliability | Use Case |
+|----------|-----------|-------------|----------|
+| Status quo<br>(At-most-once) | Low | Low | Missed execution acceptable<br>Log collection, metrics submission |
+| Check at startup only<br>(Partial at-least-once) | Medium | Medium | Minimize deployment gap<br>General batch processing |
+| Continuous checking<br>(Full at-least-once) | High | High | Data pipelines<br>Financial transactions |
 
-### チェック頻度 vs コスト
+### Check Frequency vs. Cost
 
-| 頻度 | コスト | メリット | デメリット |
-|------|-------|---------|-----------|
-| 起動時のみ | 低 | シンプル<br>デプロイ時の取りこぼしを検出 | 実行中のダウンタイムは検出できない |
-| 毎分 | 中 | 実行中のダウンタイムも検出 | メインループに影響 |
-| 非同期（5分おき） | 中 | メインプロセスに影響なし | 検出に遅延 |
+| Frequency | Cost | Benefits | Drawbacks |
+|-----------|------|----------|-----------|
+| Startup only | Low | Simple<br>Detects deployment-time missed executions | Cannot detect downtime during runtime |
+| Every minute | Medium | Detects runtime downtime as well | Impacts main loop |
+| Asynchronous (every 5 minutes) | Medium | No impact on main process | Detection delay |
 
-**推奨**: 起動時のみチェック（コストと確実性のバランス）
+**Recommendation**: Check at startup only (balance of cost and reliability)
 
-**理由**:
-- デプロイ時のギャップが主な問題
-- 実行中のダウンタイムは ECS/Kubernetes の healthcheck で検出可能
-- シンプルで理解しやすい
+**Reasons**:
+- The deployment gap is the primary problem
+- Runtime downtime can be detected by ECS/Kubernetes health checks
+- Simple and easy to understand
 
-### スケジュール数 vs データ構造
+### Number of Schedules vs. Data Structure
 
-| スケジュール数 | 推奨データ構造 | 理由 |
-|--------------|---------------|------|
-| ～100 | 単純な key-value<br>（毎回ループ） | シンプル、オーバーヘッド小 |
-| 100～1,000 | Redis Sorted Set<br>（インデックス） | O(log n) で高速検索 |
-| 1,000～ | 専用 DB + GSI<br>（DynamoDB） | 永続性、クエリ最適化 |
+| Number of Schedules | Recommended Data Structure | Reason |
+|--------------------|---------------------------|--------|
+| ~100 | Simple key-value<br>(loop each time) | Simple, low overhead |
+| 100~1,000 | Redis Sorted Set<br>(indexed) | O(log n) fast search |
+| 1,000~ | Dedicated DB + GSI<br>(DynamoDB) | Persistence, query optimization |
 
-### 整合性モデル vs パフォーマンス
+### Consistency Model vs. Performance
 
-| モデル | 整合性 | パフォーマンス | 例 | トレードオフ |
-|-------|-------|--------------|-----|------------|
-| 楽観的ロック | 中 | 高 | Kubernetes etcd | 競合時にリトライが必要 |
-| 悲観的ロック | 高 | 低 | Airflow の行ロック | ロック待ちでスループット低下 |
-| 結果整合性 | 低 | 高 | 最終的に収束 | 一時的な不整合を許容 |
+| Model | Consistency | Performance | Example | Tradeoff |
+|-------|------------|-------------|---------|----------|
+| Optimistic locking | Medium | High | Kubernetes etcd | Retry required on conflict |
+| Pessimistic locking | High | Low | Airflow row locks | Throughput reduction from lock waits |
+| Eventual consistency | Low | High | Eventually converges | Accepts temporary inconsistencies |
 
-**推奨**: 楽観的ロック（Redis Lock または DynamoDB 条件付き書き込み）
+**Recommendation**: Optimistic locking (Redis Lock or DynamoDB conditional write)
 
 ---
 
-## 業界の先行事例
+## Industry Precedents
 
-### 比較表
+### Comparison Table
 
-| システム | 取りこぼし対策 | 整合性モデル | データ構造 | 実装難易度 |
-|---------|--------------|-------------|-----------|-----------|
-| **Kubernetes CronJob** | startingDeadlineSeconds<br>（猶予期間） | etcd + 楽観的ロック | etcd（分散KVS） | 中 |
-| **AWS EventBridge** | リトライポリシー + DLQ | 内部管理<br>（マネージド） | 内部管理 | 低 |
-| **Apache Airflow** | catchup + backfill | DB 行ロック<br>（悲観的） | PostgreSQL/MySQL | 高 |
-| **Argo Workflows** | Memoization + Finalizers | etcd + 楽観的ロック | etcd（分散KVS） | 高 |
-| **Celery Beat** | なし<br>（シングルポイント障害） | なし | なし | 低（基本）<br>高（HA化） |
+| System | Missed Execution Strategy | Consistency Model | Data Structure | Implementation Difficulty |
+|--------|--------------------------|-------------------|----------------|--------------------------|
+| **Kubernetes CronJob** | startingDeadlineSeconds<br>(grace period) | etcd + optimistic locking | etcd (distributed KVS) | Medium |
+| **AWS EventBridge** | Retry policy + DLQ | Internally managed<br>(managed) | Internally managed | Low |
+| **Apache Airflow** | catchup + backfill | DB row locks<br>(pessimistic) | PostgreSQL/MySQL | High |
+| **Argo Workflows** | Memoization + Finalizers | etcd + optimistic locking | etcd (distributed KVS) | High |
+| **Celery Beat** | None<br>(single point of failure) | None | None | Low (basic)<br>High (HA) |
 
-### Airflow の catchup（最も At-least-once に近い）
+### Airflow catchup (Closest to At-least-once)
 
-**特徴**:
-- 実行履歴を DB に永続化
-- 起動時に未実行期間を検出
-- 順次リカバリ実行
+**Characteristics**:
+- Persists execution history in DB
+- Detects unexecuted periods at startup
+- Sequential recovery execution
 
-**動作例**:
+**Behavior example**:
 
 ```python
-# DAG 定義
+# DAG definition
 dag = DAG(
     'hourly_report',
     schedule_interval='0 * * * *',
     start_date=datetime(2024, 1, 1, 0, 0),
-    catchup=True,  # ← 重要
+    catchup=True,  # <- Important
 )
 
-# デプロイ時刻: 2024-01-10 15:00
-# → 2024-01-01 00:00 ～ 2024-01-10 14:00 の全てを順次実行
+# Deployment time: 2024-01-10 15:00
+# -> Sequentially executes everything from 2024-01-01 00:00 to 2024-01-10 14:00
 ```
 
-**Laravel への応用**:
+**Application to Laravel**:
 
 ```php
-// ExecutionTracker の実装
+// ExecutionTracker implementation
 public function checkMissedEvents(Schedule $schedule, Carbon $now): void
 {
     foreach ($schedule->events() as $event) {
         $lastDue = $this->getLastExecutedDue($event);
 
         if ($lastDue === null) {
-            continue; // 初回実行
+            continue; // First execution
         }
 
-        // 最終実行から現在までの全ての実行予定時刻を計算
+        // Calculate all scheduled execution times from last execution to now
         $missedDues = $this->calculateMissedDues($event, $lastDue, $now);
 
         foreach ($missedDues as $missedDue) {
-            // 順次リカバリ実行
+            // Sequential recovery execution
             $this->dispatchEvent($event, $missedDue);
         }
     }
 }
 ```
 
-### Argo Workflows の Memoization
+### Argo Workflows Memoization
 
-**特徴**:
-- ステップの入力パラメータのハッシュをキーにキャッシュ
-- 障害復旧時の重複実行を避ける
-- 「副作用を伴う計算をスキップすることで、結果的に一度だけ実行されたのと同じ状態を再現する」
+**Characteristics**:
+- Uses hash of step input parameters as cache key
+- Avoids duplicate execution during failure recovery
+- "By skipping computation with side effects, reproduces the same state as if executed exactly once"
 
-**実装例**:
+**Implementation example**:
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
@@ -689,47 +689,47 @@ spec:
       command: ["php", "artisan", "report:hourly"]
 ```
 
-**動作**:
+**Behavior**:
 
 ```
-1回目の実行:
+1st execution:
 - execution-date: 2024-01-01 01:00
-- キャッシュキー: hash("2024-01-01 01:00")
-- キャッシュミス → 実行
-- 結果をキャッシュに保存
+- Cache key: hash("2024-01-01 01:00")
+- Cache miss -> Execute
+- Save result to cache
 
-2回目の実行（リトライ）:
+2nd execution (retry):
 - execution-date: 2024-01-01 01:00
-- キャッシュキー: hash("2024-01-01 01:00")
-- キャッシュヒット → スキップ（キャッシュから結果を返す）
+- Cache key: hash("2024-01-01 01:00")
+- Cache hit -> Skip (return result from cache)
 ```
 
-**Laravel への応用**:
+**Application to Laravel**:
 
 ```php
-// 決定論的な実行名を使用
+// Use deterministic execution name
 $executionName = hash('sha256', $event->command . $dueAt->toIso8601String());
 
-// Step Functions で実行
+// Execute via Step Functions
 try {
     $this->client->startExecution([
         'stateMachineArn' => $this->stateMachineArn,
-        'name' => $executionName,  // ← 同じ名前なら拒否される
+        'name' => $executionName,  // <- Same name is rejected
         'input' => json_encode([/* ... */]),
     ]);
 } catch (ExecutionAlreadyExistsException $e) {
-    // 既に実行済み → スキップ
+    // Already executed -> Skip
     Log::info("Execution already exists: {$executionName}");
 }
 ```
 
-### Kubernetes の Finalizers
+### Kubernetes Finalizers
 
-**特徴**:
-- リソース削除時に、特定の処理が完了するまで削除を保留
-- クリーンアップ処理の確実な実行を保証
+**Characteristics**:
+- When deleting a resource, deletion is deferred until specific processing completes
+- Guarantees reliable execution of cleanup processing
 
-**動作**:
+**Behavior**:
 
 ```yaml
 apiVersion: v1
@@ -745,85 +745,85 @@ spec:
 ```
 
 ```
-1. Pod 削除リクエスト
-2. metadata.deletionTimestamp が設定される
-3. Finalizer が残っている間は削除されない
-4. Controller がクリーンアップ処理を実行
-5. Finalizer を削除
-6. Pod が削除される
+1. Pod deletion request
+2. metadata.deletionTimestamp is set
+3. Pod is not deleted while Finalizers remain
+4. Controller executes cleanup processing
+5. Remove Finalizer
+6. Pod is deleted
 ```
 
-**Laravel への応用**:
+**Application to Laravel**:
 
 ```php
-// 実行開始時に Finalizer を追加
+// Add Finalizer at execution start
 $this->tracker->addFinalizer($event, $dueAt, 'execution');
 
 try {
-    // ジョブ実行
+    // Execute job
     $this->dispatchEvent($event, $dueAt);
 
-    // 完了を記録
+    // Record completion
     $this->tracker->markExecuted($event, $dueAt);
 } finally {
-    // Finalizer を削除
+    // Remove Finalizer
     $this->tracker->removeFinalizer($event, $dueAt, 'execution');
 }
 
-// 起動時に Finalizer が残っているジョブを検出
+// Detect jobs with remaining Finalizers at startup
 $pendingJobs = $this->tracker->getJobsWithFinalizers();
 foreach ($pendingJobs as $job) {
-    // 未完了のジョブを再実行
+    // Re-execute incomplete jobs
     $this->dispatchEvent($job['event'], $job['due_at']);
 }
 ```
 
 ---
 
-## 責任分担の明確化
+## Clarifying Responsibility Distribution
 
-### シフトレフトの考え方
+### Shift-Left Approach
 
-実行保証の責任をスケジューラだけでなく、アプリケーション設計側にも委譲する。
+Delegate execution guarantee responsibility not only to the scheduler but also to the application design side.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    スケジューラの責任                        │
-│                                                             │
-│  - At-least-once を確実に提供                               │
-│  - リソースがある限り必ず起動                                │
-│  - クラッシュしたら再起動                                    │
-│  - 取りこぼしを検出してリカバリ実行                          │
-│  - 実行履歴の永続化                                         │
-│  - 重複実行の防止（ロック機構）                              │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│                 アプリケーションの責任                       │
-│                                                             │
-│  - 冪等性の確保                                             │
-│  - 同じ入力で二度実行されてもデータが壊れない                 │
-│  - 決定論的な名前付け（重複排除）                            │
-│  - トランザクション境界の適切な設計                          │
-│  - ビジネスロジックの整合性保証                              │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                    Scheduler's Responsibility                 |
+|                                                               |
+|  - Reliably provide at-least-once                            |
+|  - Always start as long as resources are available           |
+|  - Restart if crashed                                         |
+|  - Detect missed executions and perform recovery             |
+|  - Persist execution history                                  |
+|  - Prevent duplicate execution (lock mechanism)              |
+|                                                               |
++-------------------------------------------------------------+
+                            |
++-------------------------------------------------------------+
+|                 Application's Responsibility                  |
+|                                                               |
+|  - Ensure idempotency                                        |
+|  - Data not corrupted even if executed twice with same input |
+|  - Deterministic naming (deduplication)                      |
+|  - Proper transaction boundary design                        |
+|  - Business logic consistency guarantee                      |
+|                                                               |
++-------------------------------------------------------------+
 ```
 
-### スケジューラの責任
+### Scheduler's Responsibility
 
-#### 1. At-least-once の提供
+#### 1. Providing At-least-once
 
 ```php
-// 起動時に取りこぼしを検出
+// Detect missed executions at startup
 public function boot(): void
 {
     $now = Carbon::now();
 
     foreach ($this->schedule->events() as $event) {
         if ($this->tracker->wasMissed($event, $now)) {
-            // 取りこぼしを再実行
+            // Re-execute missed executions
             $missedDue = $this->tracker->getLastExecutedDue($event);
             $this->dispatchEvent($event, $missedDue);
         }
@@ -831,23 +831,23 @@ public function boot(): void
 }
 ```
 
-#### 2. 実行履歴の永続化
+#### 2. Persistent Execution History
 
 ```php
-// 実行後に記録
+// Record after execution
 public function dispatchEvent(Event $event, Carbon $dueAt): void
 {
     $this->client->startExecution([/* ... */]);
 
-    // 実行を記録
+    // Record execution
     $this->tracker->markExecuted($event, $dueAt);
 }
 ```
 
-#### 3. 重複実行の防止
+#### 3. Preventing Duplicate Execution
 
 ```php
-// ロックを使用
+// Use locking
 public function dispatchEvent(Event $event, Carbon $dueAt): void
 {
     $lock = Cache::lock("schedule:{$eventId}:{$dueAt->timestamp}", 30);
@@ -863,29 +863,29 @@ public function dispatchEvent(Event $event, Carbon $dueAt): void
 }
 ```
 
-### アプリケーションの責任
+### Application's Responsibility
 
-#### 1. 冪等性の確保
+#### 1. Ensuring Idempotency
 
 ```php
-// 悪い例
+// Bad example
 class ReportJob
 {
     public function handle()
     {
-        // 毎回カウントアップ → 重複実行で二重カウント
+        // Count up each time -> Double count on duplicate execution
         DB::table('stats')->increment('count');
     }
 }
 
-// 良い例
+// Good example
 class ReportJob
 {
     private $executionDate;
 
     public function handle()
     {
-        // 実行日をキーに updateOrInsert → 冪等
+        // updateOrInsert with execution date as key -> Idempotent
         DB::table('daily_reports')
             ->updateOrInsert(
                 ['date' => $this->executionDate],
@@ -895,7 +895,7 @@ class ReportJob
 }
 ```
 
-#### 2. トランザクション境界の設計
+#### 2. Transaction Boundary Design
 
 ```php
 class PaymentJob
@@ -903,7 +903,7 @@ class PaymentJob
     public function handle()
     {
         DB::transaction(function () {
-            // 1. 重複チェック
+            // 1. Duplicate check
             $exists = DB::table('transactions')
                 ->where('transaction_id', $this->transactionId)
                 ->exists();
@@ -913,28 +913,28 @@ class PaymentJob
                 return;
             }
 
-            // 2. トランザクション記録
+            // 2. Record transaction
             DB::table('transactions')->insert([
                 'transaction_id' => $this->transactionId,
                 'amount' => $this->amount,
                 'processed_at' => now(),
             ]);
 
-            // 3. 残高更新
+            // 3. Update balance
             DB::table('balances')->increment('amount', $this->amount);
         });
     }
 }
 ```
 
-#### 3. ビジネスロジックの整合性
+#### 3. Business Logic Consistency
 
 ```php
 class InvoiceGenerationJob
 {
     public function handle()
     {
-        // 期間ごとの一意性を保証
+        // Guarantee uniqueness per period
         $invoiceId = hash('sha256', $this->customerId . $this->period);
 
         DB::table('invoices')
@@ -955,103 +955,103 @@ class InvoiceGenerationJob
 
 ---
 
-## 次のステップ
+## Next Steps
 
-### 決定すべき事項
+### Decisions to Make
 
-#### 1. チェック頻度
+#### 1. Check Frequency
 
-- **推奨**: 起動時のみ（コストと確実性のバランス）
-- **代替案**: 定期的（5分おき）にバックグラウンドでチェック
+- **Recommendation**: Startup only (balance of cost and reliability)
+- **Alternative**: Periodic background check (every 5 minutes)
 
-#### 2. データ構造
+#### 2. Data Structure
 
-**スケジュール数が少ない場合（～100）**:
+**For a small number of schedules (~100)**:
 ```php
-// 単純な key-value
+// Simple key-value
 $cache->put("schedule:executed:{$eventId}", $dueAt->timestamp);
 ```
 
-**スケジュール数が多い場合（100～1,000）**:
+**For a moderate number of schedules (100~1,000)**:
 ```php
 // Redis Sorted Set
 $redis->zadd('schedule:next_due', $nextDue->timestamp, $eventId);
 ```
 
-**スケジュール数が非常に多い場合（1,000～）**:
+**For a very large number of schedules (1,000~)**:
 ```php
 // DynamoDB + GSI
 // GSI: next_due-index
 ```
 
-#### 3. ストレージ
+#### 3. Storage
 
-| ストレージ | メリット | デメリット | 推奨シーン |
-|-----------|---------|-----------|-----------|
-| Redis | 高速、シンプル | 永続性に懸念 | 一般的なユースケース |
-| DynamoDB | 永続性、スケーラビリティ | コスト、レイテンシ | 大規模、長期保存 |
-| PostgreSQL | ACID、複雑なクエリ | オーバーヘッド | データパイプライン |
+| Storage | Benefits | Drawbacks | Recommended Scenario |
+|---------|----------|-----------|---------------------|
+| Redis | Fast, simple | Persistence concerns | General use cases |
+| DynamoDB | Persistence, scalability | Cost, latency | Large-scale, long-term storage |
+| PostgreSQL | ACID, complex queries | Overhead | Data pipelines |
 
-**推奨**: Redis（ElastiCache）
+**Recommendation**: Redis (ElastiCache)
 
-#### 4. 冪等性の要件
+#### 4. Idempotency Requirements
 
-**オプション A**: ドキュメントで明記
+**Option A**: Document explicitly
 
 ```markdown
-# 重要: ジョブの冪等性
+# Important: Job Idempotency
 
-Laravel Graceful Schedule Worker は At-least-once セマンティックを提供します。
-重複実行の可能性があるため、全てのスケジュールジョブは冪等に設計してください。
+Laravel Graceful Schedule Worker provides at-least-once semantics.
+Since duplicate execution is possible, design all scheduled jobs to be idempotent.
 
-詳細は [冪等性ガイド](../guide/IDEMPOTENCY_GUIDE.md) を参照してください。
+See the [Idempotency Guide](../guide/IDEMPOTENCY_GUIDE.md) for details.
 ```
 
-**オプション B**: 実装で強制
+**Option B**: Enforce through implementation
 
 ```php
-// ジョブに IdempotencyKey を要求
+// Require IdempotencyKey from jobs
 interface IdempotentJob
 {
     public function getIdempotencyKey(): string;
 }
 
-// Dispatcher で検証
+// Validate in Dispatcher
 if (! $job instanceof IdempotentJob) {
     throw new \RuntimeException('Job must be idempotent');
 }
 ```
 
-**推奨**: オプション A（ドキュメントで明記）
-- 柔軟性が高い
-- 既存のジョブとの互換性
+**Recommendation**: Option A (document explicitly)
+- Higher flexibility
+- Compatibility with existing jobs
 
-### 追加で検討すべきトピック
+### Additional Topics to Consider
 
-#### 1. ゾンビタスク検出
+#### 1. Zombie Task Detection
 
-実行中にクラッシュしたタスクを検出する。
+Detect tasks that crashed during execution.
 
 ```php
-// ハートビート方式
+// Heartbeat approach
 public function dispatchEvent(Event $event, Carbon $dueAt): void
 {
-    // 実行開始を記録
+    // Record execution start
     $this->tracker->markStarted($event, $dueAt);
 
     $this->client->startExecution([/* ... */]);
 
-    // 実行完了を記録
+    // Record execution completion
     $this->tracker->markCompleted($event, $dueAt);
 }
 
-// 別プロセスで監視
+// Monitor in a separate process
 public function detectZombies(): void
 {
     $zombies = $this->tracker->getStartedButNotCompleted();
 
     foreach ($zombies as $zombie) {
-        // タイムアウトを過ぎたゾンビを再実行
+        // Re-execute zombies that have exceeded timeout
         if ($zombie['started_at']->addMinutes(30)->isPast()) {
             $this->dispatchEvent($zombie['event'], $zombie['due_at']);
         }
@@ -1059,33 +1059,33 @@ public function detectZombies(): void
 }
 ```
 
-#### 2. リーダー選出
+#### 2. Leader Election
 
-複数のスケジューラインスタンスを起動する場合、リーダーを選出する。
+When running multiple scheduler instances, elect a leader.
 
 ```php
-// Redis ロックによるリーダー選出
+// Leader election using Redis lock
 public function electLeader(): bool
 {
     $lock = Cache::lock('schedule:leader', 30);
 
     if ($lock->get()) {
-        // リーダーとして動作
+        // Operate as leader
         $this->runAsLeader($lock);
         return true;
     }
 
-    // フォロワーとして待機
+    // Wait as follower
     return false;
 }
 
 public function runAsLeader(Lock $lock): void
 {
     while ($this->running) {
-        // スケジュール実行
+        // Execute schedule
         $this->runSchedule();
 
-        // ロックを更新（リーダーシップを維持）
+        // Renew lock (maintain leadership)
         $lock->block(30);
     }
 
@@ -1093,9 +1093,9 @@ public function runAsLeader(Lock $lock): void
 }
 ```
 
-#### 3. バックオフ戦略
+#### 3. Backoff Strategy
 
-リトライ時の指数バックオフ。
+Exponential backoff for retries.
 
 ```php
 public function retryWithBackoff(Event $event, Carbon $dueAt, int $attempt = 0): void
@@ -1104,7 +1104,7 @@ public function retryWithBackoff(Event $event, Carbon $dueAt, int $attempt = 0):
         $this->dispatchEvent($event, $dueAt);
     } catch (\Exception $e) {
         if ($attempt >= 5) {
-            // 最大リトライ回数に到達
+            // Maximum retry count reached
             Log::error("Failed to dispatch event: {$event->command}", [
                 'exception' => $e,
                 'attempts' => $attempt,
@@ -1112,11 +1112,11 @@ public function retryWithBackoff(Event $event, Carbon $dueAt, int $attempt = 0):
             return;
         }
 
-        // 指数バックオフ: 2^attempt 秒待機
+        // Exponential backoff: wait 2^attempt seconds
         $delay = pow(2, $attempt);
         sleep($delay);
 
-        // リトライ
+        // Retry
         $this->retryWithBackoff($event, $dueAt, $attempt + 1);
     }
 }
@@ -1124,34 +1124,34 @@ public function retryWithBackoff(Event $event, Carbon $dueAt, int $attempt = 0):
 
 ---
 
-## まとめ
+## Summary
 
-### 主要な洞察
+### Key Insights
 
-1. **At-least-once は業界標準**: クラウドネイティブシステムは At-least-once を提供し、アプリケーションが冪等性を保証する責任分担が一般的
+1. **At-least-once is the industry standard**: Cloud-native systems provide at-least-once, and the common responsibility distribution is for applications to guarantee idempotency
 
-2. **完全な保証は困難**: Exactly-once は理論的に不可能であり、「At-least-once + 冪等性」で実現する
+2. **Complete guarantees are difficult**: Exactly-once is theoretically impossible and is achieved through "at-least-once + idempotency"
 
-3. **トレードオフの理解**: 複雑さと確実性のバランスを理解し、ユースケースに応じた選択が重要
+3. **Understanding tradeoffs**: It is important to understand the balance between complexity and reliability and make choices appropriate to the use case
 
-4. **段階的な実装**: Phase 1（リファクタリング） → Phase 2（StepFunctions） → Phase 3（ExecutionTracker）の段階的アプローチが現実的
+4. **Incremental implementation**: A phased approach of Phase 1 (refactoring) -> Phase 2 (StepFunctions) -> Phase 3 (ExecutionTracker) is realistic
 
-### 推奨アプローチ
+### Recommended Approach
 
-**Laravel Graceful Schedule Worker の拡張設計**:
+**Laravel Graceful Schedule Worker extension design**:
 
-1. **ExecutionTracker**: Redis を使用した実行履歴の永続化
-2. **起動時チェック**: デプロイ時の取りこぼしを検出・リカバリ
-3. **冪等性ガイド**: ドキュメントでベストプラクティスを提供
-4. **StepFunctions 統合**: リソース分離とスケーラビリティ
+1. **ExecutionTracker**: Persistent execution history using Redis
+2. **Startup check**: Detect and recover missed executions during deployment
+3. **Idempotency guide**: Provide best practices through documentation
+4. **StepFunctions integration**: Resource isolation and scalability
 
-この設計により、**At-least-once セマンティック**を提供し、業界標準のベストプラクティスに沿った実装を実現できる。
+This design enables providing **at-least-once semantics** with an implementation that follows industry-standard best practices.
 
 ---
 
-**参考資料**:
-- [SCHEDULER_COMPARISON.md](./SCHEDULER_COMPARISON.md) - 業界のスケジューラー比較
-- [Two Generals' Problem](https://en.wikipedia.org/wiki/Two_Generals%27_Problem) - 分散システムの理論的制約
+**References**:
+- [SCHEDULER_COMPARISON.md](./SCHEDULER_COMPARISON.md) - Industry scheduler comparison
+- [Two Generals' Problem](https://en.wikipedia.org/wiki/Two_Generals%27_Problem) - Theoretical constraints of distributed systems
 - [Idempotence - AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_tracking_change_management_use_automation.html)
 
 ---

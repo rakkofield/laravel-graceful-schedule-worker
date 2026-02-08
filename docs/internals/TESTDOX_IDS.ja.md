@@ -1,28 +1,28 @@
-# Testdox ID Inventory
+# Testdox ID インベントリ
 
-## ID Format
+## ID フォーマット
 
 ```
-@testdox {Prefix}.{seq} Description text
+@testdox {Prefix}.{seq} 説明テキスト
 ```
 
-- **Prefix**: A unique 2-4 character uppercase English abbreviation per test file
-- **seq**: Sequential number starting from 1 (sub-numbers `{seq}.{sub}` are also allowed)
-- Description text: Japanese or English
+- **Prefix**: テストファイルごとに一意の 2-4 文字英大文字
+- **seq**: 1 始まりの連番（サブ番号 `{seq}.{sub}` も許可）
+- 説明テキスト: 日本語 or 英語
 
-## Design Principles
+## 設計原則
 
-1. Use an abbreviation of the target class name as the prefix
-2. Unit tests: Class name abbreviation only (e.g., `LD`)
-3. Integration tests: Class name abbreviation + `I` (e.g., `CTI`)
-4. E2E tests: Fixed as `E2E`
-5. When adding a new prefix, verify there is no overlap with existing prefixes
+1. テスト対象クラス名の略語をプレフィックスとする
+2. Unit テスト: クラス名略語のみ（例: `LD`）
+3. Integration テスト: クラス名略語 + `I`（例: `CTI`）
+4. E2E テスト: `E2E` 固定
+5. 新規プレフィックス追加時は既存プレフィックスとの重複がないことを確認する
 
-## Full Prefix List
+## 全プレフィックス一覧
 
 ### Unit Tests
 
-| Test File | Prefix | Test Count |
+| テストファイル | Prefix | テスト数 |
 |---|---|---|
 | Clock/SystemClockTest | `SC` | 2 |
 | Clock/SleeperTest | `SL` | 4 |
@@ -53,7 +53,7 @@
 
 ### Integration Tests
 
-| Test File | Prefix | Test Count |
+| テストファイル | Prefix | テスト数 |
 |---|---|---|
 | Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 4 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
@@ -67,17 +67,17 @@
 
 ### E2E Tests
 
-| Test File | Prefix | Test Count |
+| テストファイル | Prefix | テスト数 |
 |---|---|---|
 | GracefulScheduleWorkerCommandTest | `E2E` | 1 |
 
-## TI Prefix Number Ranges
+## TI プレフィックスの番号範囲
 
-The `TI` prefix is shared across 3 Orchestrator Integration files, with number ranges for separation:
+`TI` は Orchestrator Integration 3ファイルで共有し、番号範囲で分離する：
 
-| Test File | Number Range |
+| テストファイル | 番号範囲 |
 |---|---|
-| OrchestratorFlowIntegrationTest | TI.1 - TI.4 |
-| OrchestratorFiltersPassIntegrationTest | TI.5 - TI.10 |
-| OrchestratorMixedEventsIntegrationTest | TI.16 - TI.19 |
-| ScheduleRunCompatibilityIntegrationTest | TI.11 - TI.15 |
+| OrchestratorFlowIntegrationTest | TI.1〜TI.4 |
+| OrchestratorFiltersPassIntegrationTest | TI.5〜TI.10 |
+| OrchestratorMixedEventsIntegrationTest | TI.16〜TI.19 |
+| ScheduleRunCompatibilityIntegrationTest | TI.11〜TI.15 |

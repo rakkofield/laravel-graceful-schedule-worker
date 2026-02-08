@@ -1,12 +1,12 @@
-# スケジューラーシステムの取りこぼし対策 - 業界調査
+# Scheduler System Missed Execution Strategies - Industry Survey
 
-**調査日**: 2026-01-24
+**Survey Date**: 2026-01-24
 
-## 概要
+## Overview
 
-Laravel Graceful Schedule Worker の拡張設計を検討するにあたり、他の主要なスケジューラーシステムが「取りこぼし（missed executions）」にどう対処しているかを調査しました。
+In preparation for designing extensions to Laravel Graceful Schedule Worker, we surveyed how other major scheduler systems handle "missed executions."
 
-本ドキュメントでは、以下のシステムを比較分析します：
+This document provides a comparative analysis of the following systems:
 
 1. Kubernetes CronJob
 2. AWS EventBridge Scheduler
@@ -17,11 +17,11 @@ Laravel Graceful Schedule Worker の拡張設計を検討するにあたり、�
 
 ## 1. Kubernetes CronJob
 
-### アプローチ: 猶予期間による限定的なリトライ
+### Approach: Limited Retry via Grace Period
 
-Kubernetes CronJob は `startingDeadlineSeconds` フィールドで、スケジュール時刻を過ぎてから何秒以内なら起動を許可するかを指定できます。
+Kubernetes CronJob uses the `startingDeadlineSeconds` field to specify how many seconds past the scheduled time a job is still allowed to start.
 
-#### 設定例
+#### Configuration Example
 
 ```yaml
 apiVersion: batch/v1
@@ -29,8 +29,8 @@ kind: CronJob
 metadata:
   name: hourly-report
 spec:
-  schedule: "0 * * * *"  # 毎時0分
-  startingDeadlineSeconds: 300  # 5分間の猶予
+  schedule: "0 * * * *"  # Every hour at minute 0
+  startingDeadlineSeconds: 300  # 5-minute grace period
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
@@ -45,36 +45,36 @@ spec:
           restartPolicy: OnFailure
 ```
 
-#### 動作の詳細
+#### Behavior Details
 
-**正常ケース**:
+**Normal case**:
 ```
-01:00:00 - スケジュール時刻
-01:00:05 - Job 起動成功 ✅
-```
-
-**猶予期間内の遅延**:
-```
-01:00:00 - スケジュール時刻
-         - ノードがビジー、Pod が起動できない
-01:02:30 - ノードに空きができた
-         - 現在時刻 01:02:30 < 01:00:00 + 300秒
-         - Job 起動 ✅（遅延実行）
+01:00:00 - Scheduled time
+01:00:05 - Job started successfully ✅
 ```
 
-**猶予期間超過**:
+**Delayed within grace period**:
 ```
-01:00:00 - スケジュール時刻
-         - クラスタ全体がダウン
-01:05:01 - クラスタ復旧
-         - 現在時刻 01:05:01 > 01:00:00 + 300秒
-         - 01:00 の Job は実行されない ❌
-01:00:00 - 次回（02:00）の Job は通常通り実行される
+01:00:00 - Scheduled time
+         - Node is busy, Pod cannot start
+01:02:30 - Node becomes available
+         - Current time 01:02:30 < 01:00:00 + 300 seconds
+         - Job started ✅ (delayed execution)
 ```
 
-#### 100回制限
+**Grace period exceeded**:
+```
+01:00:00 - Scheduled time
+         - Entire cluster is down
+01:05:01 - Cluster recovered
+         - Current time 01:05:01 > 01:00:00 + 300 seconds
+         - 01:00 Job is not executed ❌
+01:00:00 - Next (02:00) Job runs normally
+```
 
-CronJob Controller は、最後の実行時刻から現在までに何回のスケジュールを逃したかをカウントします。**100回を超えると**、ジョブを起動せずにエラーログを出力します。
+#### 100-Miss Limit
+
+The CronJob Controller counts how many schedules were missed since the last execution time. **If it exceeds 100**, the job is not started and an error log is emitted.
 
 ```
 Cannot determine if <namespace>/<cronjob> needs to be started:
@@ -82,22 +82,22 @@ Too many missed start time (> 100).
 Set or decrease .spec.startingDeadlineSeconds or check clock skew.
 ```
 
-#### 重複実行の防止
+#### Preventing Duplicate Execution
 
-`concurrencyPolicy` で制御：
+Controlled via `concurrencyPolicy`:
 
-- **Allow** (デフォルト): 複数の Job を並行実行可能
-- **Forbid**: 前回の Job が実行中なら新しい Job をスキップ
-- **Replace**: 前回の Job を停止して新しい Job を起動
+- **Allow** (default): Multiple Jobs can run concurrently
+- **Forbid**: Skip new Job if the previous one is still running
+- **Replace**: Stop previous Job and start new one
 
-#### 制約と注意点
+#### Constraints and Notes
 
-- **クラスタダウン中は完全に失われる**: Kubernetes 自体が停止していると、その間のスケジュールは記録されない
-- **"At most once" セマンティクス**: 最大1回の実行を保証するが、正確に1回ではない
-- **取りこぼしの自動リカバリなし**: 猶予期間を過ぎたジョブは二度と実行されない
-- **時刻同期が重要**: ノード間でクロックスキューがあると誤動作の原因になる
+- **Completely lost during cluster downtime**: If Kubernetes itself is down, schedules during that time are not recorded
+- **"At most once" semantics**: Guarantees at most one execution, but not exactly once
+- **No automatic recovery of missed executions**: Jobs that exceed the grace period are never executed
+- **Clock synchronization is important**: Clock skew between nodes can cause malfunctions
 
-**参考資料**:
+**References**:
 - [Kubernetes CronJob Documentation](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
 - [Fix CronJob missed start time handling PR](https://github.com/kubernetes/kubernetes/pull/81557)
 - [Ensure CronJob has a configured deadline - Datree](https://hub.datree.io/built-in-rules/ensure-cronjob-deadline)
@@ -106,11 +106,11 @@ Set or decrease .spec.startingDeadlineSeconds or check clock skew.
 
 ## 2. AWS EventBridge Scheduler
 
-### アプローチ: リトライポリシー + Dead Letter Queue
+### Approach: Retry Policy + Dead Letter Queue
 
-EventBridge Scheduler は、**ターゲットの起動失敗時**のリトライに特化しています。
+EventBridge Scheduler focuses on retries when **target invocation fails**.
 
-#### RetryPolicy の設定
+#### RetryPolicy Configuration
 
 ```json
 {
@@ -134,51 +134,51 @@ EventBridge Scheduler は、**ターゲットの起動失敗時**のリトライ
 }
 ```
 
-#### 動作の詳細
+#### Behavior Details
 
-**リトライの仕組み**:
+**Retry mechanism**:
 ```
-01:00:00 - スケジュール時刻
-         - ECS RunTask API 呼び出し
-         - エラー: ThrottlingException（API レート制限）
+01:00:00 - Scheduled time
+         - ECS RunTask API call
+         - Error: ThrottlingException (API rate limit)
 
-01:00:01 - 1回目のリトライ（1秒後）
-         - エラー: ServiceUnavailableException
+01:00:01 - 1st retry (1 second later)
+         - Error: ServiceUnavailableException
 
-01:00:03 - 2回目のリトライ（2秒後、指数バックオフ）
-         - エラー: ClusterNotFoundException
+01:00:03 - 2nd retry (2 seconds later, exponential backoff)
+         - Error: ClusterNotFoundException
 
-01:00:07 - 3回目のリトライ（4秒後）
-         - 成功 ✅
-```
-
-**最終的な失敗**:
-```
-01:00:00 - スケジュール時刻
-         - ECS RunTask 失敗が継続...
-
-[24時間後 or 185回リトライ後]
-
-02:00:00 (翌日) - 全てのリトライが失敗
-                - イベントを DLQ (SQS) に送信
-                - アラート発火（CloudWatch Alarms 等）
+01:00:07 - 3rd retry (4 seconds later)
+         - Success ✅
 ```
 
-#### 制約と注意点
+**Final failure**:
+```
+01:00:00 - Scheduled time
+         - ECS RunTask failures continue...
 
-- **スケジュール自体の取りこぼしは防げない**:
-  - 01:00 に起動失敗 → 02:00 のスケジュールは別イベントとして扱われる
-  - 01:00 のリトライが 02:00 まで続いても、02:00 のジョブは別途起動される
+[After 24 hours or 185 retries]
 
-- **対象は「実行失敗」のみ**:
-  - EventBridge Scheduler 自体は高可用性で冗長化されている
-  - スケジュールの発火は保証されるが、ターゲットの起動成功は保証されない
+02:00:00 (next day) - All retries failed
+                    - Event sent to DLQ (SQS)
+                    - Alert triggered (CloudWatch Alarms, etc.)
+```
 
-- **コスト考慮**:
-  - リトライ回数に応じて料金が発生
-  - DLQ の SQS メッセージ保持にも料金がかかる
+#### Constraints and Notes
 
-**参考資料**:
+- **Cannot prevent missed schedules**:
+  - 01:00 invocation fails -> 02:00 schedule is treated as a separate event
+  - Even if 01:00 retries continue until 02:00, the 02:00 job is started separately
+
+- **Targets only "execution failure"**:
+  - EventBridge Scheduler itself is highly available and redundant
+  - Schedule firing is guaranteed, but target invocation success is not
+
+- **Cost considerations**:
+  - Charges are incurred based on retry count
+  - SQS message retention in DLQ also incurs charges
+
+**References**:
 - [EventBridge Scheduler - RetryPolicy API Reference](https://docs.aws.amazon.com/scheduler/latest/APIReference/API_RetryPolicy.html)
 - [Amazon EventBridge Scheduler User Guide](https://docs.aws.amazon.com/eventbridge/latest/userguide/using-eventbridge-scheduler.html)
 - [Configure EventBridge retries and DLQ](https://repost.aws/knowledge-center/eventbridge-resolve-failedinvocation-errors)
@@ -187,13 +187,13 @@ EventBridge Scheduler は、**ターゲットの起動失敗時**のリトライ
 
 ## 3. Apache Airflow
 
-### アプローチ: Catchup（自動）+ Backfill（手動）
+### Approach: Catchup (Automatic) + Backfill (Manual)
 
-Apache Airflow は、データパイプライン向けのワークフローエンジンで、**過去の未実行タスクを検出・実行する仕組み**を持っています。
+Apache Airflow is a workflow engine for data pipelines that has **mechanisms for detecting and executing past unexecuted tasks**.
 
-#### Catchup（自動リカバリ）
+#### Catchup (Automatic Recovery)
 
-**設定例**:
+**Configuration example**:
 
 ```python
 from datetime import datetime, timedelta
@@ -213,9 +213,9 @@ dag = DAG(
     'hourly_report',
     default_args=default_args,
     description='Generate hourly reports',
-    schedule_interval='0 * * * *',  # 毎時0分
+    schedule_interval='0 * * * *',  # Every hour at minute 0
     start_date=datetime(2024, 1, 1, 0, 0),
-    catchup=True,  # ← 重要: デフォルトは False
+    catchup=True,  # <- Important: default is False
     max_active_runs=1,
 )
 
@@ -226,66 +226,66 @@ task = BashOperator(
 )
 ```
 
-**動作例**:
+**Behavior example**:
 
 ```
-2024-01-01 00:00 - DAG 定義を deploy
+2024-01-01 00:00 - DAG definition deployed
                  - start_date = 2024-01-01 00:00
-                 - 現在時刻 = 2024-01-10 15:00
+                 - Current time = 2024-01-10 15:00
 
-→ Airflow Scheduler が検出:
-  - 2024-01-01 00:00 ～ 2024-01-10 14:00 が未実行
-  - 合計 226 個の DAG Run を作成（10日間 × 24時間 - 10時間）
+-> Airflow Scheduler detects:
+  - 2024-01-01 00:00 to 2024-01-10 14:00 are unexecuted
+  - Creates 226 DAG Runs (10 days x 24 hours - 10 hours)
 
-→ 順次実行（max_active_runs=1 の場合）:
+-> Sequential execution (with max_active_runs=1):
   ✅ 2024-01-01 00:00
   ✅ 2024-01-01 01:00
   ✅ 2024-01-01 02:00
   ...
   ✅ 2024-01-10 14:00
-  ✅ 2024-01-10 15:00（現在の実行）
+  ✅ 2024-01-10 15:00 (current execution)
 ```
 
-**メンテナンス後のシナリオ**:
+**Post-maintenance scenario**:
 
 ```
-2024-01-05 03:00 - Airflow クラスタをメンテナンスで停止
-2024-01-05 05:00 - クラスタ復旧
+2024-01-05 03:00 - Airflow cluster stopped for maintenance
+2024-01-05 05:00 - Cluster recovered
 
-→ Scheduler が起動後:
-  - 最終実行: 2024-01-05 02:00
-  - 現在時刻: 2024-01-05 05:00
-  - 未実行期間: 03:00, 04:00
+-> After Scheduler starts:
+  - Last execution: 2024-01-05 02:00
+  - Current time: 2024-01-05 05:00
+  - Unexecuted period: 03:00, 04:00
 
-→ catchup=True の場合:
-  ✅ 2024-01-05 03:00 を実行
-  ✅ 2024-01-05 04:00 を実行
-  ✅ 2024-01-05 05:00 を実行（現在）
+-> With catchup=True:
+  ✅ 2024-01-05 03:00 executed
+  ✅ 2024-01-05 04:00 executed
+  ✅ 2024-01-05 05:00 executed (current)
 
-→ catchup=False の場合:
-  ❌ 03:00, 04:00 はスキップ
-  ✅ 2024-01-05 05:00 のみ実行
+-> With catchup=False:
+  ❌ 03:00, 04:00 are skipped
+  ✅ 2024-01-05 05:00 only executed
 ```
 
-#### Backfill（手動リカバリ）
+#### Backfill (Manual Recovery)
 
-**CLI での実行**:
+**CLI execution**:
 
 ```bash
-# 特定期間を再実行
+# Re-execute a specific period
 airflow dags backfill \
   --start-date 2024-01-01 \
   --end-date 2024-01-10 \
   hourly_report
 
-# 失敗したタスクのみ再実行
+# Re-execute only failed tasks
 airflow dags backfill \
   --start-date 2024-01-05 \
   --end-date 2024-01-05 \
   --rerun-failed-tasks \
   hourly_report
 
-# ドライラン（実行せずに確認）
+# Dry run (check without executing)
 airflow dags backfill \
   --start-date 2024-01-01 \
   --end-date 2024-01-10 \
@@ -293,56 +293,56 @@ airflow dags backfill \
   hourly_report
 ```
 
-**UI での実行（Airflow 3.x）**:
+**UI execution (Airflow 3.x)**:
 
-1. DAG ページを開く
-2. "Trigger" ボタン → "Backfill" を選択
-3. 開始日・終了日を指定
-4. 再実行するタスクを選択
-5. 実行
+1. Open the DAG page
+2. Click "Trigger" button -> Select "Backfill"
+3. Specify start and end dates
+4. Select tasks to re-execute
+5. Execute
 
-#### 実行履歴の管理
+#### Execution History Management
 
-Airflow は PostgreSQL または MySQL に以下を記録：
+Airflow records the following in PostgreSQL or MySQL:
 
-- **DagRun**: 各実行インスタンス
-- **TaskInstance**: 各タスクの実行状態
-- **execution_date**: そのタスクがカバーするデータ期間
+- **DagRun**: Each execution instance
+- **TaskInstance**: Execution status of each task
+- **execution_date**: The data period covered by the task
 
 ```sql
--- 未実行の DAG Run を検出
+-- Detect unexecuted DAG Runs
 SELECT execution_date, state
 FROM dag_run
 WHERE dag_id = 'hourly_report'
   AND execution_date >= '2024-01-01'
   AND state = 'scheduled';
 
--- 失敗した TaskInstance を検出
+-- Detect failed TaskInstances
 SELECT task_id, execution_date, state
 FROM task_instance
 WHERE dag_id = 'hourly_report'
   AND state = 'failed';
 ```
 
-#### 制約と注意点
+#### Constraints and Notes
 
-- **大量の未実行がある場合**:
-  - `max_active_runs` を設定しないと、並行実行でリソースを圧迫
-  - 数百〜数千の DAG Run を順次実行するため、完了まで時間がかかる
+- **When there are many unexecuted runs**:
+  - Without setting `max_active_runs`, concurrent execution can overwhelm resources
+  - Sequentially executing hundreds to thousands of DAG Runs takes time
 
-- **データベース依存**:
-  - PostgreSQL または MySQL が必須
-  - SQLite は本番環境非推奨
+- **Database dependency**:
+  - PostgreSQL or MySQL is required
+  - SQLite is not recommended for production
 
-- **データ整合性**:
-  - `depends_on_past=True` を設定すると、過去の実行が成功していないと次が実行されない
-  - データパイプラインには有用だが、独立したジョブには不要
+- **Data integrity**:
+  - Setting `depends_on_past=True` prevents the next run unless the past run succeeded
+  - Useful for data pipelines but unnecessary for independent jobs
 
-- **コスト**:
-  - Airflow クラスタの運用コスト（Scheduler, Webserver, Worker）
-  - Managed サービス（AWS MWAA, Google Cloud Composer）は高額
+- **Cost**:
+  - Operational cost of Airflow cluster (Scheduler, Webserver, Worker)
+  - Managed services (AWS MWAA, Google Cloud Composer) are expensive
 
-**参考資料**:
+**References**:
 - [Airflow DAG Runs Documentation](https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dag-run.html)
 - [Airflow Catchup & Backfill - Demystified](https://medium.com/nerd-for-tech/airflow-catchup-backfill-demystified-355def1b6f92)
 - [Understanding the Difference Between Backfill and Catchup](https://medium.com/@seilylook95/understanding-the-difference-between-airflows-backfill-and-catchup-cf6e830588b8)
@@ -351,11 +351,11 @@ WHERE dag_id = 'hourly_report'
 
 ## 4. Celery Beat
 
-### アプローチ: 高可用性の仕組みが存在しない
+### Approach: No High Availability Mechanism
 
-Celery Beat は、Celery（Python の分散タスクキュー）のスケジューラーコンポーネントですが、**シングルインスタンス前提の設計**となっています。
+Celery Beat is the scheduler component of Celery (Python's distributed task queue), but it is **designed as a single-instance architecture**.
 
-#### 基本構成
+#### Basic Configuration
 
 ```python
 # celery.py
@@ -367,82 +367,82 @@ app = Celery('tasks', broker='redis://localhost:6379/0')
 app.conf.beat_schedule = {
     'hourly-report': {
         'task': 'tasks.generate_report',
-        'schedule': crontab(minute=0),  # 毎時0分
+        'schedule': crontab(minute=0),  # Every hour at minute 0
     },
 }
 
 @app.task
 def generate_report():
-    # レポート生成処理
+    # Report generation logic
     pass
 ```
 
 ```bash
-# Celery Worker を起動
+# Start Celery Worker
 celery -A tasks worker --loglevel=info
 
-# Celery Beat を起動（別プロセス）
+# Start Celery Beat (separate process)
 celery -A tasks beat --loglevel=info
 ```
 
-#### 問題点1: シングルポイント障害
+#### Problem 1: Single Point of Failure
 
-**構成**:
+**Architecture**:
 ```
-┌─────────────┐
-│ Celery Beat │  ← 1つだけ起動可能
-└─────────────┘
-      │
-      ▼
-┌─────────────┐
-│   Redis     │
-└─────────────┘
-      │
-      ▼
-┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│  Worker 1   │  │  Worker 2   │  │  Worker 3   │
-└─────────────┘  └─────────────┘  └─────────────┘
++-------------+
+| Celery Beat |  <- Only one can be running
++-------------+
+      |
+      v
++-------------+
+|   Redis     |
++-------------+
+      |
+      v
++-------------+  +-------------+  +-------------+
+|  Worker 1   |  |  Worker 2   |  |  Worker 3   |
++-------------+  +-------------+  +-------------+
 ```
 
-**問題**:
-- Celery Beat が停止すると、全てのスケジュールタスクが実行されない
-- Worker は起動していても、タスクがキューに入らない
+**Problem**:
+- If Celery Beat stops, all scheduled tasks stop executing
+- Workers remain running but no tasks are added to the queue
 
-#### 問題点2: 複数起動すると重複実行
+#### Problem 2: Duplicate Execution with Multiple Instances
 
 ```bash
-# 誤って複数の Beat を起動してしまった場合
+# If multiple Beat instances are accidentally started
 celery -A tasks beat --loglevel=info  # Beat 1
 celery -A tasks beat --loglevel=info  # Beat 2
 ```
 
-**結果**:
+**Result**:
 ```
-01:00:00 - Beat 1 が hourly-report タスクをキューに追加
-01:00:00 - Beat 2 も hourly-report タスクをキューに追加
-         - Worker 1 が1回目を実行
-         - Worker 2 が2回目を実行
-         → 重複実行 ❌
-```
-
-#### 問題点3: 取りこぼしの検出なし
-
-```
-01:00:00 - Beat がダウン
-01:30:00 - Beat 復旧
-         - 01:00 のタスクは実行されない ❌
-         - 02:00 から通常通り実行される
-         - 過去の未実行を検出する仕組みなし
+01:00:00 - Beat 1 adds hourly-report task to queue
+01:00:00 - Beat 2 also adds hourly-report task to queue
+         - Worker 1 executes the 1st instance
+         - Worker 2 executes the 2nd instance
+         -> Duplicate execution ❌
 ```
 
-#### コミュニティの回避策
+#### Problem 3: No Missed Execution Detection
 
-##### 1. Leader Election（リーダー選出）
+```
+01:00:00 - Beat goes down
+01:30:00 - Beat recovered
+         - 01:00 task is not executed ❌
+         - Normal execution resumes from 02:00
+         - No mechanism to detect past unexecuted tasks
+```
 
-Redis や ZooKeeper を使用して、複数の Beat インスタンスから1つをリーダーとして選出：
+#### Community Workarounds
+
+##### 1. Leader Election
+
+Use Redis or ZooKeeper to elect one leader from multiple Beat instances:
 
 ```python
-# redbeat を使用した例
+# Example using redbeat
 from redbeat.schedulers import RedBeatScheduler
 
 app.conf.beat_scheduler = 'redbeat.schedulers:RedBeatScheduler'
@@ -450,18 +450,18 @@ app.conf.redbeat_redis_url = 'redis://localhost:6379/1'
 app.conf.redbeat_lock_timeout = 30
 ```
 
-**動作**:
-- 複数の Beat インスタンスが起動
-- Redis のロックを取得したインスタンスがリーダーになる
-- リーダーがダウンすると、別のインスタンスが引き継ぐ
+**Behavior**:
+- Multiple Beat instances start
+- The instance that acquires the Redis lock becomes the leader
+- If the leader goes down, another instance takes over
 
-**制約**:
-- フェイルオーバーに時間がかかる（ロックタイムアウトまで待つ）
-- 新リーダーが過去の未実行を検出できない
+**Constraints**:
+- Failover takes time (waits for lock timeout)
+- The new leader cannot detect past unexecuted tasks
 
-##### 2. Redlock（分散ロック）
+##### 2. Redlock (Distributed Lock)
 
-全ての Beat インスタンスが動作するが、タスクをキューに追加する際に分散ロックを取得：
+All Beat instances operate, but acquire a distributed lock when adding tasks to the queue:
 
 ```python
 from redis import Redis
@@ -480,7 +480,7 @@ def setup_periodic_tasks(sender, **kwargs):
 @app.task
 def hourly_report_with_lock():
     lock_key = 'celery:beat:hourly-report'
-    lock = dlm.lock(lock_key, 60000)  # 60秒のロック
+    lock = dlm.lock(lock_key, 60000)  # 60-second lock
 
     if lock:
         try:
@@ -488,20 +488,20 @@ def hourly_report_with_lock():
         finally:
             dlm.unlock(lock)
     else:
-        # 別のインスタンスが実行中
+        # Another instance is executing
         pass
 ```
 
-**制約**:
-- 実装が複雑
-- ロック管理のオーバーヘッド
+**Constraints**:
+- Complex implementation
+- Lock management overhead
 
-##### 3. 外部スケジューラ（推奨）
+##### 3. External Scheduler (Recommended)
 
-Celery Beat を使わず、Kubernetes CronJob や EventBridge から Celery タスクを直接呼び出す：
+Instead of using Celery Beat, call Celery tasks directly from Kubernetes CronJob or EventBridge:
 
 ```yaml
-# Kubernetes CronJob で Celery タスクを起動
+# Kubernetes CronJob to trigger Celery task
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -524,37 +524,37 @@ spec:
           restartPolicy: OnFailure
 ```
 
-**メリット**:
-- Kubernetes の高可用性を活用
-- Celery Beat のシングルポイント障害を回避
+**Benefits**:
+- Leverages Kubernetes high availability
+- Avoids Celery Beat single point of failure
 
-#### 制約と注意点
+#### Constraints and Notes
 
-- **公式の高可用性サポートなし**: Celery Beat は元々シングルインスタンス前提
-- **取りこぼし検出なし**: 再起動後に過去の未実行を検出する仕組みがない
-- **コミュニティソリューションの複雑さ**: redbeat や Redlock は追加の学習コストがかかる
-- **本番環境での推奨**: Celery Beat を避け、外部スケジューラを使用
+- **No official high availability support**: Celery Beat is inherently single-instance
+- **No missed execution detection**: No mechanism to detect past unexecuted tasks after restart
+- **Community solution complexity**: redbeat and Redlock require additional learning
+- **Production recommendation**: Avoid Celery Beat, use an external scheduler
 
-**参考資料**:
+**References**:
 - [Celery Beat High Availability Issue #1495](https://github.com/celery/celery/issues/1495)
 - [Distributed Scheduling Gone Wrong: The Celery Beat Trap](https://medium.com/@sudarshaana/distributed-scheduling-gone-wrong-the-celery-beat-trap-and-how-we-escaped-85c7e53828f6)
 - [Question: missed schedules in celery beat](https://github.com/celery/celery/issues/6124)
 
 ---
 
-## 比較表
+## Comparison Table
 
-| システム | 取りこぼし検出 | 自動リカバリ | 高可用性 | 実装難易度 | 用途 |
-|---------|--------------|------------|---------|-----------|------|
-| **Kubernetes CronJob** | ⚠️ 部分的<br>（猶予期間のみ） | ❌ なし | ✅ あり<br>（k8s の冗長性） | 中 | インフラタスク |
-| **EventBridge Scheduler** | ❌ なし<br>（実行失敗のみリトライ） | ⚠️ 部分的<br>（実行失敗のみ） | ✅ あり<br>（AWS マネージド） | 低 | イベント駆動 |
-| **Apache Airflow** | ✅ あり<br>（catchup） | ✅ あり<br>（backfill） | ✅ あり<br>（クラスタ構成） | 高 | データパイプライン |
-| **Celery Beat** | ❌ なし | ❌ なし | ❌ なし<br>（シングルインスタンス） | 低（基本）<br>高（HA化） | 軽量タスクキュー |
+| System | Missed Execution Detection | Automatic Recovery | High Availability | Implementation Difficulty | Use Case |
+|--------|---------------------------|-------------------|-------------------|--------------------------|----------|
+| **Kubernetes CronJob** | Partial<br>(grace period only) | None | Yes<br>(k8s redundancy) | Medium | Infrastructure tasks |
+| **EventBridge Scheduler** | None<br>(retries execution failures only) | Partial<br>(execution failures only) | Yes<br>(AWS managed) | Low | Event-driven |
+| **Apache Airflow** | Yes<br>(catchup) | Yes<br>(backfill) | Yes<br>(cluster configuration) | High | Data pipelines |
+| **Celery Beat** | None | None | None<br>(single instance) | Low (basic)<br>High (HA) | Lightweight task queue |
 
 ---
 
-## 結論
+## Conclusion
 
-1. **完全な保証は困難**: どのシステムも「正確に1回」の実行を保証していない
-2. **トレードオフ**: 実装の複雑さとリカバリの確実性のバランスが重要
-3. **用途に応じた選択**: データパイプラインと単純なタスク実行では要件が異なる
+1. **Complete guarantees are difficult**: No system guarantees "exactly once" execution
+2. **Tradeoffs**: Balancing implementation complexity and recovery reliability is important
+3. **Choose based on use case**: Data pipelines and simple task execution have different requirements
