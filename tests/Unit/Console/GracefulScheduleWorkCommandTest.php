@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use DateTimeImmutable;
+use Illuminate\Console\OutputStyle;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Console\Scheduling\SchedulingMutex;
@@ -18,9 +19,12 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\StubThrowingOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 class GracefulScheduleWorkCommandTest extends TestCase
 {
@@ -85,5 +89,104 @@ class GracefulScheduleWorkCommandTest extends TestCase
 
         // The command runs indefinitely, so we verify it can be instantiated and has correct signature
         $this->assertSame('schedule:graceful-work', $command->getName());
+    }
+
+    /**
+     * @testdox GC.2 Reports exception via handler when orchestrator throws
+     */
+    public function testReportsExceptionViaHandlerWhenOrchestratorThrows(): void
+    {
+        $exception = new \RuntimeException('Cache connection failed');
+        $orchestrator = new StubThrowingOrchestrator($exception);
+        $handler = new SpyExceptionHandler();
+        $schedule = new Schedule();
+
+        $mockApp = $this->createMockApplication();
+
+        $command = new GracefulScheduleWorkCommand();
+        $command->setLaravel($mockApp);
+        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
+
+        $exitCode = $command->handle($orchestrator, $schedule, $handler);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame(1, $handler->getReportedCount());
+        $this->assertSame($exception, $handler->getReported()[0]);
+    }
+
+    /**
+     * @testdox GC.3 Reports Throwable Error via handler
+     */
+    public function testReportsThrowableErrorViaHandler(): void
+    {
+        $error = new \TypeError('Unexpected type');
+        $orchestrator = new StubThrowingOrchestrator($error);
+        $handler = new SpyExceptionHandler();
+        $schedule = new Schedule();
+
+        $mockApp = $this->createMockApplication();
+
+        $command = new GracefulScheduleWorkCommand();
+        $command->setLaravel($mockApp);
+        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
+
+        $exitCode = $command->handle($orchestrator, $schedule, $handler);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame(1, $handler->getReportedCount());
+        $this->assertSame($error, $handler->getReported()[0]);
+    }
+
+    /**
+     * @testdox GC.4 Returns exit code 1 even when report fails
+     */
+    public function testReturnsExitCode1EvenWhenReportFails(): void
+    {
+        $exception = new \RuntimeException('Original error');
+        $orchestrator = new StubThrowingOrchestrator($exception);
+        $handler = new SpyExceptionHandler();
+        $handler->willThrowOnReport(new \RuntimeException('Report failed'));
+        $schedule = new Schedule();
+
+        $mockApp = $this->createMockApplication();
+
+        $command = new GracefulScheduleWorkCommand();
+        $command->setLaravel($mockApp);
+        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
+
+        $exitCode = $command->handle($orchestrator, $schedule, $handler);
+
+        $this->assertSame(1, $exitCode);
+    }
+
+    /**
+     * @testdox GC.5 Returns exit code 0 on normal completion
+     */
+    public function testReturnsExitCode0OnNormalCompletion(): void
+    {
+        $fakeResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
+        $dispatcher = new FakeDispatcher($fakeResult);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $tracker = new NullExecutionTracker();
+        $logger = new NullLogger();
+        $sleeper = new NullSleeper();
+        $orchestrator = new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, $sleeper);
+
+        $handler = new SpyExceptionHandler();
+        $schedule = new Schedule();
+
+        $mockApp = $this->createMockApplication();
+
+        $command = new GracefulScheduleWorkCommand();
+        $command->setLaravel($mockApp);
+        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
+
+        // Simulate shutdown to stop the loop immediately
+        $command->shutdown(SIGTERM, null);
+
+        $exitCode = $command->handle($orchestrator, $schedule, $handler);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame(0, $handler->getReportedCount());
     }
 }

@@ -31,7 +31,7 @@
 | Scheduling/ClockAwareEventTest | `CE` | 19 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
-| Console/GracefulScheduleWorkCommandTest | `GC` | 1 |
+| Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
 | Console/UsesClockAwareScheduleTest | `UCS` | 10 |
 | Dispatcher/LocalDispatcherTest | `LD` | 31 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |

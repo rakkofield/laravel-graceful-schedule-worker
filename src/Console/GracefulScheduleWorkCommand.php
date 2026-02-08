@@ -6,6 +6,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Foundation\Application;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 
@@ -33,10 +34,14 @@ class GracefulScheduleWorkCommand extends Command
      *
      * @param ScheduleOrchestratorInterface $orchestrator
      * @param Schedule $schedule
+     * @param ExceptionHandler $handler
      * @return int
      */
-    public function handle(ScheduleOrchestratorInterface $orchestrator, Schedule $schedule)
-    {
+    public function handle(
+        ScheduleOrchestratorInterface $orchestrator,
+        Schedule $schedule,
+        ExceptionHandler $handler
+    ) {
         $this->info('Running scheduled tasks.');
 
         $this->listenForSignal();
@@ -44,15 +49,35 @@ class GracefulScheduleWorkCommand extends Command
         /** @var Application $app */
         $app = $this->laravel;
 
-        $orchestrator->run(
-            $schedule,
-            $app,
-            function () {
-                return $this->running;
-            }
-        );
+        try {
+            $orchestrator->run(
+                $schedule,
+                $app,
+                function () {
+                    return $this->running;
+                }
+            );
+        } catch (\Throwable $e) {
+            $this->reportException($handler, $e);
+
+            return 1;
+        }
 
         return 0;
+    }
+
+    /**
+     * @param ExceptionHandler $handler
+     * @param \Throwable $e
+     * @return void
+     */
+    private function reportException(ExceptionHandler $handler, \Throwable $e): void
+    {
+        try {
+            $handler->report($e);
+        } catch (\Throwable $reportError) {
+            // report() itself may throw (e.g. TypeError on Laravel 6 when passing \Error)
+        }
     }
 
     private function listenForSignal(): void
