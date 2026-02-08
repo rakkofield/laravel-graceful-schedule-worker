@@ -556,7 +556,7 @@ sequenceDiagram
 ##### 継承関係（extends）
 
 - **`ClockAwareSchedule` extends `Schedule`**
-  Laravel の `Schedule` クラスを継承し、`exec()` / `command()` メソッドをオーバーライドすることで、`ClockAwareEvent` を返すように拡張します。利用側は `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし、`ClockAwareSchedule` を `Schedule` シングルトンとして登録することで拡張機能が利用可能になります。
+  Laravel の `Schedule` クラスを継承し、`exec()` / `command()` メソッドをオーバーライドすることで、`ClockAwareEvent` を返すように拡張します。利用側は `Kernel.php` で `UsesClockAwareSchedule` trait を使用し、`gracefulSchedule(ClockAwareSchedule $schedule)` を実装することで拡張機能が利用可能になります。
 
 - **`ClockAwareEvent` extends `Event`**
   Laravel の `Event` クラスを継承し、`ClockInterface` を注入することで、テスト時の時刻固定と Grace Period 管理を実現します。
@@ -590,8 +590,7 @@ sequenceDiagram
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Kernel.php                                  │
-│  defineConsoleSchedule() で ClockAwareSchedule を Schedule に登録   │
-│  → gracefulSchedule(ClockAwareSchedule) を呼び出し                 │
+│  use UsesClockAwareSchedule;  // trait が自動登録を担当             │
 │                                                                     │
 │  protected function gracefulSchedule(ClockAwareSchedule $schedule)  │
 │  {                                                                  │
@@ -656,7 +655,7 @@ sequenceDiagram
 
 **重要なポイント**:
 
-1. **型安全性**: `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし `ClockAwareSchedule` を登録。`gracefulSchedule(ClockAwareSchedule $schedule)` メソッドにより完全な型ヒントで IDE 補完と静的解析が効く
+1. **型安全性**: `UsesClockAwareSchedule` trait が `defineConsoleSchedule()` を自動オーバーライドし `ClockAwareSchedule` を登録。`gracefulSchedule(ClockAwareSchedule $schedule)` メソッドにより完全な型ヒントで IDE 補完と静的解析が効く
 2. **テスタビリティ**: `ClockInterface` により時刻を固定でき、決定論的なテストが可能
 3. **拡張性**: Dispatcher パターンにより、新しい実行方法（例: Kubernetes Job）を簡単に追加可能
 4. **信頼性**: ExecutionTracker により At-least-once セマンティックを実現し、取りこぼしを防止
@@ -1699,8 +1698,9 @@ interface ExecutionTrackerInterface
 - `ScheduleOrchestratorInterface` を `DefaultScheduleOrchestrator` として登録
 
 **重要なポイント**:
-- 利用側は `Kernel.php` で `defineConsoleSchedule()` をオーバーライドし、`ClockAwareSchedule` を `Schedule` シングルトンとして登録する
-- `gracefulSchedule(ClockAwareSchedule $schedule)` メソッドにより完全な型ヒントで IDE 補完と静的解析ツールのサポートを維持
+- 利用側は `Kernel.php` で `UsesClockAwareSchedule` trait を使用し、`gracefulSchedule(ClockAwareSchedule $schedule)` を実装する
+- trait が `defineConsoleSchedule()` をオーバーライドし `ClockAwareSchedule` を `Schedule` シングルトンとして自動登録する
+- 完全な型ヒントで IDE 補完と静的解析ツールのサポートを維持
 - 後方互換性を保ちながら段階的な移行が可能
 
 ### ClockAwareSchedule
@@ -2214,24 +2214,17 @@ Laravel の `ManagesFrequencies` トレイトには `Carbon::now()` を直接使
 
 ### 基本的な使い方
 
+`UsesClockAwareSchedule` trait を使うと、`defineConsoleSchedule()` のボイラープレートが不要になります。
+`gracefulSchedule(ClockAwareSchedule $schedule)` を実装するだけで完全な型ヒント付きスケジュール定義が可能です。
+
 ```php
 // app/Console/Kernel.php
-use Illuminate\Console\Scheduling\Schedule;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\UsesClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class Kernel extends ConsoleKernel
 {
-    // ClockAwareSchedule を Schedule シングルトンとして登録
-    protected function defineConsoleSchedule()
-    {
-        $this->app->singleton(Schedule::class, function ($app) {
-            $clock = $app->make(ClockInterface::class);
-            $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone());
-            $this->gracefulSchedule($schedule->useCache($this->scheduleCache()));
-            return $schedule;
-        });
-    }
+    use UsesClockAwareSchedule;
 
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
@@ -2318,7 +2311,7 @@ SCHEDULE_STATE_MACHINE_ARN=arn:aws:states:ap-northeast-1:123456789012:stateMachi
 SCHEDULE_TRACKER_ENABLED=true
 SCHEDULE_TRACKER_STORE=redis
 
-// Kernel.php（defineConsoleSchedule() は「基本的な使い方」と同じ）
+// Kernel.php（use UsesClockAwareSchedule は「基本的な使い方」と同じ）
 
 protected function gracefulSchedule(ClockAwareSchedule $schedule)
 {
@@ -2330,6 +2323,6 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 
 ---
 
-**Last Updated**: 2026-02-07
-**Version**: 3.5.0 (コードベースとのギャップ解消、テスト一覧・ディレクトリ構成・実装フェーズを実態に同期)
+**Last Updated**: 2026-02-08
+**Version**: 3.6.0 (UsesClockAwareSchedule trait 追加、defineConsoleSchedule ボイラープレート削減)
 **Author**: Laravel Graceful Schedule Worker Team

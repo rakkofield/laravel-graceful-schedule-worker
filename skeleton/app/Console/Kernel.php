@@ -3,14 +3,15 @@
 namespace App\Console;
 
 use App\Console\Commands\Hello;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Log;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\UsesClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class Kernel extends ConsoleKernel
 {
+    use UsesClockAwareSchedule;
+
     /**
      * The Artisan commands provided by your application.
      *
@@ -19,27 +20,6 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Hello::class,
     ];
-
-    /**
-     * Define the console schedule.
-     *
-     * ClockAwareSchedule を使用するためにオーバーライド。
-     * schedule:graceful-work コマンドが注入時計に基づいてスケジュール判定を行う。
-     *
-     * @return void
-     */
-    protected function defineConsoleSchedule()
-    {
-        $this->app->singleton(Schedule::class, function ($app) {
-            /** @var ClockInterface $clock */
-            $clock = $app->make(ClockInterface::class);
-            $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone());
-
-            $this->gracefulSchedule($schedule->useCache($this->scheduleCache()));
-
-            return $schedule;
-        });
-    }
 
     /**
      * Define the application's command schedule.
