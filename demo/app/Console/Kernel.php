@@ -31,6 +31,8 @@ class Kernel extends ConsoleKernel
      */
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
+        // Note: appendOutputTo(), before(), onSuccess(), onFailure(), after() are
+        // local dispatch only features — they do not work with Step Functions.
         $schedule->command('hello')->everyMinute()
             ->runInBackground()
             ->withGracePeriod(30)

@@ -129,7 +129,6 @@ SCHEDULE_TRACKER_STORE=redis
 |---|---|---|
 | `SCHEDULE_TRACKER_ENABLED` | `false` | 実行追跡を有効化 |
 | `SCHEDULE_TRACKER_STORE` | `null` | キャッシュストア名（`redis` 等） |
-| `SCHEDULE_TRACKER_PREFIX` | `schedule:executed:` | キーの接頭辞 |
 | `SCHEDULE_TRACKER_LOCK_TTL` | `3600` | ロックの TTL（秒） |
 
 ### withGracePeriod() の追加
@@ -230,7 +229,6 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 | `SCHEDULE_DISPATCH` | `local` | ディスパッチ方法: `local` / `stepfunctions` |
 | `SCHEDULE_TRACKER_ENABLED` | `false` | 実行追跡の有効化 |
 | `SCHEDULE_TRACKER_STORE` | `null` | 追跡用キャッシュストア |
-| `SCHEDULE_TRACKER_PREFIX` | `schedule:executed:` | キーの接頭辞 |
 | `SCHEDULE_TRACKER_LOCK_TTL` | `3600` | ロック TTL（秒） |
 | `SCHEDULE_STATE_MACHINE_ARN` | `null` | Step Functions State Machine ARN |
 | `AWS_DEFAULT_REGION` | `ap-northeast-1` | AWS リージョン |
@@ -258,8 +256,9 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 | `runInBackground()` | そのまま使える | 推奨 |
 | `environments()` / `evenInMaintenanceMode()` | そのまま使える | |
 | `timezone()` | そのまま使える | |
-| `before()` / `after()` 等 | Local のみ | Step Functions 非対応 |
+| `before()` / `after()` / `onSuccess()` / `onFailure()` | Local のみ | Step Functions 非対応 |
 | `appendOutputTo()` / `sendOutputTo()` | Local のみ | Step Functions 非対応 |
+| `pingBefore()` / `thenPing()` / `emailOutputTo()` | Local のみ | Step Functions 非対応 |
 | `$schedule->call(Closure)` | 非対応 | Artisan コマンドに変換が必要 |
 | `lastDayOfMonth()` | 制限あり | 月境界で不正確になる可能性 |
 

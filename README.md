@@ -156,7 +156,6 @@ See [docs/STEPFUNCTIONS_IMPLEMENTATION.md](docs/STEPFUNCTIONS_IMPLEMENTATION.md)
 | `SCHEDULE_DISPATCH` | `local` | Dispatch method: `local` or `stepfunctions` |
 | `SCHEDULE_TRACKER_ENABLED` | `false` | Enable execution tracking for recovery |
 | `SCHEDULE_TRACKER_STORE` | `null` | Cache store for tracking (`redis`, etc.) |
-| `SCHEDULE_TRACKER_PREFIX` | `schedule:executed:` | Key prefix for tracker entries |
 | `SCHEDULE_TRACKER_LOCK_TTL` | `3600` | Lock TTL in seconds |
 | `SCHEDULE_STATE_MACHINE_ARN` | `null` | Step Functions state machine ARN |
 | `AWS_DEFAULT_REGION` | `ap-northeast-1` | AWS region |
@@ -191,6 +190,7 @@ Most Laravel scheduling methods work unchanged:
 |---|---|
 | `before()` / `after()` / `onSuccess()` / `onFailure()` | Local dispatch only (not available with Step Functions) |
 | `appendOutputTo()` / `sendOutputTo()` | Local dispatch only |
+| `pingBefore()` / `thenPing()` / `emailOutputTo()` | Local dispatch only |
 | `$schedule->call(Closure)` | Not supported — convert to Artisan commands |
 | `lastDayOfMonth()` | May be inaccurate across month boundaries in long-running workers |
 

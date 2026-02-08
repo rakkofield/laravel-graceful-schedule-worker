@@ -235,6 +235,7 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 | `timezone()` | そのまま使える | |
 | `before()` / `after()` / `onSuccess()` / `onFailure()` | Local のみ | Step Functions 非対応 |
 | `appendOutputTo()` / `sendOutputTo()` | Local のみ | Step Functions 非対応 |
+| `pingBefore()` / `thenPing()` / `emailOutputTo()` | Local のみ | Step Functions 非対応 |
 | `$schedule->call(Closure)` | 非対応 | Artisan コマンドに変換が必要 |
 | `lastDayOfMonth()` | 制限あり | 月境界で不正確になる可能性 |
 

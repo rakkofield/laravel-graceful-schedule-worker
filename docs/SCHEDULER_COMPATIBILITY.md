@@ -91,15 +91,15 @@ Both can coexist. `withoutOverlapping()` is checked via `filtersPass()` before r
 | Cron expression | `cron()`, `everyMinute()`, `hourly()`, `daily()`, etc. | Inherited |
 | Timezone | `timezone($tz)` | Inherited |
 | Day constraints | `weekdays()`, `sundays()`, etc. | Inherited |
-| Output handling | `sendOutputTo()`, `appendOutputTo()` | Inherited |
 | Background execution | `runInBackground()` | Inherited |
 
-### Not applicable in this library
+### Local dispatch only (not available with Step Functions)
 
 | Feature | Method | Reason |
 |---|---|---|
-| Before/After callbacks | `before()`, `after()`, `then()` | Events are dispatched, not run directly by the orchestrator |
-| Ping URLs | `pingBefore()`, `thenPing()` | Same as above |
+| Before/After callbacks | `before()`, `after()`, `then()`, `onSuccess()`, `onFailure()` | LocalDispatcher executes these; Step Functions dispatcher does not |
+| Output handling | `sendOutputTo()`, `appendOutputTo()` | Output redirection is only effective with local process dispatch |
+| Ping URLs | `pingBefore()`, `thenPing()` | Same as callbacks above |
 | Email output | `emailOutputTo()` | Same as above |
 
 ### Known Limitations
