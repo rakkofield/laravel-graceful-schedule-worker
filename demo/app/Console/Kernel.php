@@ -74,8 +74,7 @@ class Kernel extends ConsoleKernel
             })
             ->after(function () {
                 Log::info('hello finished.');
-            })
-            ->withoutOverlapping(10);
+            });
 
         // ---------------------------------------------------------------
         // Example 2: Long-running task with recovery and time window
@@ -102,8 +101,7 @@ class Kernel extends ConsoleKernel
             })
             ->after(function () {
                 Log::info('loop-hello finished.');
-            })
-            ->withoutOverlapping(10);
+            });
 
         // ---------------------------------------------------------------
         // Example 3: Step Functions dispatch via moto
