@@ -125,4 +125,18 @@ class UsesClockAwareScheduleTest extends TestCase
 
         $this->assertCount(2, $dueEvents);
     }
+
+    /**
+     * @testdox T7.6 ClockAwareSchedule::class resolves to the same singleton as Schedule::class
+     */
+    public function testClockAwareScheduleClassResolvesToSameSingleton(): void
+    {
+        $kernel = new FakeKernelWithTrait();
+        $kernel->defineConsoleSchedule();
+
+        $viaSchedule = $this->container->make(Schedule::class);
+        $viaClockAware = $this->container->make(ClockAwareSchedule::class);
+
+        $this->assertSame($viaSchedule, $viaClockAware);
+    }
 }

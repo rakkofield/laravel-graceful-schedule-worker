@@ -43,5 +43,7 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
 
             return $schedule;
         });
+
+        $this->app->alias(Schedule::class, ClockAwareSchedule::class);
     }
 }
