@@ -198,7 +198,7 @@ See [docs/SCHEDULER_COMPATIBILITY.md](docs/SCHEDULER_COMPATIBILITY.md) for detai
 
 ## Migration from Laravel Scheduler
 
-Migration requires minimal changes — your existing `schedule()` body can be copied almost as-is into `gracefulSchedule()`. See [docs/MIGRATION.md](docs/MIGRATION.md) for a step-by-step guide.
+Migration requires minimal changes — your existing `schedule()` body can be copied almost as-is into `gracefulSchedule()`. For projects with many tasks, gradual migration is also supported: keep `schedule()` as-is and move tasks one by one to `gracefulSchedule()`. See [docs/MIGRATION.md](docs/MIGRATION.md) for a step-by-step guide.
 
 ## Documentation
 

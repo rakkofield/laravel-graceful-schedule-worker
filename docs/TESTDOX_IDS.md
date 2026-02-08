@@ -27,12 +27,12 @@
 | Clock/SystemClockTest | `SC` | 2 |
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
-| Scheduling/ClockAwareScheduleTest | `CS` | 8 |
+| Scheduling/ClockAwareScheduleTest | `CS` | 13 |
 | Scheduling/ClockAwareEventTest | `CE` | 19 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 1 |
-| Console/UsesClockAwareScheduleTest | `UCS` | 6 |
+| Console/UsesClockAwareScheduleTest | `UCS` | 10 |
 | Dispatcher/LocalDispatcherTest | `LD` | 31 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 13 |

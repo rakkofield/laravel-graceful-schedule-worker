@@ -93,6 +93,8 @@ class Kernel extends ConsoleKernel
 2. `schedule()` を `gracefulSchedule()` にリネーム（中身はほぼそのまま）
 3. `runInBackground()` を追加（推奨）
 
+> **ヒント:** タスク数が多い場合は、`schedule()` をそのまま残してタスクを段階的に `gracefulSchedule()` に移動することもできます。詳しくは [MIGRATION.md](./MIGRATION.md#移行方法の選択) を参照してください。
+
 ### コマンド実行
 
 ```shell

@@ -6,6 +6,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateTimeImmutable;
 use Illuminate\Console\Application;
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
@@ -19,6 +20,9 @@ class ClockAwareSchedule extends Schedule
     /** @var FreezableClock 全 ClockAwareEvent で共有される freezable な clock ラッパー */
     private $eventClock;
 
+    /** @var bool true の場合、exec() は親の Event を生成する */
+    private $nativeEventMode = false;
+
     /**
      * @param ClockInterface $clock
      * @param \DateTimeZone|string|null $timezone
@@ -31,11 +35,31 @@ class ClockAwareSchedule extends Schedule
     }
 
     /**
+     * Native events モードでコールバックを実行
+     *
+     * コールバック内の command()/exec() 呼び出しは親の Event を生成する。
+     * ClockAwareEvent ではなく Laravel 標準の Event が使われるため、
+     * Clock の振る舞いは変化しない。
+     *
+     * @param callable $callback
+     * @return void
+     */
+    public function withNativeEvents(callable $callback)
+    {
+        $this->nativeEventMode = true;
+        try {
+            $callback();
+        } finally {
+            $this->nativeEventMode = false;
+        }
+    }
+
+    /**
      * Add a new Artisan command event to the schedule.
      *
      * @param string $command
      * @param array<string, mixed> $parameters
-     * @return ClockAwareEvent
+     * @return ClockAwareEvent|Event
      */
     public function command($command, array $parameters = [])
     {
@@ -56,10 +80,14 @@ class ClockAwareSchedule extends Schedule
      *
      * @param string $command
      * @param array<string, mixed> $parameters
-     * @return ClockAwareEvent
+     * @return ClockAwareEvent|Event
      */
     public function exec($command, array $parameters = [])
     {
+        if ($this->nativeEventMode) {
+            return parent::exec($command, $parameters);
+        }
+
         if (count($parameters)) {
             $command .= ' ' . $this->compileParameters($parameters);
         }

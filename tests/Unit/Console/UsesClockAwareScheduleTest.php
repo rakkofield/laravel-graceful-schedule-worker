@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Console\Scheduling\SchedulingMutex;
@@ -11,6 +12,7 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
@@ -138,5 +140,65 @@ class UsesClockAwareScheduleTest extends TestCase
         $viaClockAware = $this->container->make(ClockAwareSchedule::class);
 
         $this->assertSame($viaSchedule, $viaClockAware);
+    }
+
+    /**
+     * @testdox UCS.7 schedule() のイベントが Event 型（ClockAwareEvent でない）になる
+     */
+    public function testScheduleEventsAreNativeEventType(): void
+    {
+        $kernel = new FakeKernelWithGradualMigration();
+        $kernel->defineConsoleSchedule();
+
+        $this->container->make(Schedule::class);
+
+        $this->assertCount(1, $kernel->scheduleEvents);
+        $this->assertInstanceOf(Event::class, $kernel->scheduleEvents[0]);
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $kernel->scheduleEvents[0]);
+    }
+
+    /**
+     * @testdox UCS.8 gracefulSchedule() のイベントが ClockAwareEvent 型になる
+     */
+    public function testGracefulScheduleEventsAreClockAwareEventType(): void
+    {
+        $kernel = new FakeKernelWithGradualMigration();
+        $kernel->defineConsoleSchedule();
+
+        $this->container->make(Schedule::class);
+
+        $this->assertCount(1, $kernel->gracefulScheduleEvents);
+        $this->assertInstanceOf(ClockAwareEvent::class, $kernel->gracefulScheduleEvents[0]);
+    }
+
+    /**
+     * @testdox UCS.9 両メソッドのイベントが同じ Schedule に共存する
+     */
+    public function testBothMethodsEventsCoexistInSameSchedule(): void
+    {
+        $kernel = new FakeKernelWithGradualMigration();
+        $kernel->defineConsoleSchedule();
+
+        /** @var ClockAwareSchedule $schedule */
+        $schedule = $this->container->make(Schedule::class);
+        $events = $schedule->events();
+
+        $this->assertCount(2, $events);
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $events[0]);
+        $this->assertInstanceOf(ClockAwareEvent::class, $events[1]);
+    }
+
+    /**
+     * @testdox UCS.10 gracefulSchedule() をオーバーライドしない場合、空のデフォルト実装が使われる
+     */
+    public function testDefaultGracefulScheduleIsEmpty(): void
+    {
+        $kernel = new FakeKernelWithTrait();
+        $kernel->defineConsoleSchedule();
+
+        /** @var ClockAwareSchedule $schedule */
+        $schedule = $this->container->make(Schedule::class);
+
+        $this->assertCount(0, $schedule->events());
     }
 }

@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 /**
- * UsesClockAwareSchedule trait のテスト用 Fake Kernel
+ * schedule() と gracefulSchedule() の共存テスト用 Fake Kernel
  *
- * ConsoleKernel の $this->app, scheduleTimezone(), scheduleCache() を
- * スタブ実装で提供する。
+ * schedule() で通常の Event を、gracefulSchedule() で ClockAwareEvent を登録し、
+ * 段階的移行のシナリオをテストする。
  */
-class FakeKernelWithTrait
+class FakeKernelWithGradualMigration
 {
     use UsesClockAwareSchedule {
         defineConsoleSchedule as public;
@@ -22,8 +23,11 @@ class FakeKernelWithTrait
     /** @var Container ConsoleKernel::$app のスタブ */
     public $app;
 
-    /** @var ClockAwareSchedule|null gracefulSchedule() で受け取った schedule */
-    public $receivedSchedule;
+    /** @var Event[] schedule() で登録されたイベント */
+    public $scheduleEvents = [];
+
+    /** @var Event[] gracefulSchedule() で登録されたイベント */
+    public $gracefulScheduleEvents = [];
 
     /** @var \DateTimeZone|string|null scheduleTimezone() の戻り値 */
     private $timezone;
@@ -48,12 +52,12 @@ class FakeKernelWithTrait
      */
     protected function schedule($schedule)
     {
-        //
+        $this->scheduleEvents[] = $schedule->command('native-task');
     }
 
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
-        $this->receivedSchedule = $schedule;
+        $this->gracefulScheduleEvents[] = $schedule->command('clock-aware-task');
     }
 
     /**

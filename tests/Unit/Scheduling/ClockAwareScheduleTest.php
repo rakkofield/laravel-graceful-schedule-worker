@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateTimeImmutable;
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
@@ -168,5 +169,94 @@ class ClockAwareScheduleTest extends TestCase
         $eventClock = $reflection->getValue($event);
 
         $this->assertInstanceOf(FreezableClock::class, $eventClock);
+    }
+
+    /**
+     * @testdox CS.9 withNativeEvents 内の exec() が Event（ClockAwareEvent でない）を返す
+     */
+    public function testWithNativeEventsExecReturnsNativeEvent(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = null;
+        $schedule->withNativeEvents(function () use ($schedule, &$event) {
+            $event = $schedule->exec('ls -la');
+        });
+
+        $this->assertInstanceOf(Event::class, $event);
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $event);
+    }
+
+    /**
+     * @testdox CS.10 withNativeEvents 内の command() が Event を返す
+     */
+    public function testWithNativeEventsCommandReturnsNativeEvent(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = null;
+        $schedule->withNativeEvents(function () use ($schedule, &$event) {
+            $event = $schedule->command('php artisan test');
+        });
+
+        $this->assertInstanceOf(Event::class, $event);
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $event);
+    }
+
+    /**
+     * @testdox CS.11 withNativeEvents 完了後は ClockAwareEvent に戻る
+     */
+    public function testAfterWithNativeEventsReturnsClockAwareEvent(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $schedule->withNativeEvents(function () use ($schedule) {
+            $schedule->exec('ls -la');
+        });
+
+        $event = $schedule->exec('echo test');
+        $this->assertInstanceOf(ClockAwareEvent::class, $event);
+    }
+
+    /**
+     * @testdox CS.12 withNativeEvents 内で例外が発生してもモードが復元される
+     */
+    public function testWithNativeEventsRestoresModeOnException(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        try {
+            $schedule->withNativeEvents(function () {
+                throw new \RuntimeException('test exception');
+            });
+        } catch (\RuntimeException $e) {
+            // expected
+        }
+
+        $event = $schedule->exec('echo test');
+        $this->assertInstanceOf(ClockAwareEvent::class, $event);
+    }
+
+    /**
+     * @testdox CS.13 withNativeEvents 内と外のイベントが同一 events 配列に共存する
+     */
+    public function testNativeAndClockAwareEventsCoexistInEventsArray(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $schedule->withNativeEvents(function () use ($schedule) {
+            $schedule->exec('native-command');
+        });
+        $schedule->exec('clock-aware-command');
+
+        $events = $schedule->events();
+        $this->assertCount(2, $events);
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $events[0]);
+        $this->assertInstanceOf(ClockAwareEvent::class, $events[1]);
     }
 }

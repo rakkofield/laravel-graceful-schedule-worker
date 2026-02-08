@@ -56,6 +56,43 @@ class Kernel extends ConsoleKernel
 }
 ```
 
+### 移行方法の選択
+
+#### 方法 A: 一括移行（推奨: タスク数が少ない場合）
+
+`schedule()` の中身を `gracefulSchedule()` にコピーして一括で切り替えます。以下の手順はこの方法を説明しています。
+
+#### 方法 B: 段階的移行（推奨: タスク数が多い・リスクを最小化したい場合）
+
+`schedule()` はそのままにして、タスクを 1 つずつ `gracefulSchedule()` に移動します。
+
+- `schedule()` に残っているタスク → Laravel 標準の `Event`（振る舞い変化なし）
+- `gracefulSchedule()` に移動したタスク → `ClockAwareEvent`（新しい振る舞い）
+
+```php
+class Kernel extends ConsoleKernel
+{
+    use UsesClockAwareSchedule;
+
+    // まだ移行していないタスク（振る舞い変化なし）
+    protected function schedule(Schedule $schedule)
+    {
+        $schedule->command('emails:send')->everyFiveMinutes();
+        $schedule->command('cache:prune')->hourly();
+    }
+
+    // 移行済みタスク（Clock-aware + リカバリ対応）
+    protected function gracefulSchedule(ClockAwareSchedule $schedule)
+    {
+        $schedule->command('reports:daily')->dailyAt('02:00')
+            ->runInBackground()
+            ->withGracePeriod(30);
+    }
+}
+```
+
+> **注意:** 同じタスクを両方のメソッドに定義しないでください（二重実行になります）。
+
 ### 手順
 
 #### ステップ 1: パッケージのインストール
@@ -260,9 +297,11 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 
 ### Q: schedule() と gracefulSchedule() を共存できるか？
 
-`UsesClockAwareSchedule` trait は `defineConsoleSchedule()` をオーバーライドするため、**共存はできません**。全てのタスクを `gracefulSchedule()` に移動する必要があります。
+**はい、共存できます。** `schedule()` に残したタスクは Laravel 標準の `Event` として動作し（振る舞い変化なし）、`gracefulSchedule()` に移動したタスクは `ClockAwareEvent` として動作します。これにより、タスク単位での段階的移行が可能です。
 
-ただし、メソッドの中身はほぼそのままコピーできるため、移行の手間は最小限です。trait を適用した後も `schedule:work` で動作するので、Kernel の変更とコマンドの切り替えは別々のタイミングで行えます（[振る舞いの変化について](#振る舞いの変化について)を参照）。
+詳しくは[移行方法の選択](#移行方法の選択)を参照してください。
+
+> **注意:** 同じタスクを `schedule()` と `gracefulSchedule()` の両方に定義すると二重実行になります。移動する際は必ず元のメソッドから削除してください。
 
 ### Q: schedule:work と schedule:graceful-work を同時に動かせるか？
 
