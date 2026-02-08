@@ -7,6 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 use DateInterval;
 use DateTimeImmutable;
 use Illuminate\Container\Container;
+use Illuminate\Support\ProcessUtils;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 
@@ -210,6 +211,65 @@ class ClockAwareEventTest extends TestCase
 
         $command = $event->buildProcessCommand();
 
+        $this->assertNotRegExp('/\s+&\s*$/', $command);
+    }
+
+    /**
+     * @testdox CE.8.3 buildProcessCommand redirects schedule:finish output to the same file as the main command
+     */
+    public function testBuildProcessCommandRedirectsScheduleFinishToSameOutput(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+        $event->appendOutputTo('/tmp/test.log');
+
+        $command = $event->buildProcessCommand();
+        $output = ProcessUtils::escapeArgument('/tmp/test.log');
+
+        // schedule:finish should redirect to the same output file
+        $this->assertStringContainsString(
+            'schedule:finish',
+            $command
+        );
+        $this->assertRegExp(
+            '/schedule:finish\s.*>>\s*' . preg_quote($output, '/') . '\s+2>&1/',
+            $command
+        );
+    }
+
+    /**
+     * @testdox CE.8.4 buildProcessCommand does not have outer /dev/null redirect when appendOutputTo is set
+     */
+    public function testBuildProcessCommandDoesNotHaveOuterDevNullRedirect(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+        $event->appendOutputTo('/tmp/test.log');
+
+        $command = $event->buildProcessCommand();
+
+        // Should NOT have outer > /dev/null 2>&1
+        $this->assertNotRegExp('/\)\s*>\s*\/dev\/null/', $command);
+    }
+
+    /**
+     * @testdox CE.8.5 buildProcessCommand works correctly with default output (/dev/null)
+     */
+    public function testBuildProcessCommandWorksWithDefaultOutput(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+
+        $command = $event->buildProcessCommand();
+        $devNull = ProcessUtils::escapeArgument('/dev/null');
+
+        // Both main command and schedule:finish should redirect to /dev/null
+        $this->assertStringContainsString('schedule:finish', $command);
+        $this->assertStringContainsString($devNull, $command);
+        $this->assertStringNotContainsString('&' . "\n", $command);
         $this->assertNotRegExp('/\s+&\s*$/', $command);
     }
 
