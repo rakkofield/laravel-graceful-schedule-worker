@@ -1,26 +1,26 @@
 # Laravel Graceful Schedule Worker
 
-## プロジェクト概要
+## Project Overview
 
-Laravel のスケジュールタスクを graceful に実行するためのライブラリ。
-シグナルハンドリングによる安全な停止と、Step Functions 連携をサポート。
+A library for gracefully executing Laravel schedule tasks.
+Supports safe shutdown via signal handling and AWS Step Functions integration.
 
-## 開発ワークフロー
+## Development Workflow
 
-### テスト実行
+### Running Tests
 
 ```bash
-# 全テスト
+# All tests
 composer test
 
-# カバレッジ（テキスト）
+# Coverage (text)
 composer test:coverage
 
-# カバレッジ（HTML）
+# Coverage (HTML)
 composer test:coverage-html
 ```
 
-### 初回セットアップ
+### Initial Setup
 
 ```bash
 composer install
@@ -28,110 +28,109 @@ composer tools:install
 composer skeleton:update
 ```
 
-### Step Functions・Redis テスト
+### Step Functions & Redis Tests
 
-`composer test` 実行時に moto と Redis が自動起動し、Step Functions テスト・Redis 統合テストも実行されます。
+When running `composer test`, moto and Redis start automatically, and Step Functions tests and Redis integration tests are also executed.
 
 ```bash
-# テスト実行（moto・Redis は自動起動）
+# Run tests (moto & Redis start automatically)
 composer test
 
-# 個別操作
-composer stepfunctions:up      # 全サービス起動（moto・Redis、healthcheck で待機）
-composer stepfunctions:down    # 全サービス停止
-composer redis:up              # Redis のみ起動
-composer redis:down            # Redis のみ停止
+# Individual operations
+composer stepfunctions:up      # Start all services (moto & Redis, waits for healthcheck)
+composer stepfunctions:down    # Stop all services
+composer redis:up              # Start Redis only
+composer redis:down            # Stop Redis only
 ```
 
-**前提条件:**
-- Docker がインストールされていること
+**Prerequisites:**
+- Docker must be installed
 
-### skeleton 依存更新
+### Updating Skeleton Dependencies
 
-`src/` 配下のコードを変更した場合、Integration テスト前に skeleton の依存を更新する：
+When modifying code under `src/`, update skeleton dependencies before running integration tests:
 
 ```bash
 composer skeleton:update
 ```
 
-### 静的解析
+### Static Analysis
 
 ```bash
-composer tools:install  # 初回のみ
-composer phpstan        # 静的解析（PHP 8.1+ が必要）
-composer phpcs          # コーディング規約チェック
-composer phpcbf         # 自動修正
+composer tools:install  # First time only
+composer phpstan        # Static analysis (requires PHP 8.1+)
+composer phpcs          # Coding standards check
+composer phpcbf         # Auto-fix
 
-# PHP インタープリターを指定する場合
+# To specify a PHP interpreter
 PHP_SA_BINARY=/path/to/php8.1 composer phpstan
 ```
 
-### タスク完了時
+### On Task Completion
 
-タスクが完了したら、確認を待たずに以下を実行する：
+When a task is completed, run the following without waiting for confirmation:
 
-1. `composer phpstan` で静的解析
-2. `composer phpcs` でコーディング規約チェック
-3. `composer test` でテスト実行
-4. すべて通ればコミットを作成
+1. `composer phpstan` for static analysis
+2. `composer phpcs` for coding standards check
+3. `composer test` to run tests
+4. If all pass, create a commit
 
-## PHP バージョン
+## PHP Version
 
-- 最小要件: PHP 7.2.5
-- `ext-pcntl` 必須（シグナルハンドリング）
-- nullable types (`?string`) は PHP 7.1 からサポートされているため使用可能
+- Minimum requirement: PHP 7.2.5
+- `ext-pcntl` required (for signal handling)
+- Nullable types (`?string`) are available since PHP 7.1
 
-## 設計ドキュメント
+## Design Documents
 
-- `docs/internals/DESIGN.md` - メイン設計仕様（最初に参照）
-- `docs/internals/` - 内部設計ドキュメント（ARCHITECTURE, SCHEDULER_COMPATIBILITY 等）
-- `docs/guide/` - ユーザー向けガイド（QUICKSTART, MIGRATION 等）
-- `.claude/plans/` - 実装計画
+- `docs/internals/DESIGN.md` - Main design specification (read first)
+- `docs/internals/` - Internal design documents (ARCHITECTURE, SCHEDULER_COMPATIBILITY, etc.)
+- `docs/guide/` - User-facing guides (QUICKSTART, MIGRATION, etc.)
+- `.claude/plans/` - Implementation plans
 
-## ディレクトリ構成
+## Directory Structure
 
 ```
 src/
-├── Clock/                # 時刻・Sleep 抽象化（ClockInterface, SleeperInterface）
-├── Console/              # Artisan コマンド（GracefulScheduleWorkCommand）
-├── Dispatcher/           # タスクディスパッチャー
-│   ├── Result/           # ディスパッチ結果型（Started, Failed, Skipped, AlreadyRunning）
-│   └── StepFunctions/    # Step Functions クライアント・例外・名前生成
-├── Orchestrator/         # スケジュール実行調整（DefaultScheduleOrchestrator）
+├── Clock/                # Clock & sleep abstraction (ClockInterface, SleeperInterface)
+├── Console/              # Artisan commands (GracefulScheduleWorkCommand)
+├── Dispatcher/           # Task dispatchers
+│   ├── Result/           # Dispatch result types (Started, Failed, Skipped, AlreadyRunning)
+│   └── StepFunctions/    # Step Functions client, exceptions, name generation
+├── Orchestrator/         # Schedule execution coordination (DefaultScheduleOrchestrator)
 ├── Providers/            # ServiceProvider
 ├── Scheduling/           # ClockAwareSchedule, ClockAwareEvent
-└── Tracker/              # 実行履歴追跡（CacheExecutionTracker, NullExecutionTracker）
+└── Tracker/              # Execution tracking (CacheExecutionTracker, NullExecutionTracker)
 
 tests/
-├── Unit/                 # ユニットテスト（src/ と同じディレクトリ構成）
-├── Integration/          # 統合テスト（skeleton 使用、Redis 必要）
-├── E2E/                  # E2E テスト
-├── Helper/               # テストヘルパー（Fake, Stub, Spy 等）
-└── StepFunctions/        # Step Functions テスト用設定（state-machine.json）
+├── Unit/                 # Unit tests (mirrors src/ directory structure)
+├── Integration/          # Integration tests (uses skeleton, requires Redis)
+├── E2E/                  # E2E tests
+├── Helper/               # Test helpers (Fake, Stub, Spy, etc.)
+└── StepFunctions/        # Step Functions test configuration (state-machine.json)
 
-skeleton/                 # テスト用 Laravel アプリケーション
+skeleton/                 # Test Laravel application
 ```
 
-## 重要な注意事項
+## Important Notes
 
-- コンポーネント依存: Command → Orchestrator → Dispatcher → Result
-- Dispatcher はデコレータパターン: CompositeDispatcher, TrackingDispatcher が ScheduleDispatcherInterface をラップ
-- ライブラリなので `Log::` などの Laravel ファサードに直接依存しない
-- `base_path()` などの Laravel ヘルパーも使用しない
-- ServiceProvider で Schedule を extend しない（利用側が ClockAwareSchedule を選択可能）
+- Component dependencies: Command → Orchestrator → Dispatcher → Result
+- Dispatcher uses the decorator pattern: CompositeDispatcher, TrackingDispatcher wrap ScheduleDispatcherInterface
+- As a library, do not directly depend on Laravel facades like `Log::`
+- Do not use Laravel helpers like `base_path()`
+- Do not extend Schedule in ServiceProvider (consumers can opt into ClockAwareSchedule)
 
-## テストスタイル
+## Test Style
 
-- メソッド命名: `test` prefix + camelCase（例: `testReturnsCurrentTime`）
-- テストID: `@testdox {Prefix}.{seq} 説明テキスト` 形式で PHPDoc に記述
-  - Prefix はテストファイルごとに一意の 2-4 文字英大文字
-  - Unit テスト: テスト対象クラス名の略語（例: LocalDispatcher → `LD`）
-  - Integration テスト: クラス名略語 + `I`（例: CacheTracker Integration → `CTI`）
-  - E2E テスト: `E2E` 固定
-  - 全プレフィックス一覧は `docs/internals/TESTDOX_IDS.md` を参照
-  - 新規プレフィックス追加時は既存プレフィックスとの重複がないことを確認する
-- `declare(strict_types=1)` 必須（src/ と tests/ 両方）
-- tearDown で `Container::setInstance(null)` を呼ぶ（Container を使用するテスト）
-- Mock 禁止: Interface には Fake、実クラスには Stub/Spy を使用
-- テスト用ヘルパークラス（Fake, Stub, Spy, Testable 等）は `tests/Helper/` に配置（1ファイル1クラスを維持）
-
+- Method naming: `test` prefix + camelCase (e.g., `testReturnsCurrentTime`)
+- Test IDs: Written as `@testdox {Prefix}.{seq} Description text` in PHPDoc
+  - Prefix is a unique 2-4 character uppercase abbreviation per test file
+  - Unit tests: Abbreviation of the target class name (e.g., LocalDispatcher → `LD`)
+  - Integration tests: Class name abbreviation + `I` (e.g., CacheTracker Integration → `CTI`)
+  - E2E tests: Fixed as `E2E`
+  - See `docs/internals/TESTDOX_IDS.md` for the full prefix list
+  - When adding new prefixes, ensure no duplicates with existing prefixes
+- `declare(strict_types=1)` required (both src/ and tests/)
+- Call `Container::setInstance(null)` in tearDown (for tests that use Container)
+- No mocks: Use Fake for interfaces, Stub/Spy for concrete classes
+- Test helper classes (Fake, Stub, Spy, Testable, etc.) go in `tests/Helper/` (one class per file)

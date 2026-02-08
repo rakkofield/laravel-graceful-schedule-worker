@@ -6,7 +6,7 @@ return [
     | Schedule Dispatch Method
     |--------------------------------------------------------------------------
     |
-    | ディスパッチ方法を指定します。
+    | Specifies the dispatch method.
     |
     | Supported: "local", "stepfunctions"
     |
@@ -18,7 +18,7 @@ return [
     | Step Functions Configuration
     |--------------------------------------------------------------------------
     |
-    | AWS Step Functions を使用する場合の設定です。
+    | Configuration for using AWS Step Functions.
     |
     */
     'stepfunctions' => [
@@ -36,13 +36,13 @@ return [
     | Execution Tracker Configuration
     |--------------------------------------------------------------------------
     |
-    | 実行履歴のトラッキング設定です。
+    | Execution tracking configuration.
     |
     */
     'tracker' => [
         'enabled' => env('SCHEDULE_TRACKER_ENABLED', false),
         'store' => env('SCHEDULE_TRACKER_STORE'), // redis, dynamodb, etc.
         'prefix' => env('SCHEDULE_TRACKER_PREFIX', 'schedule:executed:'),
-        'lock_ttl' => env('SCHEDULE_TRACKER_LOCK_TTL', 3600),      // ロックのTTL（秒）
+        'lock_ttl' => env('SCHEDULE_TRACKER_LOCK_TTL', 3600),      // Lock TTL in seconds
     ],
 ];

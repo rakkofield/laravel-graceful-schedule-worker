@@ -12,12 +12,12 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInter
 interface ScheduleDispatcherInterface
 {
     /**
-     * 単一イベントをディスパッチする
+     * Dispatch a single event.
      *
-     * @param Event $event 実行するスケジュールイベント
-     * @param Container $container Laravel コンテナインスタンス
-     * @param DateTimeInterface $dueAt 実行予定時刻
-     * @return DispatchResultInterface ディスパッチ結果
+     * @param Event $event The schedule event to execute
+     * @param Container $container Laravel container instance
+     * @param DateTimeInterface $dueAt Scheduled due time
+     * @return DispatchResultInterface Dispatch result
      */
     public function dispatchEvent(
         Event $event,
@@ -26,14 +26,14 @@ interface ScheduleDispatcherInterface
     ): DispatchResultInterface;
 
     /**
-     * 完了したプロセスをクリーンアップする
+     * Clean up completed processes.
      *
      * @return void
      */
     public function cleanup(): void;
 
     /**
-     * 全プロセスを停止する
+     * Stop all processes.
      *
      * @return void
      */

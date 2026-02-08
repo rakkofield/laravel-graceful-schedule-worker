@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 class SleeperTest extends TestCase
 {
     /**
-     * @testdox SL.1 正の値でインスタンスを生成できる
+     * @testdox SL.1 Can construct with a positive value
      */
     public function testConstructsWithPositiveValue(): void
     {
@@ -18,7 +18,7 @@ class SleeperTest extends TestCase
     }
 
     /**
-     * @testdox SL.2 0 以下の値で InvalidArgumentException をスロー
+     * @testdox SL.2 Throws InvalidArgumentException for zero
      */
     public function testThrowsOnZero(): void
     {
@@ -27,7 +27,7 @@ class SleeperTest extends TestCase
     }
 
     /**
-     * @testdox SL.3 負の値で InvalidArgumentException をスロー
+     * @testdox SL.3 Throws InvalidArgumentException for negative value
      */
     public function testThrowsOnNegative(): void
     {
@@ -36,16 +36,16 @@ class SleeperTest extends TestCase
     }
 
     /**
-     * @testdox SL.4 sleep() が実行される（短い時間で検証）
+     * @testdox SL.4 sleep() executes (verified with short duration)
      */
     public function testSleepExecutes(): void
     {
-        $sleeper = new Sleeper(1); // 1マイクロ秒
+        $sleeper = new Sleeper(1); // 1 microsecond
         $before = microtime(true);
         $sleeper->sleep();
         $after = microtime(true);
 
-        // 実行が完了することを確認（例外なし）
+        // Verify execution completes (no exception)
         $this->assertGreaterThanOrEqual($before, $after);
     }
 }

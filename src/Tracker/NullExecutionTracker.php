@@ -8,10 +8,10 @@ use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 
 /**
- * NullObject パターンによる ExecutionTracker 実装
+ * Null Object pattern implementation of ExecutionTracker.
  *
- * tracker が無効な場合に使用します。
- * すべてのメソッドが何もしないか、安全なデフォルト値を返します。
+ * Used when the tracker is disabled.
+ * All methods are no-ops or return safe default values.
  */
 class NullExecutionTracker implements ExecutionTrackerInterface
 {
@@ -20,7 +20,7 @@ class NullExecutionTracker implements ExecutionTrackerInterface
      */
     public function markExecuted(Event $event, DateTimeInterface $dueAt): void
     {
-        // 何もしない
+        // no-op
     }
 
     /**
@@ -28,7 +28,7 @@ class NullExecutionTracker implements ExecutionTrackerInterface
      */
     public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface
     {
-        return null; // 取りこぼしなし
+        return null; // No missed executions
     }
 
     /**
@@ -36,7 +36,7 @@ class NullExecutionTracker implements ExecutionTrackerInterface
      */
     public function acquireLock(Event $event, DateTimeInterface $dueAt): bool
     {
-        return true; // 常に成功
+        return true; // Always succeeds
     }
 
     /**
@@ -44,6 +44,6 @@ class NullExecutionTracker implements ExecutionTrackerInterface
      */
     public function releaseLock(Event $event, DateTimeInterface $dueAt): void
     {
-        // 何もしない
+        // no-op
     }
 }

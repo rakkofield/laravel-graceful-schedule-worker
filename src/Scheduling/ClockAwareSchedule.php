@@ -14,13 +14,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FreezableClock;
 
 class ClockAwareSchedule extends Schedule
 {
-    /** @var ClockInterface コンストラクタで注入された元の clock */
+    /** @var ClockInterface The original clock injected via constructor */
     protected $clock;
 
-    /** @var FreezableClock 全 ClockAwareEvent で共有される freezable な clock ラッパー */
+    /** @var FreezableClock Freezable clock wrapper shared across all ClockAwareEvents */
     private $eventClock;
 
-    /** @var bool true の場合、exec() は親の Event を生成する */
+    /** @var bool When true, exec() generates the parent's Event */
     private $nativeEventMode = false;
 
     /**
@@ -35,11 +35,11 @@ class ClockAwareSchedule extends Schedule
     }
 
     /**
-     * Native events モードでコールバックを実行
+     * Execute a callback in native events mode.
      *
-     * コールバック内の command()/exec() 呼び出しは親の Event を生成する。
-     * ClockAwareEvent ではなく Laravel 標準の Event が使われるため、
-     * Clock の振る舞いは変化しない。
+     * command()/exec() calls within the callback will generate the parent's Event.
+     * Since the standard Laravel Event is used instead of ClockAwareEvent,
+     * the clock behavior is unaffected.
      *
      * @param callable $callback
      * @return void
@@ -100,13 +100,13 @@ class ClockAwareSchedule extends Schedule
     }
 
     /**
-     * 指定時刻で freeze した状態でコールバックを実行
+     * Execute a callback with the clock frozen at the specified time.
      *
-     * Orchestrator から呼ばれ、dueEvents() + filtersPass() の評価を
-     * 同一時刻で行うためのエントリーポイント。
+     * Called by the Orchestrator as an entry point to evaluate
+     * dueEvents() + filtersPass() at the same frozen time.
      *
-     * @param DateTimeImmutable $time 評価基準時刻
-     * @param callable $callback 実行するコールバック
+     * @param DateTimeImmutable $time The reference time for evaluation
+     * @param callable $callback The callback to execute
      * @return mixed
      */
     public function evaluateAt(DateTimeImmutable $time, callable $callback)

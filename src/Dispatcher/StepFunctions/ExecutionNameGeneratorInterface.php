@@ -10,11 +10,11 @@ use Illuminate\Console\Scheduling\Event;
 interface ExecutionNameGeneratorInterface
 {
     /**
-     * Event と実行予定時刻から Execution Name を生成
+     * Generate an Execution Name from an Event and its scheduled due time.
      *
-     * @param Event $event スケジュールイベント
-     * @param DateTimeInterface $dueAt 実行予定時刻
-     * @return string Execution Name（最大80文字、使用可能文字: a-z, A-Z, 0-9, -, _）
+     * @param Event $event Schedule event
+     * @param DateTimeInterface $dueAt Scheduled due time
+     * @return string Execution Name (max 80 chars, allowed chars: a-z, A-Z, 0-9, -, _)
      */
     public function generate(Event $event, DateTimeInterface $dueAt): string;
 }

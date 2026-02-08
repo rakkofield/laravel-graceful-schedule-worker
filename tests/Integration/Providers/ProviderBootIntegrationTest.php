@@ -13,7 +13,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunction
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 
 /**
- * skeleton の Application を使った ServiceProvider の boot() テスト
+ * ServiceProvider boot() test using the skeleton Application
  *
  * @group skeleton
  */
@@ -29,13 +29,13 @@ class ProviderBootIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        // 既存の Container インスタンスを退避
+        // Save the existing Container instance
         $this->previousContainer = Container::getInstance();
 
-        // skeleton の autoloader を追加で読み込み（Application クラス等を利用可能にする）
+        // Load the skeleton autoloader (to make Application class etc. available)
         require_once __DIR__ . '/../../../skeleton/vendor/autoload.php';
 
-        // skeleton の Application を生成・ブートストラップ
+        // Create and bootstrap the skeleton Application
         $this->app = require __DIR__ . '/../../../skeleton/bootstrap/app.php';
         $kernel = $this->app->make(\Illuminate\Contracts\Console\Kernel::class);
         $kernel->bootstrap();
@@ -47,34 +47,34 @@ class ProviderBootIntegrationTest extends TestCase
             $this->app->flush();
         }
 
-        // Container インスタンスを復元
+        // Restore the Container instance
         Container::setInstance($this->previousContainer);
 
         parent::tearDown();
     }
 
     /**
-     * @testdox GPI.1 boot() で schedule:graceful-work コマンドが登録される
+     * @testdox GPI.1 boot() registers the schedule:graceful-work command
      */
     public function testBootRegistersGracefulScheduleWorkCommand(): void
     {
         /** @var \Illuminate\Contracts\Console\Kernel $kernel */
         $kernel = $this->app->make(\Illuminate\Contracts\Console\Kernel::class);
 
-        // コマンド一覧を取得して schedule:graceful-work が含まれるか検証
+        // Get the command list and verify schedule:graceful-work is included
         $allCommands = $kernel->all();
         $this->assertArrayHasKey('schedule:graceful-work', $allCommands);
     }
 
     /**
-     * @testdox GPI.2 boot() で config ファイルの publish が登録される
+     * @testdox GPI.2 boot() registers config file publishing
      */
     public function testBootRegistersConfigPublishing(): void
     {
         $provider = $this->app->getProvider(GracefulScheduleWorkerProvider::class);
         $this->assertNotNull($provider);
 
-        // ServiceProvider の publishes 静的プロパティをリフレクションで取得
+        // Get the ServiceProvider's publishes static property via reflection
         $ref = new \ReflectionClass(\Illuminate\Support\ServiceProvider::class);
         $prop = $ref->getProperty('publishes');
         $prop->setAccessible(true);
@@ -83,14 +83,14 @@ class ProviderBootIntegrationTest extends TestCase
         $this->assertArrayHasKey(GracefulScheduleWorkerProvider::class, $publishes);
 
         $paths = $publishes[GracefulScheduleWorkerProvider::class];
-        // config/graceful-scheduler.php のパブリッシュパスが登録されている
+        // config/graceful-scheduler.php publish path is registered
         $publishedFiles = array_values($paths);
         $this->assertCount(1, $publishedFiles);
         $this->assertStringContainsString('graceful-scheduler.php', $publishedFiles[0]);
     }
 
     /**
-     * @testdox GPI.3 register() で graceful-scheduler 設定がマージされる
+     * @testdox GPI.3 register() merges graceful-scheduler config
      */
     public function testRegisterMergesConfig(): void
     {
@@ -100,11 +100,11 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox GPI.4 StepFunctions バインディングで credentials が設定される
+     * @testdox GPI.4 StepFunctions binding configures credentials
      */
     public function testStepFunctionsBindingsWithCredentials(): void
     {
-        // credentials を設定
+        // Set credentials
         config([
             'graceful-scheduler.stepfunctions.credentials.key' => 'test-key',
             'graceful-scheduler.stepfunctions.credentials.secret' => 'test-secret',
@@ -112,11 +112,11 @@ class ProviderBootIntegrationTest extends TestCase
                 'arn:aws:states:ap-northeast-1:123:stateMachine:Test',
         ]);
 
-        // 解決時に credentials パスが実行される
+        // The credentials path is executed on resolution
         $client = $this->app->make(StepFunctionsClientInterface::class);
         $this->assertInstanceOf(AwsSfnClientAdapter::class, $client);
 
-        // リフレクションで内部 SfnClient の credentials 設定を検証
+        // Verify the internal SfnClient credentials via reflection
         $adapterRef = new \ReflectionClass($client);
         $clientProp = $adapterRef->getProperty('client');
         $clientProp->setAccessible(true);
@@ -128,7 +128,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox GPI.5 StepFunctions バインディングで endpoint が設定される
+     * @testdox GPI.5 StepFunctions binding configures endpoint
      */
     public function testStepFunctionsBindingsWithEndpoint(): void
     {
@@ -141,7 +141,7 @@ class ProviderBootIntegrationTest extends TestCase
         $client = $this->app->make(StepFunctionsClientInterface::class);
         $this->assertInstanceOf(AwsSfnClientAdapter::class, $client);
 
-        // リフレクションで内部 SfnClient の endpoint 設定を検証
+        // Verify the internal SfnClient endpoint via reflection
         $adapterRef = new \ReflectionClass($client);
         $clientProp = $adapterRef->getProperty('client');
         $clientProp->setAccessible(true);
@@ -152,7 +152,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox GPI.6 StepFunctions の ExecutionNameGeneratorInterface がバインドされる
+     * @testdox GPI.6 StepFunctions binds ExecutionNameGeneratorInterface
      */
     public function testStepFunctionsBindsExecutionNameGenerator(): void
     {
@@ -161,7 +161,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox GPI.7 StepFunctions の StepFunctionsDispatcher がバインドされる
+     * @testdox GPI.7 StepFunctions binds StepFunctionsDispatcher
      */
     public function testStepFunctionsBindsDispatcher(): void
     {

@@ -46,9 +46,9 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * リカバリを有効化（猶予期間を設定）
+     * Enable recovery (set grace period).
      *
-     * @param int|null $minutes 猶予期間（分）。nullの場合は無制限
+     * @param int|null $minutes Grace period in minutes. null means unlimited
      * @return $this
      */
     public function withGracePeriod($minutes = null)
@@ -65,7 +65,7 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * リカバリを有効化（猶予期間なし）
+     * Enable recovery (no grace period).
      *
      * @return $this
      */
@@ -77,9 +77,9 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Dispatcher タイプを指定
+     * Specify the dispatcher type.
      *
-     * @param string $type 'local' または 'stepfunctions'
+     * @param string $type 'local' or 'stepfunctions'
      * @return $this
      */
     public function dispatchVia($type)
@@ -89,9 +89,9 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * 指定されたDispatcherタイプを取得
+     * Get the specified dispatcher type.
      *
-     * @return string|null Dispatcherタイプ（未指定の場合はnull）
+     * @return string|null Dispatcher type (null if not specified)
      */
     public function getDispatcherType()
     {
@@ -99,7 +99,7 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * リカバリが有効かどうかを取得
+     * Check whether recovery is enabled.
      *
      * @return bool
      */
@@ -109,7 +109,7 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * 猶予期間を取得
+     * Get the grace period.
      *
      * @return DateInterval|null
      */
@@ -154,11 +154,11 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * clock を使った時間帯チェック closure を生成する
+     * Generate a closure that checks the time interval using the clock.
      *
-     * 親の inTimeInterval() は private かつ Carbon::now() を定義時に即時評価するため、
-     * 長時間稼働ワーカーでは起動時の時刻で固定されてしまう。
-     * この実装では closure 内で clock->now() を遅延評価して毎回正しい時刻を使う。
+     * The parent's inTimeInterval() is private and eagerly evaluates Carbon::now() at definition time,
+     * so in long-running workers the time gets fixed at startup.
+     * This implementation lazily evaluates clock->now() inside the closure to use the correct time each time.
      *
      * @param string $startTime
      * @param string $endTime
@@ -201,13 +201,13 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Symfony Process で実行するためのコマンド文字列を構築する
+     * Build the command string for execution via Symfony Process.
      *
-     * buildCommand() が付与する末尾の & を除去して返す。
-     * Process::start() が非同期実行を提供するため & は不要であり、
-     * & があると proc_terminate 時にプロセスグループ全体に SIGTERM が伝播する。
+     * Strips the trailing & that buildCommand() appends and returns the result.
+     * The & is unnecessary since Process::start() provides async execution,
+     * and its presence would cause SIGTERM to propagate to the entire process group on proc_terminate.
      *
-     * runInBackground = true の状態で呼ぶことを前提とする。
+     * Assumes runInBackground = true when called.
      *
      * @return string
      */

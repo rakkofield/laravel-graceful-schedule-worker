@@ -44,10 +44,10 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $stopTimeout;
 
     /**
-     * @param string|null $basePath プロセスの作業ディレクトリ（null の場合は現在のディレクトリ）
-     * @param LoggerInterface $logger ロガー
-     * @param SleeperInterface $sleeper スリーパー（stopAll のポーリング用）
-     * @param float $stopTimeout stopAll() での SIGTERM→SIGKILL 待機タイムアウト（秒）
+     * @param string|null $basePath Working directory for processes (null uses the current directory)
+     * @param LoggerInterface $logger Logger
+     * @param SleeperInterface $sleeper Sleeper (for polling in stopAll)
+     * @param float $stopTimeout Timeout in seconds for SIGTERM->SIGKILL wait in stopAll()
      */
     public function __construct(
         ?string $basePath,
@@ -62,19 +62,19 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * 単一イベントをディスパッチする
+     * Dispatch a single event.
      *
-     * Event の runInBackground 設定を尊重し、適切な実行パスを選択します。
-     * - beforeCallbacks を親プロセスで同期実行
-     * - runInBackground = true: buildCommand() から & を除去し Process::start() で非同期実行
-     *   （schedule:finish が含まれ、afterCallbacks は子プロセスが実行する）
-     *   ClockAwareEvent の場合は buildProcessCommand() を使用する
-     * - runInBackground = false: buildCommand() で同期実行し、afterCallbacks を直接呼ぶ
+     * Respects the Event's runInBackground setting and selects the appropriate execution path.
+     * - beforeCallbacks are executed synchronously in the parent process
+     * - runInBackground = true: strips & from buildCommand() and runs async via Process::start()
+     *   (includes schedule:finish, afterCallbacks are executed by the child process)
+     *   Uses buildProcessCommand() for ClockAwareEvent
+     * - runInBackground = false: runs synchronously via buildCommand() and calls afterCallbacks directly
      *
-     * @param Event $event 実行するスケジュールイベント
-     * @param Container $container Laravel コンテナインスタンス
-     * @param DateTimeInterface $dueAt 実行予定時刻（LocalDispatcher では未使用）
-     * @return DispatchResultInterface ディスパッチ結果
+     * @param Event $event The schedule event to execute
+     * @param Container $container Laravel container instance
+     * @param DateTimeInterface $dueAt Scheduled due time (unused in LocalDispatcher)
+     * @return DispatchResultInterface Dispatch result
      */
     public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
@@ -84,12 +84,12 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $event->callBeforeCallbacks($container);
 
             if ($event->runInBackground) {
-                // Background: schedule:finish を含むコマンドを生成し、& を除去して非同期実行
+                // Background: generate command including schedule:finish, strip &, and run async
                 if ($event instanceof ClockAwareEvent) {
                     $fullCommand = $event->buildProcessCommand();
                 } else {
                     $fullCommand = $event->buildCommand();
-                    // schedule:finish を含まないコマンドから末尾の & を除去
+                    // Strip trailing & from command that does not include schedule:finish
                     $fullCommand = preg_replace('/\s+&\s*$/', '', $fullCommand) ?? $fullCommand;
                 }
                 $process = Process::fromShellCommandline($fullCommand, $this->basePath);
@@ -100,7 +100,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 return $result;
             }
 
-            // Foreground: schedule:finish を含まないコマンドを同期実行し、afterCallbacks を直接呼ぶ
+            // Foreground: run command synchronously without schedule:finish and call afterCallbacks directly
             $fullCommand = $event->buildCommand();
             $process = Process::fromShellCommandline($fullCommand, $this->basePath);
             $process->setTimeout(null);
@@ -145,7 +145,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     public function stopAll(): void
     {
-        // Phase 1: 全 running プロセスに SIGTERM を一斉送信
+        // Phase 1: Send SIGTERM to all running processes simultaneously
         foreach ($this->runningProcesses as $result) {
             try {
                 $process = $result->getProcess();
@@ -161,7 +161,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             }
         }
 
-        // Phase 2: タイムアウトまでポーリングで全プロセスの終了を待機
+        // Phase 2: Poll and wait for all processes to terminate until timeout
         $deadline = microtime(true) + $this->stopTimeout;
         while (microtime(true) < $deadline) {
             $allStopped = true;
@@ -177,7 +177,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $this->sleeper->sleep();
         }
 
-        // Phase 3: まだ running なプロセスに SIGKILL を送信
+        // Phase 3: Send SIGKILL to processes still running
         foreach ($this->runningProcesses as $result) {
             try {
                 $process = $result->getProcess();

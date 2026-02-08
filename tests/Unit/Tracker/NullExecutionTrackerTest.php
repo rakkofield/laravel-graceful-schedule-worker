@@ -41,7 +41,7 @@ class NullExecutionTrackerTest extends TestCase
         $event = $this->createEvent('php artisan test:task');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // 例外なく完了すればOK
+        // Passes if no exception is thrown
         $this->tracker->markExecuted($event, $dueAt);
         $this->assertTrue(true);
     }
@@ -67,11 +67,11 @@ class NullExecutionTrackerTest extends TestCase
         $event = $this->createEvent('php artisan test:task');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // 1回目
+        // First call
         $result1 = $this->tracker->acquireLock($event, $dueAt);
         $this->assertTrue($result1);
 
-        // 2回目も成功（NullObject なのでロック競合しない）
+        // Second call also succeeds (NullObject, so no lock contention)
         $result2 = $this->tracker->acquireLock($event, $dueAt);
         $this->assertTrue($result2);
     }
@@ -84,7 +84,7 @@ class NullExecutionTrackerTest extends TestCase
         $event = $this->createEvent('php artisan test:task');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // 例外なく完了すればOK
+        // Passes if no exception is thrown
         $this->tracker->releaseLock($event, $dueAt);
         $this->assertTrue(true);
     }

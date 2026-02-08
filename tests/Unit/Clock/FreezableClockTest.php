@@ -12,7 +12,7 @@ use RuntimeException;
 class FreezableClockTest extends TestCase
 {
     /**
-     * @testdox FC.1 未凍結時は内部 Clock に委譲する
+     * @testdox FC.1 Delegates to inner Clock when not frozen
      */
     public function testDelegatesToInnerClockWhenNotFrozen(): void
     {
@@ -24,7 +24,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox FC.2 withFrozenTime コールバック内で凍結時刻を返す
+     * @testdox FC.2 Returns frozen time within withFrozenTime callback
      */
     public function testReturnsFrozenTimeWithinCallback(): void
     {
@@ -39,7 +39,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox FC.3 withFrozenTime がコールバックの戻り値を返す
+     * @testdox FC.3 withFrozenTime returns the callback's return value
      */
     public function testWithFrozenTimeReturnsCallbackResult(): void
     {
@@ -55,7 +55,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox FC.4 コールバック終了後に凍結が解除される
+     * @testdox FC.4 Unfreezes after callback completes
      */
     public function testUnfreezesAfterCallback(): void
     {
@@ -72,7 +72,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox FC.5 コールバックが例外をスローしても凍結が解除される
+     * @testdox FC.5 Unfreezes even if callback throws an exception
      */
     public function testUnfreezesEvenIfCallbackThrows(): void
     {
@@ -95,7 +95,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox FC.6 凍結中は複数回呼び出しても同一時刻を返す
+     * @testdox FC.6 Returns the same time across multiple calls while frozen
      */
     public function testFrozenTimeStaysConstantAcrossMultipleCalls(): void
     {
@@ -117,7 +117,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox FC.7 ネストした withFrozenTime は LogicException をスローする
+     * @testdox FC.7 Nested withFrozenTime throws LogicException
      */
     public function testThrowsOnNestedWithFrozenTime(): void
     {

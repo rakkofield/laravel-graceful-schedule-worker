@@ -7,10 +7,10 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 use Illuminate\Contracts\Cache\Store;
 
 /**
- * LockProvider を実装しない Store の Fake
+ * Fake Store that does not implement LockProvider
  *
- * Provider の registerTrackerBindings() で
- * LockProvider 未実装時の RuntimeException をテストするために使用する。
+ * Used to test the RuntimeException in Provider's registerTrackerBindings()
+ * when the Store does not implement LockProvider.
  */
 class FakeNonLockProviderStore implements Store
 {

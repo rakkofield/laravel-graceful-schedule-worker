@@ -70,7 +70,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.1 イベント指定のディスパッチャーに委譲する
+     * @testdox CD.1 Delegates to the event-specified dispatcher
      */
     public function testDelegatesToEventSpecifiedDispatcher(): void
     {
@@ -101,7 +101,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.2 イベント設定がない場合はデフォルトを使用する
+     * @testdox CD.2 Uses default when no event setting is specified
      */
     public function testUsesDefaultWhenNoEventSetting(): void
     {
@@ -132,7 +132,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.3 dispatcherType が null の場合はデフォルトを使用する
+     * @testdox CD.3 Uses default when dispatcherType is null
      */
     public function testUsesDefaultWhenDispatcherTypeIsNull(): void
     {
@@ -163,7 +163,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.4 未知のディスパッチャータイプで例外をスローする
+     * @testdox CD.4 Throws exception on unknown dispatcher type
      */
     public function testThrowsOnUnknownType(): void
     {
@@ -185,7 +185,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.5 コンストラクタでデフォルトタイプを受け取る
+     * @testdox CD.5 Receives default type via constructor
      */
     public function testReceivesDefaultTypeViaConstructor(): void
     {
@@ -206,7 +206,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.6 ディスパッチャー配列が空の場合に例外をスローする
+     * @testdox CD.6 Throws exception when dispatchers array is empty
      */
     public function testThrowsWhenDispatchersArrayIsEmpty(): void
     {
@@ -217,7 +217,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.7 デフォルトタイプがディスパッチャーに存在しない場合に例外をスローする
+     * @testdox CD.7 Throws exception when default type is not found in dispatchers
      */
     public function testThrowsWhenDefaultTypeNotInDispatchers(): void
     {
@@ -237,7 +237,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.8 cleanup が全子ディスパッチャーに委譲される
+     * @testdox CD.8 cleanup delegates to all child dispatchers
      */
     public function testCleanupDelegatesToAllChildDispatchers(): void
     {
@@ -263,7 +263,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.9 stopAll が全子ディスパッチャーに委譲される
+     * @testdox CD.9 stopAll delegates to all child dispatchers
      */
     public function testStopAllDelegatesToAllChildDispatchers(): void
     {
@@ -289,7 +289,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.10 cleanup が1つの子で例外が発生しても他の子に委譲される
+     * @testdox CD.10 cleanup delegates to other children even when one child throws
      */
     public function testCleanupContinuesWhenChildThrows(): void
     {
@@ -309,16 +309,16 @@ class CompositeDispatcherTest extends TestCase
             $this->logger
         );
 
-        // 例外がスローされないこと
+        // No exception is thrown
         $dispatcher->cleanup();
 
-        // 両方の cleanup が呼ばれていること
+        // Both cleanup methods were called
         $this->assertEquals(1, $throwingDispatcher->getCleanupCallCount());
         $this->assertEquals(1, $normalDispatcher->getCleanupCallCount());
     }
 
     /**
-     * @testdox CD.11 stopAll が1つの子で例外が発生しても他の子に委譲される
+     * @testdox CD.11 stopAll delegates to other children even when one child throws
      */
     public function testStopAllContinuesWhenChildThrows(): void
     {
@@ -338,16 +338,16 @@ class CompositeDispatcherTest extends TestCase
             $this->logger
         );
 
-        // 例外がスローされないこと
+        // No exception is thrown
         $dispatcher->stopAll();
 
-        // 両方の stopAll が呼ばれていること
+        // Both stopAll methods were called
         $this->assertEquals(1, $throwingDispatcher->getStopAllCallCount());
         $this->assertEquals(1, $normalDispatcher->getStopAllCallCount());
     }
 
     /**
-     * @testdox CD.12 cleanup で例外発生時にログが出力される
+     * @testdox CD.12 Logs warning when cleanup throws an exception
      */
     public function testCleanupLogsWarningWhenChildThrows(): void
     {
@@ -370,7 +370,7 @@ class CompositeDispatcherTest extends TestCase
 
         $dispatcher->cleanup();
 
-        // ログが出力されること
+        // Log is output
         $warningLogs = $logger->getLogsByLevel('warning');
         $this->assertCount(1, $warningLogs);
         $this->assertStringContainsString('Failed to cleanup dispatcher', $warningLogs[0]['message']);
@@ -379,7 +379,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.13 stopAll で例外発生時にログが出力される
+     * @testdox CD.13 Logs warning when stopAll throws an exception
      */
     public function testStopAllLogsWarningWhenChildThrows(): void
     {
@@ -402,7 +402,7 @@ class CompositeDispatcherTest extends TestCase
 
         $dispatcher->stopAll();
 
-        // ログが出力されること
+        // Log is output
         $warningLogs = $logger->getLogsByLevel('warning');
         $this->assertCount(1, $warningLogs);
         $this->assertStringContainsString('Failed to stop dispatcher', $warningLogs[0]['message']);

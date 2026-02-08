@@ -9,7 +9,7 @@ use Exception;
 use Illuminate\Console\Scheduling\Event;
 
 /**
- * markExecuted() で例外をスローする ExecutionTrackerInterface の Stub
+ * ExecutionTrackerInterface Stub that throws an exception on markExecuted()
  */
 class StubThrowingExecutionTracker implements ExecutionTrackerInterface
 {
@@ -17,7 +17,7 @@ class StubThrowingExecutionTracker implements ExecutionTrackerInterface
     private $exception;
 
     /**
-     * @param Exception $exception markExecuted() でスローする例外
+     * @param Exception $exception Exception to throw in markExecuted()
      */
     public function __construct(Exception $exception)
     {

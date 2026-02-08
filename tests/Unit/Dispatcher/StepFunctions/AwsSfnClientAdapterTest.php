@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class AwsSfnClientAdapterTest extends TestCase
 {
     /**
-     * @testdox SCA.1 startExecution 成功時に StartExecutionResult を返す
+     * @testdox SCA.1 Returns StartExecutionResult on successful startExecution
      */
     public function testStartExecutionSuccess(): void
     {
@@ -39,7 +39,7 @@ class AwsSfnClientAdapterTest extends TestCase
     }
 
     /**
-     * @testdox SCA.2 ExecutionAlreadyExists エラー時に ExecutionAlreadyExistsException をスロー
+     * @testdox SCA.2 Throws ExecutionAlreadyExistsException on ExecutionAlreadyExists error
      */
     public function testExecutionAlreadyExistsExceptionIsThrown(): void
     {
@@ -57,7 +57,7 @@ class AwsSfnClientAdapterTest extends TestCase
     }
 
     /**
-     * @testdox SCA.3 その他の AWS エラー時に StepFunctionsException をスロー
+     * @testdox SCA.3 Throws StepFunctionsException on other AWS errors
      */
     public function testStepFunctionsExceptionIsThrownForOtherAwsErrors(): void
     {

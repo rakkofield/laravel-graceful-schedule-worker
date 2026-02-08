@@ -15,7 +15,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 /**
- * CacheExecutionTracker の Redis 統合テスト
+ * CacheExecutionTracker Redis integration test
  *
  * @requires extension redis
  */
@@ -98,7 +98,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
 
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertTrue($this->cache->has($key));
-        // assertEquals は型を無視して比較するため、Redis が文字列を返しても一致する
+        // assertEquals ignores type, so it matches even if Redis returns a string
         $this->assertEquals($dueAt->getTimestamp(), $this->cache->get($key));
     }
 
@@ -156,12 +156,12 @@ class CacheExecutionTrackerRedisTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 11:05:00'));
         $tracker = $this->createTracker();
         $event = $this->createClockAwareEvent('php artisan test:redis-missed', $clock);
-        $event->cron('0 * * * *'); // 毎時0分
+        $event->cron('0 * * * *'); // every hour at :00
 
-        // 10:00 に実行記録
+        // Recorded execution at 10:00
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
-        // 11:05 にチェック（11:00 が欠落している）
+        // Check at 11:05 (11:00 was missed)
         $now = new DateTimeImmutable('2024-01-15 11:05:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
@@ -194,14 +194,14 @@ class CacheExecutionTrackerRedisTest extends TestCase
      */
     public function testLockExpiresAfterTtlAllowingReAcquisition(): void
     {
-        $shortTtl = 1; // 1秒
+        $shortTtl = 1; // 1 second
         $tracker1 = $this->createTracker($shortTtl);
         $event = $this->createEvent('php artisan test:ttl-expiry');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         $tracker1->acquireLock($event, $dueAt);
 
-        // TTL 満了をポーリングで待機（固定 sleep より無駄な待機を削減）
+        // Poll until TTL expires (reduces wasted wait compared to fixed sleep)
         $cache2 = $this->createRedisCache();
         $tracker2 = new CacheExecutionTracker($cache2, $cache2->getStore(), $this->logger);
         $deadline = microtime(true) + 3.0;

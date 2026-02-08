@@ -24,7 +24,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.1 Clock を注入してインスタンスを生成できる
+     * @testdox CE.1 Can construct an instance with an injected Clock
      */
     public function testCanInjectClock(): void
     {
@@ -35,7 +35,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2 withGracePeriod がメソッドチェーン用に self を返す
+     * @testdox CE.2 withGracePeriod returns self for method chaining
      */
     public function testCanSetGracePeriod(): void
     {
@@ -48,7 +48,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.3 enableRecovery がメソッドチェーン用に self を返す
+     * @testdox CE.3 enableRecovery returns self for method chaining
      */
     public function testCanEnableRecovery(): void
     {
@@ -61,7 +61,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.4 デフォルトで recoverable は false かつ gracePeriod は null
+     * @testdox CE.4 By default, recoverable is false and gracePeriod is null
      */
     public function testRecoverableIsFalseByDefault(): void
     {
@@ -73,7 +73,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2.1 withGracePeriod が recoverable を true に設定する
+     * @testdox CE.2.1 withGracePeriod sets recoverable to true
      */
     public function testWithGracePeriodSetsRecoverableToTrue(): void
     {
@@ -86,7 +86,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2.2 withGracePeriod が正しい DateInterval を設定する
+     * @testdox CE.2.2 withGracePeriod sets the correct DateInterval
      */
     public function testWithGracePeriodSetsCorrectInterval(): void
     {
@@ -98,16 +98,16 @@ class ClockAwareEventTest extends TestCase
         $gracePeriod = $event->getGracePeriod();
         $this->assertInstanceOf(DateInterval::class, $gracePeriod);
 
-        // DateInterval を実際の時間差に変換して検証
+        // Convert DateInterval to actual time difference for verification
         $now = new DateTimeImmutable('2024-01-01 12:00:00');
         $later = $now->add($gracePeriod);
         $diff = $later->getTimestamp() - $now->getTimestamp();
 
-        $this->assertEquals(30 * 60, $diff, '30分 = 1800秒');
+        $this->assertEquals(30 * 60, $diff, '30 minutes = 1800 seconds');
     }
 
     /**
-     * @testdox CE.2.3 withGracePeriod(null) が無制限リカバリを設定する
+     * @testdox CE.2.3 withGracePeriod(null) sets unlimited recovery
      */
     public function testWithGracePeriodWithNullSetsUnlimited(): void
     {
@@ -121,7 +121,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2.4 withGracePeriod(0) が gracePeriod なしで recoverable を設定する
+     * @testdox CE.2.4 withGracePeriod(0) sets recoverable without a grace period
      */
     public function testWithGracePeriodZeroSetsRecoverableWithoutGracePeriod(): void
     {
@@ -135,7 +135,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.3.1 enableRecovery が無制限 gracePeriod で recoverable を設定する
+     * @testdox CE.3.1 enableRecovery sets recoverable with unlimited grace period
      */
     public function testEnableRecoverySetsRecoverableWithUnlimitedGrace(): void
     {
@@ -149,7 +149,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.5 dispatchVia がメソッドチェーン用に self を返す
+     * @testdox CE.5 dispatchVia returns self for method chaining
      */
     public function testDispatchViaReturnsSelfForMethodChaining(): void
     {
@@ -162,7 +162,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.6 getDispatcherType のデフォルトは null
+     * @testdox CE.6 getDispatcherType returns null by default
      */
     public function testGetDispatcherTypeReturnsNullByDefault(): void
     {
@@ -173,7 +173,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.7 dispatchVia が dispatcherType を設定する
+     * @testdox CE.7 dispatchVia sets the dispatcherType
      */
     public function testDispatchViaSetsDispatcherType(): void
     {
@@ -214,7 +214,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.9 between() はタイムゾーン指定時にタイムゾーン変換して判定する
+     * @testdox CE.9 between() evaluates using timezone conversion when timezone is specified
      */
     public function testBetweenWithTimezoneConvertsTimeCorrectly(): void
     {
@@ -222,7 +222,7 @@ class ClockAwareEventTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'Asia/Tokyo');
 
-        // Tokyo時間で 11:00〜13:00 の間（12:00 は範囲内）
+        // Between 11:00-13:00 in Tokyo time (12:00 is within range)
         $event->between('11:00', '13:00');
 
         $container = new Container();
@@ -230,7 +230,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.9.1 between() はタイムゾーン指定時に範囲外なら false を返す
+     * @testdox CE.9.1 between() returns false when out of range with timezone specified
      */
     public function testBetweenWithTimezoneReturnsFalseWhenOutOfRange(): void
     {
@@ -238,7 +238,7 @@ class ClockAwareEventTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'Asia/Tokyo');
 
-        // Tokyo時間で 13:00〜15:00 の間（12:00 は範囲外）
+        // Between 13:00-15:00 in Tokyo time (12:00 is out of range)
         $event->between('13:00', '15:00');
 
         $container = new Container();
@@ -246,11 +246,11 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.10 between() は日付跨ぎで now が翌日側にいる場合に start を前日にずらす
+     * @testdox CE.10 between() shifts start to previous day when now is on the next day side of midnight crossing
      */
     public function testBetweenMidnightWrapAroundWithNowAfterMidnight(): void
     {
-        // 00:30 に実行。between('23:00', '01:00') → start(23:00) > now(00:30) なので start を前日に
+        // Running at 00:30. between('23:00', '01:00') -> start(23:00) > now(00:30), so shift start to previous day
         $clock = new FixedClock(new DateTimeImmutable('2024-01-02 00:30:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
 
@@ -261,12 +261,12 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.10.1 between() は日付跨ぎで now が前日側にいる場合に end を翌日にずらす
+     * @testdox CE.10.1 between() shifts end to next day when now is on the previous day side of midnight crossing
      */
     public function testBetweenMidnightWrapAroundWithNowBeforeMidnight(): void
     {
-        // 23:30 に実行。between('23:00', '01:00') → end(01:00) < start(23:00) かつ start(23:00) <= now(23:30)
-        // → end を翌日にずらす
+        // Running at 23:30. between('23:00', '01:00') -> end(01:00) < start(23:00) and start(23:00) <= now(23:30)
+        // -> shift end to next day
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 23:30:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
 
@@ -277,7 +277,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.11 unlessBetween() はタイムゾーン指定時にタイムゾーン変換して判定する
+     * @testdox CE.11 unlessBetween() evaluates using timezone conversion when timezone is specified
      */
     public function testUnlessBetweenWithTimezoneConvertsTimeCorrectly(): void
     {
@@ -285,7 +285,7 @@ class ClockAwareEventTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'Asia/Tokyo');
 
-        // Tokyo時間で 11:00〜13:00 の間（12:00 は範囲内なのでスキップ）
+        // Between 11:00-13:00 in Tokyo time (12:00 is within range, so skipped)
         $event->unlessBetween('11:00', '13:00');
 
         $container = new Container();

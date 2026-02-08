@@ -17,16 +17,16 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 /**
- * デフォルトのスケジュールオーケストレーター
+ * Default schedule orchestrator.
  *
- * Dispatcher パターンを使用してスケジュールされたイベントを実行します。
+ * Executes scheduled events using the Dispatcher pattern.
  *
- * 責務:
- * - スケジュール判定（毎分0秒のチェック）
- * - リカバリ検出（getMissedDueIfRecoverable）
- * - dueAt 決定
+ * Responsibilities:
+ * - Schedule evaluation (checking at second 0 of each minute)
+ * - Missed execution detection (getMissedDueIfRecoverable)
+ * - dueAt determination
  *
- * ロック取得・実行記録・失敗ハンドリングは TrackingDispatcher が担当
+ * Lock acquisition, execution recording, and failure handling are handled by TrackingDispatcher
  */
 class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 {
@@ -47,10 +47,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
 
     /**
      * @param ScheduleDispatcherInterface $dispatcher
-     * @param ClockInterface $clock 時刻プロバイダ
-     * @param ExecutionTrackerInterface $tracker 実行トラッカー（リカバリ検出に使用）
-     * @param LoggerInterface $logger ロガー
-     * @param SleeperInterface $sleeper スリーパー
+     * @param ClockInterface $clock Time provider
+     * @param ExecutionTrackerInterface $tracker Execution tracker (used for missed execution detection)
+     * @param LoggerInterface $logger Logger
+     * @param SleeperInterface $sleeper Sleeper
      */
     public function __construct(
         ScheduleDispatcherInterface $dispatcher,
@@ -73,17 +73,17 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     {
         $lastExecutionStartedAt = null;
 
-        // 起動時に一度だけ取りこぼしチェック
+        // Check for missed executions once at startup
         $this->checkMissedExecutions($schedule, $app, $this->clock->now());
 
         while ($shouldContinue()) {
-            // スリープを挟んで CPU 負荷を軽減
+            // Sleep to reduce CPU load
             $this->sleeper->sleep();
 
             $now = $this->clock->now();
             $currentMinute = $now->setTime((int) $now->format('H'), (int) $now->format('i'), 0);
 
-            // 毎分0秒に一度だけイベントをディスパッチ
+            // Dispatch events once at second 0 of each minute
             if (
                 (int) $now->format('s') === 0 &&
                 $currentMinute != $lastExecutionStartedAt
@@ -93,18 +93,18 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 $this->evaluateAndDispatch($schedule, $app, $now);
             }
 
-            // 完了したプロセスをクリーンアップ
+            // Clean up completed processes
             $this->dispatcher->cleanup();
         }
 
-        // 終了時に実行中のプロセスを停止
+        // Stop running processes on exit
         $this->dispatcher->stopAll();
 
         return true;
     }
 
     /**
-     * 取りこぼしタスクのリカバリを実行
+     * Recover missed task executions.
      *
      * @param Schedule $schedule
      * @param Application $app
@@ -128,7 +128,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     }
 
     /**
-     * イベントがリカバリ可能かどうかをチェック
+     * Check whether the event is recoverable.
      *
      * @param Event $event
      * @return bool
@@ -139,7 +139,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     }
 
     /**
-     * 取りこぼしイベントをリカバリ
+     * Recover a missed event execution.
      *
      * @param Event $event
      * @param Application $app
@@ -153,19 +153,19 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
             'due' => $missedDue->format('Y-m-d H:i:s'),
         ]);
 
-        // リカバリでは filtersPass() をチェックしない。
-        // リカバリ時は clock が freeze されていないため、between()/unlessBetween() 等の
-        // 時間ベースフィルタは現在時刻で評価される。過去の dueAt に対して現在時刻で
-        // 評価すると誤った結果になる。
+        // Do not check filtersPass() during recovery.
+        // Since the clock is not frozen during recovery, time-based filters such as
+        // between()/unlessBetween() would be evaluated at the current time.
+        // Evaluating with the current time against a past dueAt would produce incorrect results.
         $this->dispatcher->dispatchEvent($event, $app, $missedDue);
     }
 
     /**
-     * due イベントを評価してディスパッチ
+     * Evaluate due events and dispatch them.
      *
-     * ClockAwareSchedule の場合は evaluateAt() で時刻を固定し、
-     * dueEvents() と filtersPass() が同一時刻で評価されることを保証する。
-     * 通常の Schedule の場合は freeze せずにそのまま評価する。
+     * For ClockAwareSchedule, freezes the time via evaluateAt() to ensure
+     * dueEvents() and filtersPass() are evaluated at the same time.
+     * For regular Schedule, evaluates without freezing.
      *
      * @param Schedule $schedule
      * @param Application $app

@@ -110,7 +110,7 @@ class CacheExecutionTrackerTest extends TestCase
     {
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
         $event = $this->createEvent('php artisan test:task');
-        $event->cron('0 * * * *'); // 毎時0分
+        $event->cron('0 * * * *'); // every hour at :00
         $now = new DateTimeImmutable('2024-01-15 11:05:00');
 
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
@@ -125,12 +125,12 @@ class CacheExecutionTrackerTest extends TestCase
     {
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
         $event = $this->createEvent('php artisan test:task');
-        $event->cron('0 * * * *'); // 毎時0分
+        $event->cron('0 * * * *'); // every hour at :00
 
-        // 10:00 に実行記録
+        // Recorded execution at 10:00
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
-        // 11:05 にチェック（11:00 が欠落している）
+        // Check at 11:05 (11:00 was missed)
         $now = new DateTimeImmutable('2024-01-15 11:05:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
@@ -146,12 +146,12 @@ class CacheExecutionTrackerTest extends TestCase
     {
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
         $event = $this->createEvent('php artisan test:task');
-        $event->cron('0 * * * *'); // 毎時0分
+        $event->cron('0 * * * *'); // every hour at :00
 
-        // 11:00 に実行記録
+        // Recorded execution at 11:00
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 11:00:00'));
 
-        // 11:05 にチェック（正常）
+        // Check at 11:05 (on schedule)
         $now = new DateTimeImmutable('2024-01-15 11:05:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
@@ -172,13 +172,13 @@ class CacheExecutionTrackerTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 14:05:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $logger);
         $event = $this->createClockAwareEvent('php artisan test:task', $clock);
-        $event->cron('0 * * * *'); // 毎時0分
-        $event->withGracePeriod(120); // 2時間
+        $event->cron('0 * * * *'); // every hour at :00
+        $event->withGracePeriod(120); // 2 hours
 
-        // 10:00 に実行記録（14:05 では grace period 超過）
+        // Recorded execution at 10:00 (grace period exceeded at 14:05)
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
-        // 14:05 にチェック
+        // Check at 14:05
         $now = new DateTimeImmutable('2024-01-15 14:05:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
@@ -195,13 +195,13 @@ class CacheExecutionTrackerTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 11:30:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
         $event = $this->createClockAwareEvent('php artisan test:task', $clock);
-        $event->cron('0 * * * *'); // 毎時0分
-        $event->withGracePeriod(120); // 2時間
+        $event->cron('0 * * * *'); // every hour at :00
+        $event->withGracePeriod(120); // 2 hours
 
-        // 10:00 に実行記録（11:30 は grace period 内）
+        // Recorded execution at 10:00 (11:30 is within grace period)
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
-        // 11:30 にチェック
+        // Check at 11:30
         $now = new DateTimeImmutable('2024-01-15 11:30:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
@@ -217,12 +217,12 @@ class CacheExecutionTrackerTest extends TestCase
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
         $event = $this->createEvent('php artisan test:task');
 
-        // 無効な cron 式を設定
+        // Set an invalid cron expression
         $reflection = new \ReflectionProperty($event, 'expression');
         $reflection->setAccessible(true);
         $reflection->setValue($event, 'invalid cron');
 
-        // 実行記録を設定（初回チェックをスキップ）
+        // Set execution record (to skip the first-run check)
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
         $this->expectException(InvalidArgumentException::class);
@@ -256,10 +256,10 @@ class CacheExecutionTrackerTest extends TestCase
         $event = $this->createEvent('php artisan test:task');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // 最初のロック取得
+        // First lock acquisition
         $tracker->acquireLock($event, $dueAt);
 
-        // 2回目のロック取得は失敗
+        // Second lock acquisition fails
         $result = $tracker->acquireLock($event, $dueAt);
 
         $this->assertFalse($result);
@@ -274,13 +274,13 @@ class CacheExecutionTrackerTest extends TestCase
         $event = $this->createEvent('php artisan test:task');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // ロック取得
+        // Acquire lock
         $tracker->acquireLock($event, $dueAt);
 
-        // ロック解放
+        // Release lock
         $tracker->releaseLock($event, $dueAt);
 
-        // 再取得可能
+        // Re-acquisition succeeds
         $result = $tracker->acquireLock($event, $dueAt);
         $this->assertTrue($result);
     }
@@ -293,12 +293,12 @@ class CacheExecutionTrackerTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 10:00:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
         $event = $this->createClockAwareEvent('php artisan test:task', $clock);
-        $event->withGracePeriod(120); // 2時間 = 7200秒
+        $event->withGracePeriod(120); // 2 hours = 7200 seconds
 
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
         $tracker->markExecuted($event, $dueAt);
 
-        // キーが保存されていることを確認
+        // Verify the key was stored
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertTrue($this->cache->has($key));
     }
@@ -310,16 +310,16 @@ class CacheExecutionTrackerTest extends TestCase
     {
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
         $event = $this->createEvent('php artisan test:task');
-        $event->cron('0 * * * *'); // 毎時0分
+        $event->cron('0 * * * *'); // every hour at :00
 
-        // 10:00 に実行記録
+        // Recorded execution at 10:00
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
-        // 14:05 にチェック（通常の Event なので grace period チェックなし）
+        // Check at 14:05 (plain Event has no grace period check)
         $now = new DateTimeImmutable('2024-01-15 14:05:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
-        // 通常の Event は grace period チェックがないので missedDue が返る
+        // Plain Event has no grace period check, so missedDue is returned
         $this->assertNotNull($result);
     }
 
@@ -331,18 +331,18 @@ class CacheExecutionTrackerTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 14:05:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
 
-        // ClockAwareEvent を作成するが withGracePeriod() を呼ばない
+        // Create ClockAwareEvent without calling withGracePeriod()
         $event = $this->createClockAwareEvent('php artisan test:task', $clock);
-        $event->cron('0 * * * *'); // 毎時0分
+        $event->cron('0 * * * *'); // every hour at :00
 
-        // 10:00 に実行記録
+        // Recorded execution at 10:00
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
-        // 14:05 にチェック（grace period 未設定なので、時間経過に関係なく missedDue が返る）
+        // Check at 14:05 (no grace period set, so missedDue is returned regardless of elapsed time)
         $now = new DateTimeImmutable('2024-01-15 14:05:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
-        // gracePeriod が null の ClockAwareEvent は grace period チェックをスキップ
+        // ClockAwareEvent with null gracePeriod skips the grace period check
         $this->assertNotNull($result);
         $this->assertSame('14', $result->format('H'));
     }

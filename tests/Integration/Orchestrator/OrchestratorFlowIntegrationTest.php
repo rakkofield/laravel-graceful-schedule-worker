@@ -24,9 +24,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeLockProvider;
 
 /**
- * Orchestrator + TrackingDispatcher + CacheExecutionTracker の構成 smoke test
+ * Smoke test for Orchestrator + TrackingDispatcher + CacheExecutionTracker composition
  *
- * 実クラスを結合し、FakeCacheStore + FakeDispatcher を末端に使う。
+ * Combines real classes, with FakeCacheStore + FakeDispatcher at the leaf level.
  */
 class OrchestratorFlowIntegrationTest extends TestCase
 {
@@ -125,7 +125,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
 
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
 
-        // markExecuted の記録を確認
+        // Verify markExecuted record
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertNotNull($this->cache->get($key));
     }
@@ -142,7 +142,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $event->cron('0 * * * *');
         $event->withGracePeriod(120);
 
-        // 10:00 に最終実行記録
+        // Last execution recorded at 10:00
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
         $this->schedule->setDueEvents([]);
@@ -159,16 +159,16 @@ class OrchestratorFlowIntegrationTest extends TestCase
 
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(1));
 
-        // リカバリ dispatch が実行される
+        // Recovery dispatch is executed
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
 
-        // dispatch に渡された dueAt が 11:00（missed due）であることを確認
+        // Verify the dueAt passed to dispatch is 11:00 (missed due)
         $dispatched = $this->innerDispatcher->getDispatched();
         $dueAt = $dispatched[0]['dueAt'];
         $this->assertSame('11', $dueAt->format('H'));
         $this->assertSame('00', $dueAt->format('i'));
 
-        // markExecuted がリカバリ時刻（11:00）で記録される
+        // markExecuted is recorded with the recovery time (11:00)
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $lastExecuted = new DateTimeImmutable('@' . (int) $this->cache->get($key));
         $this->assertSame('11', $lastExecuted->format('H'));
@@ -248,12 +248,12 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $event->cron('0 * * * *');
         $this->schedule->setDueEvents([$event]);
 
-        // shouldContinue が即 false → ループに入らず stopAll
+        // shouldContinue returns false immediately -> does not enter loop, calls stopAll
         $orchestrator->run($this->schedule, $this->app, function () {
             return false;
         });
 
-        // stopAll が全 dispatcher に伝播
+        // stopAll propagated to all dispatchers
         $this->assertSame(1, $localDispatcher->getStopAllCallCount());
         $this->assertSame(1, $sfnDispatcher->getStopAllCallCount());
     }

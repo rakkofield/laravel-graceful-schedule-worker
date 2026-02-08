@@ -17,12 +17,12 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 /**
- * トラッキング機能を追加するデコレーター
+ * Decorator that adds execution tracking functionality.
  *
- * 内部 Dispatcher をラップし、以下の責務を担う:
- * - ロック取得（重複実行防止）
- * - 実行記録（markExecuted）
- * - 失敗時のログ出力
+ * Wraps an inner Dispatcher and handles the following responsibilities:
+ * - Lock acquisition (preventing duplicate execution)
+ * - Execution recording (markExecuted)
+ * - Failure logging
  */
 class TrackingDispatcher implements ScheduleDispatcherInterface
 {
@@ -36,9 +36,9 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     private $logger;
 
     /**
-     * @param ScheduleDispatcherInterface $inner 内部ディスパッチャー
-     * @param ExecutionTrackerInterface $tracker 実行トラッカー
-     * @param LoggerInterface $logger ロガー
+     * @param ScheduleDispatcherInterface $inner Inner dispatcher
+     * @param ExecutionTrackerInterface $tracker Execution tracker
+     * @param LoggerInterface $logger Logger
      */
     public function __construct(
         ScheduleDispatcherInterface $inner,
@@ -55,7 +55,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
-        // 1. ロック取得（キャッシュ接続失敗時は例外が伝播しワーカーが停止する）
+        // 1. Acquire lock (cache connection failure propagates as exception and stops the worker)
         $lockAcquired = $this->tracker->acquireLock($event, $dueAt);
 
         if (!$lockAcquired) {
@@ -72,17 +72,17 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             );
         }
 
-        // 2. 内部 Dispatcher に委譲
+        // 2. Delegate to inner dispatcher
         $result = $this->inner->dispatchEvent($event, $container, $dueAt);
 
-        // 3. 結果に応じたトラッキング
+        // 3. Track based on result
         try {
             $this->handleResult($result, $event, $dueAt);
         } catch (\LogicException $e) {
-            // LogicException はプログラミングエラーなのでそのまま再スロー
+            // LogicException indicates a programming error, so rethrow as-is
             throw $e;
         } catch (\Exception $e) {
-            // markExecuted の失敗はディスパッチ自体には影響しないので warning で継続
+            // markExecuted failure does not affect the dispatch itself, so continue with warning
             $this->logger->warning('[GracefulScheduleWorker] Failed to track execution result', [
                 'event' => $event->mutexName(),
                 'error' => $e->getMessage(),
@@ -110,12 +110,11 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * ディスパッチ結果を処理
+     * Process the dispatch result.
      *
-     * Note: SkippedDispatchResultInterface は acquireLock 失敗時にのみ生成され、
-     * inner dispatcher からは返されないため、ここでの処理は不要。
-     * 新しい DispatchResultInterface サブタイプを追加する場合は、
-     * このメソッドへの対応も必要。
+     * Note: SkippedDispatchResultInterface is only created on acquireLock failure
+     * and is never returned from the inner dispatcher, so no handling is needed here.
+     * When adding new DispatchResultInterface subtypes, this method must also be updated.
      *
      * @param DispatchResultInterface $result
      * @param Event $event
@@ -133,7 +132,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         }
 
         if ($result instanceof AlreadyRunningDispatchResultInterface) {
-            // 既存実行は成功として扱い、実行済みとしてマーク
+            // Treat existing execution as success and mark as executed
             $this->tracker->markExecuted($event, $dueAt);
             return;
         }
@@ -143,7 +142,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             return;
         }
 
-        // 予期しない結果型 - これはバグを示す
+        // Unexpected result type - this indicates a bug
         throw new \LogicException(sprintf(
             'Unexpected dispatch result type: %s (dispatcher: %s, event: %s)',
             get_class($result),
@@ -153,7 +152,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * ディスパッチ失敗時のハンドリング
+     * Handle dispatch failure.
      *
      * @param Event $event
      * @param FailedDispatchResultInterface $result

@@ -11,7 +11,7 @@ use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Cache\Store;
 
 /**
- * Illuminate\Contracts\Cache\Repository の Fake 実装
+ * Fake implementation of Illuminate\Contracts\Cache\Repository
  */
 class FakeCacheStore implements Repository
 {
@@ -26,7 +26,7 @@ class FakeCacheStore implements Repository
     private $backingStore;
 
     /**
-     * @param Store|null $backingStore LockProvider として使用する Store
+     * @param Store|null $backingStore Store to use as LockProvider
      */
     public function __construct(?Store $backingStore = null)
     {
@@ -297,7 +297,7 @@ class FakeCacheStore implements Repository
     }
 
     /**
-     * テスト用: ストアデータを取得
+     * Test helper: get store data
      *
      * @return array<string, mixed>
      */
@@ -307,7 +307,7 @@ class FakeCacheStore implements Repository
     }
 
     /**
-     * テスト用: リセット
+     * Test helper: reset
      */
     public function reset(): void
     {

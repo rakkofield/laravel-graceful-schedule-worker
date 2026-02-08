@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 /**
- * 成功したディスパッチ結果を表すマーカーインターフェース
+ * Marker interface representing a successful dispatch result.
  *
- * instanceof で成功判定に使用します。
+ * Used for success checks via instanceof.
  */
 interface StartedDispatchResultInterface extends DispatchResultInterface
 {

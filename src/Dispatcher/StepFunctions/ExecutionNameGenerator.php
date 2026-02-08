@@ -8,16 +8,16 @@ use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 
 /**
- * Step Functions Execution Name を生成するクラス
+ * Generates Step Functions Execution Names.
  *
- * Execution Name の制約:
- * - 最大 80 文字
- * - 使用可能文字: a-z, A-Z, 0-9, -, _
+ * Execution Name constraints:
+ * - Maximum 80 characters
+ * - Allowed characters: a-z, A-Z, 0-9, -, _
  */
 class ExecutionNameGenerator implements ExecutionNameGeneratorInterface
 {
     /**
-     * Execution Name の最大長
+     * Maximum length for Execution Name.
      */
     private const MAX_LENGTH = 80;
 
@@ -29,12 +29,12 @@ class ExecutionNameGenerator implements ExecutionNameGeneratorInterface
         $mutexName = $event->mutexName();
         $timestamp = (string) $dueAt->getTimestamp();
 
-        // 不正な文字を置換
+        // Replace invalid characters
         $sanitizedMutex = $this->sanitize($mutexName);
 
         $name = $sanitizedMutex . '_' . $timestamp;
 
-        // 80 文字を超える場合はハッシュを使用
+        // Use hash if exceeding 80 characters
         if (strlen($name) > self::MAX_LENGTH) {
             $hash = substr(md5($mutexName . $timestamp), 0, 16);
             $maxMutexLength = self::MAX_LENGTH - strlen($hash) - 1;
@@ -46,7 +46,7 @@ class ExecutionNameGenerator implements ExecutionNameGeneratorInterface
     }
 
     /**
-     * 不正な文字を置換
+     * Replace invalid characters.
      *
      * @param string $value
      * @return string

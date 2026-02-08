@@ -8,54 +8,54 @@ use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 
 /**
- * 実行トラッキングの契約を定義するインターフェース
+ * Interface defining the contract for execution tracking.
  *
- * At-least-once セマンティックをサポートするため、タスクの実行記録と
- * 取りこぼし検出を行う。
+ * Records task executions and detects missed executions to support
+ * at-least-once semantics.
  */
 interface ExecutionTrackerInterface
 {
     /**
-     * タスクの実行を記録する
+     * Record a task execution.
      *
-     * @param Event $event 実行されたイベント
-     * @param DateTimeInterface $dueAt 実行予定時刻
+     * @param Event $event The executed event
+     * @param DateTimeInterface $dueAt Scheduled due time
      */
     public function markExecuted(Event $event, DateTimeInterface $dueAt): void;
 
     /**
-     * リカバリすべき取りこぼしがあれば、その実行予定時刻を返す
+     * Return the scheduled due time if there is a recoverable missed execution.
      *
-     * 以下の条件をすべて満たす場合に missedDue を返す:
-     * - 前回の実行予定時刻より後の実行予定が存在する（取りこぼしあり）
-     * - grace period 内である（ClockAwareEvent の場合）
+     * Returns missedDue when all of the following conditions are met:
+     * - A scheduled due exists after the last executed due time (missed execution detected)
+     * - Within the grace period (for ClockAwareEvent)
      *
-     * 初回実行（実行記録なし）の場合は null を返す。
-     * cron 式が不正な場合は例外を投げる。
+     * Returns null on first execution (no execution record).
+     * Throws an exception if the cron expression is invalid.
      *
-     * @param Event $event チェック対象のイベント
-     * @param DateTimeInterface $now 現在時刻
-     * @return DateTimeInterface|null リカバリすべき場合は missedDue、そうでなければ null
-     * @throws \InvalidArgumentException cron 式が不正な場合
+     * @param Event $event The event to check
+     * @param DateTimeInterface $now Current time
+     * @return DateTimeInterface|null missedDue if recovery is needed, null otherwise
+     * @throws \InvalidArgumentException If the cron expression is invalid
      */
     public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface;
 
     /**
-     * 指定時刻に対するロックを取得する
+     * Acquire a lock for the specified due time.
      *
-     * 複数 Worker が同じタスクを重複実行しないよう、排他ロックを取得する。
+     * Acquires an exclusive lock to prevent multiple workers from executing the same task.
      *
-     * @param Event $event 対象イベント
-     * @param DateTimeInterface $dueAt 実行予定時刻
-     * @return bool ロック取得成功なら true
+     * @param Event $event Target event
+     * @param DateTimeInterface $dueAt Scheduled due time
+     * @return bool true if lock acquisition succeeded
      */
     public function acquireLock(Event $event, DateTimeInterface $dueAt): bool;
 
     /**
-     * 指定時刻に対するロックを解放する
+     * Release the lock for the specified due time.
      *
-     * @param Event $event 対象イベント
-     * @param DateTimeInterface $dueAt 実行予定時刻
+     * @param Event $event Target event
+     * @param DateTimeInterface $dueAt Scheduled due time
      */
     public function releaseLock(Event $event, DateTimeInterface $dueAt): void;
 }

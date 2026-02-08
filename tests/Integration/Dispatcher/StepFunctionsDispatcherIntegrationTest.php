@@ -21,7 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FixedExecuti
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 /**
- * StepFunctionsDispatcher の moto を使った Integration テスト
+ * StepFunctionsDispatcher integration test using moto
  *
  * @group integration
  * @group stepfunctions
@@ -59,7 +59,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        // SFN_ENDPOINT を使用（phpunit.xml.dist で設定）
+        // Use SFN_ENDPOINT (set in phpunit.xml.dist)
         $this->endpoint = getenv('SFN_ENDPOINT') ?: 'http://localhost:5001';
 
         $this->app = new Container();
@@ -125,7 +125,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox SFI.1 実際の StartExecution API 呼び出しが成功する
+     * @testdox SFI.1 Real StartExecution API call succeeds
      */
     public function testRealStartExecutionSucceeds(): void
     {
@@ -141,16 +141,16 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox SFI.2 同一 Execution Name での2回目呼び出しで ExecutionAlreadyExists
+     * @testdox SFI.2 Second call with the same Execution Name returns ExecutionAlreadyExists
      */
     public function testDuplicateExecutionReturnsAlreadyRunning(): void
     {
-        // テスト実行ごとにユニークな Execution Name を使用
+        // Use a unique Execution Name for each test run
         $uniqueTime = new DateTimeImmutable();
         $fixedName = 'test-duplicate-' . $uniqueTime->format('U-u');
         $nameGenerator = new FixedExecutionNameGenerator($fixedName);
 
-        // 1回目の実行
+        // First execution
         $dueAt1 = $uniqueTime;
         $dispatcher1 = $this->createDispatcher($nameGenerator);
         $uniqueCommand = 'php artisan test:duplicate-' . $uniqueTime->format('U.u');
@@ -160,9 +160,9 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result1);
 
-        // 2回目の実行（同じ Execution Name だが異なる時刻 = 異なる input）
-        // AWS/moto の仕様: 同じ name + 同じ input = べき等動作（成功）
-        //                  同じ name + 異なる input = ExecutionAlreadyExists
+        // Second execution (same Execution Name but different time = different input)
+        // AWS/moto behavior: same name + same input = idempotent (success)
+        //                    same name + different input = ExecutionAlreadyExists
         $dueAt2 = $uniqueTime->modify('+1 second');
         $dispatcher2 = $this->createDispatcher($nameGenerator);
 
@@ -172,7 +172,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox SFI.3 State Machine が実際に実行される
+     * @testdox SFI.3 State Machine actually executes
      */
     public function testStateMachineActuallyExecutes(): void
     {
@@ -185,12 +185,12 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $executionArn = $result->getExecutionArn();
         $this->assertNotNull($executionArn);
 
-        // 実行状態を確認
+        // Verify execution status
         $description = $this->sfnClient->describeExecution([
             'executionArn' => $executionArn,
         ]);
 
-        // Pass State なのでほぼ即座に完了する
+        // It's a Pass State, so it completes almost immediately
         $this->assertContains($description['status'], ['RUNNING', 'SUCCEEDED']);
     }
 }

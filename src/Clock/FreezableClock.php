@@ -28,15 +28,15 @@ class FreezableClock implements ClockInterface
     }
 
     /**
-     * 指定時刻で freeze した状態でコールバックを実行
+     * Execute a callback with the clock frozen at the specified time.
      *
-     * コールバックが例外をスローした場合でも、必ず unfreeze される。
-     * ネストした呼び出しはサポートしない（LogicException をスローする）。
+     * The clock is always unfrozen after the callback, even if it throws an exception.
+     * Nested calls are not supported (throws LogicException).
      *
-     * @param DateTimeImmutable $time freeze する時刻
-     * @param callable $callback 実行するコールバック
-     * @return mixed コールバックの戻り値
-     * @throws \LogicException ネストして呼び出された場合
+     * @param DateTimeImmutable $time The time to freeze at
+     * @param callable $callback The callback to execute
+     * @return mixed The callback's return value
+     * @throws \LogicException If called in a nested context
      */
     public function withFrozenTime(DateTimeImmutable $time, callable $callback)
     {

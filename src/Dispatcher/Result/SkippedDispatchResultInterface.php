@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 /**
- * スキップされたディスパッチ結果を表すマーカーインターフェース
+ * Marker interface representing a skipped dispatch result.
  *
- * ロック取得失敗など、ディスパッチがスキップされた場合に使用します。
+ * Used when dispatch is skipped, such as lock acquisition failure.
  *
- * instanceof でスキップ判定に使用します。
+ * Used for skip checks via instanceof.
  */
 interface SkippedDispatchResultInterface extends DispatchResultInterface
 {
     /**
-     * スキップ理由を取得
+     * Get the skip reason.
      *
-     * @return string スキップ理由（'lock_not_acquired' など）
+     * @return string Skip reason (e.g., 'lock_not_acquired')
      */
     public function getReason(): string;
 }

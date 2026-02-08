@@ -143,7 +143,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox UCS.7 schedule() のイベントが Event 型（ClockAwareEvent でない）になる
+     * @testdox UCS.7 schedule() events are native Event type (not ClockAwareEvent)
      */
     public function testScheduleEventsAreNativeEventType(): void
     {
@@ -158,7 +158,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox UCS.8 gracefulSchedule() のイベントが ClockAwareEvent 型になる
+     * @testdox UCS.8 gracefulSchedule() events are ClockAwareEvent type
      */
     public function testGracefulScheduleEventsAreClockAwareEventType(): void
     {
@@ -172,7 +172,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox UCS.9 両メソッドのイベントが同じ Schedule に共存する
+     * @testdox UCS.9 Events from both methods coexist in the same Schedule
      */
     public function testBothMethodsEventsCoexistInSameSchedule(): void
     {
@@ -189,7 +189,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox UCS.10 gracefulSchedule() をオーバーライドしない場合、空のデフォルト実装が使われる
+     * @testdox UCS.10 Default empty implementation is used when gracefulSchedule() is not overridden
      */
     public function testDefaultGracefulScheduleIsEmpty(): void
     {

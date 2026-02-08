@@ -38,7 +38,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.1 command() が ClockAwareEvent を返す
+     * @testdox CS.1 command() returns a ClockAwareEvent
      */
     public function testReturnsClockAwareEventFromCommand(): void
     {
@@ -51,7 +51,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.2 exec() が ClockAwareEvent を返す
+     * @testdox CS.2 exec() returns a ClockAwareEvent
      */
     public function testReturnsClockAwareEventFromExec(): void
     {
@@ -64,7 +64,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.3 複数のメソッドから ClockAwareEvent を生成できる
+     * @testdox CS.3 Can create ClockAwareEvents from multiple methods
      */
     public function testCreatesClockAwareEventsFromMultipleMethods(): void
     {
@@ -82,7 +82,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.4 exec() がパラメータを正しく処理する
+     * @testdox CS.4 exec() handles parameters correctly
      */
     public function testExecHandlesParametersCorrectly(): void
     {
@@ -95,7 +95,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.5 command() がパラメータを正しく処理する
+     * @testdox CS.5 command() handles parameters correctly
      */
     public function testCommandHandlesParametersCorrectly(): void
     {
@@ -108,7 +108,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.6 evaluateAt がイベントの Clock を凍結する
+     * @testdox CS.6 evaluateAt freezes the event's Clock
      */
     public function testEvaluateAtFreezesEventClock(): void
     {
@@ -120,8 +120,8 @@ class ClockAwareScheduleTest extends TestCase
         $event = $schedule->exec('echo test');
 
         $schedule->evaluateAt($frozenTime, function () use ($event, $frozenTime) {
-            // ClockAwareEvent の clock（= eventClock）が frozen time を返すことを検証
-            // expressionPasses は protected なので、clock->now() を間接的に確認
+            // Verify the ClockAwareEvent's clock (= eventClock) returns the frozen time
+            // Since expressionPasses is protected, verify clock->now() indirectly
             $reflection = new \ReflectionProperty(ClockAwareEvent::class, 'clock');
             $reflection->setAccessible(true);
             $eventClock = $reflection->getValue($event);
@@ -131,7 +131,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.7 evaluateAt 完了後に凍結が解除される
+     * @testdox CS.7 Unfreezes after evaluateAt completes
      */
     public function testEvaluateAtUnfreezesAfterCallback(): void
     {
@@ -146,7 +146,7 @@ class ClockAwareScheduleTest extends TestCase
             // no-op
         });
 
-        // evaluateAt 完了後はイベントが live clock に戻る
+        // After evaluateAt completes, the event returns to the live clock
         $reflection = new \ReflectionProperty(ClockAwareEvent::class, 'clock');
         $reflection->setAccessible(true);
         $eventClock = $reflection->getValue($event);
@@ -155,7 +155,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.8 exec() が FreezableClock をイベントに渡す
+     * @testdox CS.8 exec() passes a FreezableClock to the event
      */
     public function testExecPassesFreezableClockToEvent(): void
     {
@@ -172,7 +172,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.9 withNativeEvents 内の exec() が Event（ClockAwareEvent でない）を返す
+     * @testdox CS.9 exec() inside withNativeEvents returns an Event (not ClockAwareEvent)
      */
     public function testWithNativeEventsExecReturnsNativeEvent(): void
     {
@@ -189,7 +189,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.10 withNativeEvents 内の command() が Event を返す
+     * @testdox CS.10 command() inside withNativeEvents returns an Event
      */
     public function testWithNativeEventsCommandReturnsNativeEvent(): void
     {
@@ -206,7 +206,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.11 withNativeEvents 完了後は ClockAwareEvent に戻る
+     * @testdox CS.11 Returns to ClockAwareEvent after withNativeEvents completes
      */
     public function testAfterWithNativeEventsReturnsClockAwareEvent(): void
     {
@@ -222,7 +222,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.12 withNativeEvents 内で例外が発生してもモードが復元される
+     * @testdox CS.12 Mode is restored even if an exception occurs inside withNativeEvents
      */
     public function testWithNativeEventsRestoresModeOnException(): void
     {
@@ -242,7 +242,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.13 withNativeEvents 内と外のイベントが同一 events 配列に共存する
+     * @testdox CS.13 Events from inside and outside withNativeEvents coexist in the same events array
      */
     public function testNativeAndClockAwareEventsCoexistInEventsArray(): void
     {

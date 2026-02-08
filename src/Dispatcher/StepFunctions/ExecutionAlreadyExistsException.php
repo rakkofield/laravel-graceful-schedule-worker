@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 /**
- * 同名の Execution が既に存在する場合の例外
+ * Exception when an execution with the same name already exists.
  *
- * AWS Step Functions の ExecutionAlreadyExists エラーに対応します。
+ * Corresponds to the AWS Step Functions ExecutionAlreadyExists error.
  */
 class ExecutionAlreadyExistsException extends StepFunctionsException
 {
     /**
-     * @param string $executionName エラーメッセージに含める Execution 名
-     * @param string $message エラーメッセージ
+     * @param string $executionName Execution name to include in the error message
+     * @param string $message Error message
      */
     public function __construct(string $executionName, string $message = '')
     {

@@ -5,21 +5,21 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 /**
- * 失敗したディスパッチ結果を表すインターフェース
+ * Interface representing a failed dispatch result.
  */
 interface FailedDispatchResultInterface extends DispatchResultInterface
 {
     /**
-     * エラーメッセージを取得
+     * Get the error message.
      *
-     * @return string エラーメッセージ
+     * @return string Error message
      */
     public function getError(): string;
 
     /**
-     * 発生した例外を取得
+     * Get the thrown exception.
      *
-     * @return \Throwable|null 例外
+     * @return \Throwable|null Exception
      */
     public function getException(): ?\Throwable;
 }

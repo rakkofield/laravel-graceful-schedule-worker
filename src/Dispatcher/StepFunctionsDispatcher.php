@@ -17,9 +17,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNam
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 
 /**
- * Step Functions を使用したイベントディスパッチャー
+ * Event dispatcher using Step Functions.
  *
- * StartExecution API を呼び出し、State Machine でタスクを実行します。
+ * Calls the StartExecution API to execute tasks via a State Machine.
  */
 class StepFunctionsDispatcher implements ScheduleDispatcherInterface
 {
@@ -88,8 +88,8 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 new DateTimeImmutable()
             );
         } catch (\Exception $e) {
-            // StepFunctionsException およびその他の Exception を処理
-            // Note: \Error は catch されずに再スローされる（致命的エラーは呼び出し元に伝播）
+            // Handle StepFunctionsException and other Exceptions
+            // Note: \Error is not caught and will be rethrown (fatal errors propagate to the caller)
             return FailedStepFunctionsDispatchResult::failed(
                 $executionName,
                 $mutexName,
@@ -103,20 +103,20 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /**
      * {@inheritdoc}
      *
-     * Step Functions はリモート実行のため、ローカルでの cleanup は不要
+     * No local cleanup needed since Step Functions runs remotely
      */
     public function cleanup(): void
     {
-        // no-op: Step Functions はリモートで実行されるため
+        // no-op: Step Functions executes remotely
     }
 
     /**
      * {@inheritdoc}
      *
-     * Step Functions はリモート実行のため、ローカルでの stopAll は不要
+     * No local stopAll needed since Step Functions runs remotely
      */
     public function stopAll(): void
     {
-        // no-op: Step Functions はリモートで実行されるため
+        // no-op: Step Functions executes remotely
     }
 }

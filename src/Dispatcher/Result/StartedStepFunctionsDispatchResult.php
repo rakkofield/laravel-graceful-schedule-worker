@@ -7,9 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 use DateTimeImmutable;
 
 /**
- * StepFunctionsDispatcher の成功結果クラス
+ * Success result class for StepFunctionsDispatcher.
  *
- * Execution 情報を保持し、Step Functions の実行状態を管理します。
+ * Holds execution information and manages Step Functions execution state.
  */
 class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
 {
@@ -82,7 +82,7 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     }
 
     /**
-     * Execution ARN を取得
+     * Get the Execution ARN.
      *
      * @return string
      */
@@ -92,7 +92,7 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
     }
 
     /**
-     * Execution Name を取得
+     * Get the Execution Name.
      *
      * @return string
      */

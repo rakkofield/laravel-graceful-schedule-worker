@@ -10,9 +10,9 @@ use Aws\Result;
 use Aws\Sfn\SfnClient;
 
 /**
- * テスト用の SfnClient スタブ
+ * SfnClient Stub for testing
  *
- * AWS SDK の SfnClient を継承し、API 呼び出しをスタブ化します。
+ * Extends AWS SDK SfnClient and stubs out API calls.
  */
 class StubSfnClient extends SfnClient
 {
@@ -26,16 +26,16 @@ class StubSfnClient extends SfnClient
     private $errorMessage;
 
     /**
-     * @param array<string, mixed>|null $successResult 成功時に返す結果
-     * @param string|null $errorCode エラーコード（設定するとエラーをスロー）
-     * @param string|null $errorMessage エラーメッセージ
+     * @param array<string, mixed>|null $successResult Result to return on success
+     * @param string|null $errorCode Error code (throws error when set)
+     * @param string|null $errorMessage Error message
      */
     public function __construct(
         ?array $successResult = null,
         ?string $errorCode = null,
         ?string $errorMessage = null
     ) {
-        // 親クラスのコンストラクタを呼ばないことで、AWS SDK の初期化をスキップ
+        // Skip AWS SDK initialization by not calling the parent constructor
         $this->successResult = $successResult;
         $this->errorCode = $errorCode;
         $this->errorMessage = $errorMessage;

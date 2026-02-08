@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 
 /**
- * テスト用の no-op Sleeper（呼び出し回数を記録する Spy）
+ * No-op Sleeper for testing (Spy that records call count)
  */
 class NullSleeper implements SleeperInterface
 {
@@ -21,7 +21,7 @@ class NullSleeper implements SleeperInterface
     }
 
     /**
-     * sleep() の呼び出し回数を取得
+     * Get the number of times sleep() was called
      *
      * @return int
      */

@@ -74,7 +74,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.1 startExecution 成功時に StepFunctionsDispatchResult を返す
+     * @testdox SFD.1 Returns StepFunctionsDispatchResult on successful startExecution
      */
     public function testReturnsStepFunctionsDispatchResultOnSuccess(): void
     {
@@ -89,7 +89,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.2 ExecutionAlreadyExists で AlreadyRunningDispatchResultInterface を返す
+     * @testdox SFD.2 Returns AlreadyRunningDispatchResultInterface on ExecutionAlreadyExists
      */
     public function testReturnsAlreadyRunningOnExecutionAlreadyExists(): void
     {
@@ -105,7 +105,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.3 Execution Name が mutexName + timestamp から生成される
+     * @testdox SFD.3 Execution Name is generated from mutexName + timestamp
      */
     public function testExecutionNameIsGeneratedFromMutexAndTimestamp(): void
     {
@@ -116,12 +116,12 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
-        // mutexName に不正な文字が含まれていても sanitize される
+        // Invalid characters in mutexName are sanitized
         $this->assertStringContainsString('1705282200', $execution['name']);
     }
 
     /**
-     * @testdox SFD.4 入力 JSON に command, mutexName, dueAt が含まれる
+     * @testdox SFD.4 Input JSON contains command, mutexName, and dueAt
      */
     public function testInputContainsRequiredFields(): void
     {
@@ -143,7 +143,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.5 getDispatcherType() が 'stepfunctions' を返す
+     * @testdox SFD.5 getDispatcherType() returns 'stepfunctions'
      */
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
@@ -156,7 +156,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.6 一般エラー時に FailedDispatchResultInterface と getError() でメッセージ
+     * @testdox SFD.6 Returns FailedDispatchResultInterface with error message on general error
      */
     public function testReturnsFailedOnGeneralError(): void
     {
@@ -173,7 +173,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.7 正しい stateMachineArn が使用される
+     * @testdox SFD.7 Correct stateMachineArn is used
      */
     public function testUsesCorrectStateMachineArn(): void
     {
@@ -188,7 +188,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.8 成功時に executionArn が取得できる
+     * @testdox SFD.8 executionArn is available on success
      */
     public function testReturnsExecutionArnOnSuccess(): void
     {
@@ -202,7 +202,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.9 イベント識別子が正しく返される
+     * @testdox SFD.9 Returns correct event identifier
      */
     public function testReturnsCorrectEventIdentifier(): void
     {
@@ -215,7 +215,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.10 コマンドが正しく返される
+     * @testdox SFD.10 Returns correct event command
      */
     public function testReturnsCorrectEventCommand(): void
     {
@@ -228,7 +228,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.11 一般エラー時に getException() で例外を取得できる
+     * @testdox SFD.11 getException() returns the exception on general error
      */
     public function testReturnsExceptionOnGeneralError(): void
     {
@@ -244,40 +244,40 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.12 cleanup が例外をスローしない（no-op）
+     * @testdox SFD.12 cleanup does not throw (no-op)
      */
     public function testCleanupIsNoOp(): void
     {
         $dispatcher = $this->createDispatcher();
 
-        // 例外がスローされないことを確認
+        // Verify no exception is thrown
         $dispatcher->cleanup();
 
-        // no-op なので特にアサーションはないが、例外が発生しないことを確認
+        // No assertion needed since it's a no-op; just verify no exception occurs
         $this->assertTrue(true);
     }
 
     /**
-     * @testdox SFD.13 stopAll が例外をスローしない（no-op）
+     * @testdox SFD.13 stopAll does not throw (no-op)
      */
     public function testStopAllIsNoOp(): void
     {
         $dispatcher = $this->createDispatcher();
 
-        // 例外がスローされないことを確認
+        // Verify no exception is thrown
         $dispatcher->stopAll();
 
-        // no-op なので特にアサーションはないが、例外が発生しないことを確認
+        // No assertion needed since it's a no-op; just verify no exception occurs
         $this->assertTrue(true);
     }
 
     /**
-     * @testdox SFD.14 json_encode 失敗時に FailedStepFunctionsDispatchResult を返す
+     * @testdox SFD.14 Returns FailedStepFunctionsDispatchResult on json_encode failure
      */
     public function testReturnsFailedResultOnJsonEncodeFailure(): void
     {
         $dispatcher = $this->createDispatcher();
-        // 不正な UTF-8 文字列で json_encode を失敗させる
+        // Force json_encode failure with invalid UTF-8 string
         $event = $this->createEvent("\xFF\xFE");
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);

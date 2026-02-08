@@ -9,10 +9,10 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 
 /**
- * schedule:run と ClockAwareSchedule の互換性テスト
+ * schedule:run and ClockAwareSchedule compatibility test
  *
- * skeleton の Application を bootstrap し、schedule:run が
- * ClockAwareSchedule を通して正しく動作することを検証する。
+ * Bootstraps the skeleton Application and verifies that schedule:run
+ * works correctly through ClockAwareSchedule.
  *
  * @group skeleton
  */
@@ -28,13 +28,13 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        // 既存の Container インスタンスを退避
+        // Save the existing Container instance
         $this->previousContainer = Container::getInstance();
 
-        // skeleton の autoloader を追加で読み込み（Application クラス等を利用可能にする）
+        // Load the skeleton autoloader (to make Application class etc. available)
         require_once __DIR__ . '/../../../skeleton/vendor/autoload.php';
 
-        // skeleton の Application を生成・ブートストラップ
+        // Create and bootstrap the skeleton Application
         $this->app = require __DIR__ . '/../../../skeleton/bootstrap/app.php';
         $kernel = $this->app->make(\Illuminate\Contracts\Console\Kernel::class);
         $kernel->bootstrap();
@@ -46,7 +46,7 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
             $this->app->flush();
         }
 
-        // Container インスタンスを復元
+        // Restore the Container instance
         Container::setInstance($this->previousContainer);
 
         parent::tearDown();
@@ -71,9 +71,9 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
         $events = $schedule->events();
 
         $this->assertCount(2, $events);
-        // schedule() のイベント（先に登録される）は native Event
+        // schedule() events (registered first) are native Event
         $this->assertNotInstanceOf(ClockAwareEvent::class, $events[0]);
-        // gracefulSchedule() のイベントは ClockAwareEvent
+        // gracefulSchedule() events are ClockAwareEvent
         $this->assertInstanceOf(ClockAwareEvent::class, $events[1]);
     }
 

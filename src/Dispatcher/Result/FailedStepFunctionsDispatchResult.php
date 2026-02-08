@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 use DateTimeImmutable;
 
 /**
- * StepFunctionsDispatcher の失敗結果クラス
+ * Failure result class for StepFunctionsDispatcher.
  */
 class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
 {
@@ -54,7 +54,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
     }
 
     /**
-     * 失敗した場合の結果を作成
+     * Create a result for a failed dispatch.
      *
      * @param string $executionName
      * @param string $identifier
@@ -129,7 +129,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
     }
 
     /**
-     * Execution Name を取得
+     * Get the Execution Name.
      *
      * @return string
      */

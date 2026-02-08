@@ -9,9 +9,9 @@ use Aws\Sfn\SfnClient;
 use DateTimeInterface;
 
 /**
- * AWS SDK SfnClient のアダプター
+ * Adapter for the AWS SDK SfnClient.
  *
- * AWS SDK への直接依存を隠蔽し、StepFunctionsClientInterface を実装します。
+ * Hides direct dependency on the AWS SDK and implements StepFunctionsClientInterface.
  */
 class AwsSfnClientAdapter implements StepFunctionsClientInterface
 {

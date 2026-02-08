@@ -48,7 +48,7 @@ class Kernel extends ConsoleKernel
     }
 
     /**
-     * まだ gracefulSchedule() に移行していないタスク（native Event）。
+     * Tasks not yet migrated to gracefulSchedule() (native Event).
      *
      * @param \Illuminate\Console\Scheduling\Schedule $schedule
      * @return void

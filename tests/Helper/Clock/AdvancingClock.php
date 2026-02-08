@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 use DateTimeImmutable;
 
 /**
- * now() を呼ぶたびに指定秒数進む Clock 実装
+ * Clock implementation that advances by a specified number of seconds on each now() call
  */
 class AdvancingClock implements ClockInterface
 {
@@ -18,8 +18,8 @@ class AdvancingClock implements ClockInterface
     private $advanceSeconds;
 
     /**
-     * @param DateTimeImmutable $start 開始時刻
-     * @param int $advanceSeconds 1回の now() 呼び出しで進む秒数
+     * @param DateTimeImmutable $start Start time
+     * @param int $advanceSeconds Seconds to advance per now() call
      */
     public function __construct(DateTimeImmutable $start, int $advanceSeconds = 1)
     {

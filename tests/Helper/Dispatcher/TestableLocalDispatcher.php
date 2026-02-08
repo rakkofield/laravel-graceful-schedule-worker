@@ -7,9 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 
 /**
- * テスト用 LocalDispatcher
+ * Testable LocalDispatcher
  *
- * プロセスを外部から注入可能にするために LocalDispatcher を継承します。
+ * Extends LocalDispatcher to allow injecting processes externally.
  */
 class TestableLocalDispatcher extends LocalDispatcher
 {

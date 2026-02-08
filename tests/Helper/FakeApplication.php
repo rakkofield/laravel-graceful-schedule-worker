@@ -8,9 +8,9 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 
 /**
- * テスト用の Fake Application
+ * Fake Application for testing
  *
- * Illuminate\Contracts\Foundation\Application インターフェースの Fake 実装
+ * Fake implementation of the Illuminate\Contracts\Foundation\Application interface
  */
 class FakeApplication extends Container implements Application
 {

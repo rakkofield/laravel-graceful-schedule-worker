@@ -7,9 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use Symfony\Component\Process\Process;
 
 /**
- * テスト用の Process スタブ
+ * Process Stub for testing
  *
- * Symfony Process を継承し、プロセスの状態をスタブ化します。
+ * Extends Symfony Process and stubs out process state.
  */
 class StubProcess extends Process
 {
@@ -29,7 +29,7 @@ class StubProcess extends Process
     private $terminateOnSignal = false;
 
     /**
-     * @param bool $running 初期状態での running フラグ
+     * @param bool $running Initial running flag
      */
     public function __construct(bool $running = true)
     {

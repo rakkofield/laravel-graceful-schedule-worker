@@ -9,10 +9,10 @@ use Illuminate\Redis\Connections\PhpRedisConnection;
 use Redis;
 
 /**
- * テスト用の Redis Factory 実装
+ * Redis Factory implementation for testing
  *
- * Illuminate\Cache\RedisStore が必要とする Factory インターフェースを実装。
- * テスト環境で直接 Redis に接続する実装。
+ * Implements the Factory interface required by Illuminate\Cache\RedisStore.
+ * Connects directly to Redis in the test environment.
  */
 class TestRedisFactory implements Factory
 {

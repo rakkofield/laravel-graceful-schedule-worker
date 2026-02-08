@@ -76,7 +76,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.1 ロック取得成功時に内部 Dispatcher に委譲される
+     * @testdox TD.1 Delegates to inner Dispatcher when lock is acquired
      */
     public function testDelegatesToInnerDispatcherWhenLockAcquired(): void
     {
@@ -96,7 +96,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.2 ロック取得失敗時に SkippedDispatchResult を返す
+     * @testdox TD.2 Returns SkippedDispatchResult when lock is not acquired
      */
     public function testReturnsSkippedWhenLockNotAcquired(): void
     {
@@ -105,7 +105,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // ロック取得失敗を設定
+        // Set lock acquisition to fail
         $this->tracker->setLockResult($event->mutexName(), $dueAt, false);
 
         $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
@@ -116,12 +116,12 @@ class TrackingDispatcherTest extends TestCase
         $this->assertSame($event->mutexName(), $result->getEventIdentifier());
         $this->assertSame('echo test', $result->getEventCommand());
 
-        // 内部 Dispatcher は呼ばれない
+        // Inner Dispatcher is not called
         $this->assertCount(0, $this->innerDispatcher->getDispatched());
     }
 
     /**
-     * @testdox TD.3 Started 結果で markExecuted が呼ばれる
+     * @testdox TD.3 markExecuted is called on Started result
      */
     public function testMarksExecutedOnStartedResult(): void
     {
@@ -138,7 +138,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.4 AlreadyRunning 結果で markExecuted が呼ばれる
+     * @testdox TD.4 markExecuted is called on AlreadyRunning result
      */
     public function testMarksExecutedOnAlreadyRunningResult(): void
     {
@@ -155,7 +155,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.5 Failed 結果でエラーログが出力される
+     * @testdox TD.5 Error log is output on Failed result
      */
     public function testLogsErrorOnFailedResult(): void
     {
@@ -171,11 +171,11 @@ class TrackingDispatcherTest extends TestCase
 
         $dispatcher->dispatchEvent($event, $this->container, $dueAt);
 
-        // markExecuted は呼ばれない
+        // markExecuted is not called
         $executed = $this->tracker->getExecuted();
         $this->assertArrayNotHasKey($event->mutexName(), $executed);
 
-        // エラーログが出力される
+        // Error log is output
         $errorLogs = $this->logger->getLogsByLevel('error');
         $this->assertCount(1, $errorLogs);
         $this->assertStringContainsString('Failed to dispatch event', $errorLogs[0]['message']);
@@ -184,7 +184,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.6 Failed 結果に例外がある場合はコンテキストに含まれる
+     * @testdox TD.6 Exception is included in context when Failed result has one
      */
     public function testLogsExceptionInContextOnFailedResult(): void
     {
@@ -208,11 +208,11 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.7 予期しない結果型で LogicException がスローされる
+     * @testdox TD.7 LogicException is thrown on unexpected result type
      */
     public function testThrowsLogicExceptionOnUnexpectedResultType(): void
     {
-        // DispatchResultInterface を実装するが、既知のインターフェースを実装しないクラス
+        // Class that implements DispatchResultInterface but not any known sub-interface
         $unexpectedResult = new class implements DispatchResultInterface {
             public function getEventIdentifier(): string
             {
@@ -251,7 +251,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.8 cleanup が内部 Dispatcher に委譲される
+     * @testdox TD.8 cleanup delegates to inner Dispatcher
      */
     public function testCleanupDelegatesToInnerDispatcher(): void
     {
@@ -264,7 +264,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.9 stopAll が内部 Dispatcher に委譲される
+     * @testdox TD.9 stopAll delegates to inner Dispatcher
      */
     public function testStopAllDelegatesToInnerDispatcher(): void
     {
@@ -277,7 +277,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.10 SkippedDispatchResult の dispatcherType は 'tracking' を返す
+     * @testdox TD.10 SkippedDispatchResult dispatcherType returns 'tracking'
      */
     public function testSkippedDispatchResultReturnsTrackingType(): void
     {
@@ -286,7 +286,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // ロック取得失敗を設定
+        // Set lock acquisition to fail
         $this->tracker->setLockResult($event->mutexName(), $dueAt, false);
 
         $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
@@ -295,7 +295,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.11 ロック取得失敗時に DEBUG ログが出力される
+     * @testdox TD.11 DEBUG log is output when lock is not acquired
      */
     public function testLogsDebugWhenLockNotAcquired(): void
     {
@@ -304,12 +304,12 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // ロック取得失敗を設定
+        // Set lock acquisition to fail
         $this->tracker->setLockResult($event->mutexName(), $dueAt, false);
 
         $dispatcher->dispatchEvent($event, $this->container, $dueAt);
 
-        // DEBUG ログが出力されること
+        // DEBUG log is output
         $debugLogs = $this->logger->getLogsByLevel('debug');
         $this->assertCount(1, $debugLogs);
         $this->assertStringContainsString('Lock not acquired, skipping dispatch', $debugLogs[0]['message']);
@@ -318,7 +318,7 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.12 markExecuted の例外はキャッチされ warning ログが出力される
+     * @testdox TD.12 markExecuted exception is caught and warning log is output
      */
     public function testCatchesMarkExecutedExceptionAndLogsWarning(): void
     {
@@ -331,12 +331,12 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        // 例外がスローされず、結果が返される
+        // No exception is thrown and the result is returned
         $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
 
         $this->assertSame($startedResult, $result);
 
-        // warning ログが出力される
+        // Warning log is output
         $warningLogs = $this->logger->getLogsByLevel('warning');
         $this->assertCount(1, $warningLogs);
         $this->assertStringContainsString('Failed to track execution result', $warningLogs[0]['message']);
@@ -346,11 +346,11 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.13 handleResult で LogicException がスローされた場合はキャッチされず再スローされる
+     * @testdox TD.13 LogicException from handleResult is not caught and is rethrown
      */
     public function testLogicExceptionFromHandleResultIsRethrown(): void
     {
-        // LogicException をスローする tracker
+        // Tracker that throws LogicException
         $logicException = new \LogicException('Programming error');
         $throwingTracker = new StubThrowingExecutionTracker($logicException);
         $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');

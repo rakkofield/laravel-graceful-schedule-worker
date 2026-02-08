@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 /**
- * 既に実行中のタスクに対するディスパッチ結果を表すマーカーインターフェース
+ * Marker interface representing a dispatch result for an already running task.
  *
- * Step Functions の ExecutionAlreadyExists など、
- * 重複実行を検出した場合に使用します。
+ * Used when duplicate execution is detected, such as
+ * Step Functions' ExecutionAlreadyExists.
  *
- * instanceof で既存実行判定に使用します。
+ * Used for existing execution checks via instanceof.
  */
 interface AlreadyRunningDispatchResultInterface extends DispatchResultInterface
 {

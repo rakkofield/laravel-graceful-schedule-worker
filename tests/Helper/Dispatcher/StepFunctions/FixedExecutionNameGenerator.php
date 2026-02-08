@@ -8,10 +8,10 @@ use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 
 /**
- * テスト用の固定 Execution Name Generator
+ * Fixed Execution Name Generator for testing
  *
- * 常に指定された固定の名前を返す。
- * ExecutionAlreadyExists のテストで、同じ name だが異なる input を送信するために使用。
+ * Always returns a specified fixed name.
+ * Used in ExecutionAlreadyExists tests to send the same name but different input.
  */
 class FixedExecutionNameGenerator implements ExecutionNameGeneratorInterface
 {
@@ -19,7 +19,7 @@ class FixedExecutionNameGenerator implements ExecutionNameGeneratorInterface
     private $fixedName;
 
     /**
-     * @param string $fixedName 返す固定の名前
+     * @param string $fixedName The fixed name to return
      */
     public function __construct(string $fixedName)
     {

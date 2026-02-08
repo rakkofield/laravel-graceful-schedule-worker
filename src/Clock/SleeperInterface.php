@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
 interface SleeperInterface
 {
     /**
-     * スリープを実行する
+     * Execute a sleep.
      *
      * @return void
      */

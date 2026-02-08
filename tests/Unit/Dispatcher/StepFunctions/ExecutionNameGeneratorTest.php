@@ -38,7 +38,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox ENG.1 Event と dueAt から Execution Name を生成する
+     * @testdox ENG.1 Generates Execution Name from Event and dueAt
      */
     public function testGeneratesExecutionNameFromEventAndDueAt(): void
     {
@@ -47,13 +47,13 @@ class ExecutionNameGeneratorTest extends TestCase
 
         $result = $this->generator->generate($event, $dueAt);
 
-        // mutexName は Event の内部フォーマットに依存するため、
-        // タイムスタンプ部分が含まれることを確認
+        // Since mutexName depends on Event's internal format,
+        // verify the timestamp portion is included
         $this->assertStringContainsString('1704067200', $result);
     }
 
     /**
-     * @testdox ENG.2 不正な文字をハイフンに置換する
+     * @testdox ENG.2 Replaces invalid characters with hyphens
      */
     public function testSanitizesInvalidCharacters(): void
     {
@@ -62,12 +62,12 @@ class ExecutionNameGeneratorTest extends TestCase
 
         $result = $this->generator->generate($event, $dueAt);
 
-        // 不正文字がサニタイズされていることを確認
+        // Verify invalid characters are sanitized
         $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
     }
 
     /**
-     * @testdox ENG.3 80文字を超える場合はハッシュを使用して短縮する
+     * @testdox ENG.3 Truncates long names using hash when exceeding 80 characters
      */
     public function testTruncatesLongNamesWithHash(): void
     {
@@ -81,7 +81,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox ENG.4 同じ入力からは同じ出力が得られる（決定論的）
+     * @testdox ENG.4 Same input produces same output (deterministic)
      */
     public function testIsDeterministic(): void
     {
@@ -95,7 +95,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox ENG.5 長い名前でも同じ入力から同じハッシュが生成される
+     * @testdox ENG.5 Long names also produce the same hash from the same input
      */
     public function testLongNamesAreDeterministic(): void
     {
@@ -110,23 +110,23 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox ENG.6 80文字以下の名前はトランケーションされない
+     * @testdox ENG.6 Names at or below 80 characters are not truncated
      */
     public function testNamesAtOrBelowLimitAreNotTruncated(): void
     {
-        // 短いコマンドの場合、ハッシュが含まれないことを確認
+        // Verify short commands do not include hash
         $event = $this->createEvent('short');
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
         $result = $this->generator->generate($event, $dueAt);
 
         $this->assertLessThanOrEqual(80, strlen($result));
-        // 短い入力ではハッシュが使われず、Unix timestamp が含まれる
+        // Short inputs do not use hash; Unix timestamp is included
         $this->assertStringContainsString('1704067200', $result);
     }
 
     /**
-     * @testdox ENG.7 結果は許可文字のみで構成される
+     * @testdox ENG.7 Result contains only allowed characters
      */
     public function testResultContainsOnlyValidCharacters(): void
     {
@@ -139,13 +139,13 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox ENG.8 80文字を超える mutexName ではハッシュで切り詰められ結果が80文字以内になる
+     * @testdox ENG.8 mutexName exceeding 80 chars is truncated with hash to fit within 80 chars
      */
     public function testTruncatesWithHashWhenMutexNameExceeds80Chars(): void
     {
-        // 標準の Event::mutexName() は常に固定長（sha1）なので 80 文字を超えない。
-        // 長い mutexName を持つ StubLongMutexEvent で切り詰めパスを検証する。
-        $longMutex = str_repeat('abcdefghij', 10); // 100文字
+        // Standard Event::mutexName() is always fixed-length (sha1) so never exceeds 80 chars.
+        // Use StubLongMutexEvent with a long mutexName to verify the truncation path.
+        $longMutex = str_repeat('abcdefghij', 10); // 100 characters
         $event = new StubLongMutexEvent($this->mutex, 'test', $longMutex);
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
@@ -156,20 +156,20 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox ENG.9 切り詰められた名前にはハッシュサフィックスが含まれる
+     * @testdox ENG.9 Truncated name contains hash suffix
      */
     public function testTruncatedNameContainsHashSuffix(): void
     {
-        $longMutex = str_repeat('abcdefghij', 10); // 100文字
+        $longMutex = str_repeat('abcdefghij', 10); // 100 characters
         $event = new StubLongMutexEvent($this->mutex, 'test', $longMutex);
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
         $result = $this->generator->generate($event, $dueAt);
 
-        // 切り詰め結果は mutexPrefix + '_' + md5ハッシュ16文字
+        // Truncated result is mutexPrefix + '_' + 16-char md5 hash
         $parts = explode('_', $result);
         $lastPart = end($parts);
-        // ハッシュ部分は16文字の16進数
+        // Hash portion is 16 hex characters
         $this->assertEquals(16, strlen($lastPart));
         $this->assertRegExp('/^[a-f0-9]+$/', $lastPart);
     }

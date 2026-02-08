@@ -25,10 +25,10 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 /**
- * DefaultScheduleOrchestrator のユニットテスト
+ * Unit tests for DefaultScheduleOrchestrator
  *
- * Note: ロック取得・markExecuted・失敗ハンドリングは TrackingDispatcher の責務
- *       TrackingDispatcherTest でテスト済み
+ * Note: Lock acquisition, markExecuted, and failure handling are TrackingDispatcher's responsibility
+ *       Already tested in TrackingDispatcherTest
  */
 class DefaultScheduleOrchestratorTest extends TestCase
 {
@@ -73,7 +73,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->dispatcher = new FakeDispatcher($defaultResult);
         $this->schedule = new SpySchedule($this->eventMutex, $this->schedulingMutex);
         $this->app = new FakeApplication();
-        // 時刻を 12:00:00 に固定（秒が 0 の状態）
+        // Fix time to 12:00:00 (seconds at 0)
         $this->clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $this->logger = new NullLogger();
         $this->sleeper = new NullSleeper();
@@ -145,7 +145,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
      */
     public function testRunSkipsNonDueEvents(): void
     {
-        // due でないイベントは dueEvents に含まれないため、空配列を設定
+        // Non-due events are not included in dueEvents, so set empty array
         $this->schedule->setDueEvents([]);
 
         $orchestrator = $this->createOrchestrator();
@@ -184,20 +184,20 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         $orchestrator = $this->createOrchestrator();
 
-        // 最初から false を返す
+        // Returns false from the start
         $shouldContinue = function () {
             return false;
         };
 
         $result = $orchestrator->run($this->schedule, $this->app, $shouldContinue);
 
-        // shouldContinue が false なら即座に終了し、イベントはディスパッチされない
+        // If shouldContinue is false, exit immediately and no events are dispatched
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
         $this->assertTrue($result);
     }
 
     /**
-     * @testdox DO.5 run が成功時に true を返す
+     * @testdox DO.5 run returns true on success
      */
     public function testRunReturnsTrueOnSuccess(): void
     {
@@ -211,12 +211,12 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox DO.6 run が LocalDispatchResult を管理する
+     * @testdox DO.6 run manages LocalDispatchResult
      */
     public function testRunManagesLocalDispatchResults(): void
     {
-        // LocalDispatchResult を返すようにセットアップ
-        // 実際のプロセスは使わず、検証のためにモックを使用
+        // Set up to return LocalDispatchResult
+        // Use fake instead of real process for verification
         $event = $this->createEvent('echo test');
         $this->schedule->setDueEvents([$event]);
 
@@ -226,12 +226,12 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // 正常にディスパッチされたことを確認
+        // Verify it was dispatched successfully
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
     }
 
     /**
-     * @testdox DO.7 run 終了後に dispatcher の stopAll が呼ばれる
+     * @testdox DO.7 dispatcher stopAll is called after run completes
      */
     public function testStopAllIsCalledOnDispatcherWhenOrchestratorStops(): void
     {
@@ -244,12 +244,12 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // run() 終了後、dispatcher の stopAll() が呼ばれることを確認
+        // Verify dispatcher's stopAll() is called after run() completes
         $this->assertSame(1, $this->dispatcher->getStopAllCallCount());
     }
 
     /**
-     * @testdox DO.8 各ループイテレーションで dispatcher の cleanup が呼ばれる
+     * @testdox DO.8 dispatcher cleanup is called in each loop iteration
      */
     public function testCleanupIsCalledOnDispatcherInEachLoopIteration(): void
     {
@@ -262,12 +262,12 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(3));
 
-        // 各ループで cleanup() が呼ばれることを確認（3回）
+        // Verify cleanup() is called in each loop (3 times)
         $this->assertSame(3, $this->dispatcher->getCleanupCallCount());
     }
 
     /**
-     * @testdox DO.9 同一分内で複数回ループしても1回しかディスパッチされない
+     * @testdox DO.9 Only dispatches once per minute even with multiple loops
      */
     public function testOnlyDispatchesOncePerMinute(): void
     {
@@ -277,16 +277,16 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        // 時刻を毎分0秒に固定（setUp で 12:00:00 に設定済み）
+        // Time is fixed at second 0 of each minute (set to 12:00:00 in setUp)
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(3));
 
-        // 3 回ループしても、同一分内なので 1 回しかディスパッチされない
+        // Even with 3 loops, only dispatched once since within the same minute
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
     }
 
     /**
-     * @testdox DO.10 秒が0でない場合はディスパッチをスキップする
+     * @testdox DO.10 Skips dispatch when seconds are not zero
      */
     public function testSkipsDispatchWhenSecondIsNotZero(): void
     {
@@ -296,7 +296,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
         $this->dispatcher->setResult($result);
 
-        // 秒を 30 に設定（0 でないのでスキップされる）
+        // Set seconds to 30 (not 0, so dispatch is skipped)
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:30'));
         $orchestrator = new DefaultScheduleOrchestrator(
             $this->dispatcher,
@@ -308,12 +308,12 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(2));
 
-        // 秒が 0 でないため、ディスパッチは呼ばれない
+        // Dispatch is not called because seconds are not 0
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
 
     /**
-     * @testdox DO.11 dispatchEvent に dueAt が渡される
+     * @testdox DO.11 dueAt is passed to dispatchEvent
      */
     public function testPassesDueAtToDispatcher(): void
     {
@@ -329,10 +329,10 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $dispatched = $this->dispatcher->getDispatched();
         $this->assertCount(1, $dispatched);
 
-        // dueAt が渡されていることを確認
+        // Verify dueAt is passed
         $dueAt = $dispatched[0]['dueAt'];
         $this->assertInstanceOf(\DateTimeInterface::class, $dueAt);
-        // 時刻の分が一致していることを確認（秒は0に正規化）
+        // Verify the minute matches (seconds are normalized to 0)
         $this->assertSame('2024-01-15 12:00:00', $dueAt->format('Y-m-d H:i:s'));
     }
 
@@ -343,17 +343,17 @@ class DefaultScheduleOrchestratorTest extends TestCase
     {
         $tracker = new FakeExecutionTracker();
 
-        // due ではないが recoverable なイベントを作成
+        // Create a recoverable event that is not due
         $event = $this->createClockAwareEvent('echo test');
-        $event->cron('0 * * * *'); // 毎時0分
-        $event->enableRecovery();  // リカバリを有効化
+        $event->cron('0 * * * *'); // Every hour at minute 0
+        $event->enableRecovery();  // Enable recovery
 
-        // due events は空（通常のディスパッチは行われない）
+        // Due events are empty (no normal dispatch)
         $this->schedule->setDueEvents([]);
-        // schedule.events() には含まれる
+        // Included in schedule.events()
         $this->schedule->addEvent($event);
 
-        // 取りこぼしを設定: missedDue を返す
+        // Set missed execution: return missedDue
         $missedDue = new DateTimeImmutable('2024-01-15 11:00:00');
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
@@ -363,10 +363,10 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator($tracker);
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // リカバリでディスパッチされることを確認
+        // Verify dispatched via recovery
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
 
-        // dueAt が missedDue であることを確認
+        // Verify dueAt is missedDue
         $dispatched = $this->dispatcher->getDispatched();
         $this->assertSame($missedDue->getTimestamp(), $dispatched[0]['dueAt']->getTimestamp());
     }
@@ -378,15 +378,15 @@ class DefaultScheduleOrchestratorTest extends TestCase
     {
         $tracker = new FakeExecutionTracker();
 
-        // recoverable なイベントを作成
+        // Create a recoverable event
         $event = $this->createClockAwareEvent('echo test');
-        $event->cron('0 * * * *'); // 毎時0分
+        $event->cron('0 * * * *'); // Every hour at minute 0
         $event->enableRecovery();
 
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        // 取りこぼしなし（null を返す）
+        // No missed execution (returns null)
         $tracker->setRecoverableResult($event->mutexName(), null);
 
         $result = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
@@ -395,7 +395,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator($tracker);
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // 取りこぼしなしのためディスパッチされないことを確認
+        // Verify not dispatched because no missed execution
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
 
@@ -406,15 +406,15 @@ class DefaultScheduleOrchestratorTest extends TestCase
     {
         $tracker = new FakeExecutionTracker();
 
-        // recoverable でないイベント
+        // Non-recoverable event
         $event = $this->createClockAwareEvent('echo test');
-        $event->cron('0 * * * *'); // 毎時0分
-        // enableRecovery() を呼ばない
+        $event->cron('0 * * * *'); // Every hour at minute 0
+        // Do not call enableRecovery()
 
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        // 取りこぼしを設定（ただし recoverable でないのでチェックされない）
+        // Set missed execution (but not checked since event is not recoverable)
         $missedDue = new DateTimeImmutable('2024-01-15 11:00:00');
         $tracker->setRecoverableResult($event->mutexName(), $missedDue);
 
@@ -424,7 +424,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator($tracker);
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // recoverable でないためディスパッチされないことを確認
+        // Verify not dispatched because event is not recoverable
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
     }
 
@@ -435,7 +435,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     {
         $tracker = new FakeExecutionTracker();
 
-        // リカバリ対象のイベントを設定
+        // Set up an event eligible for recovery
         $event = $this->createClockAwareEvent('echo test');
         $event->cron('0 * * * *');
         $event->enableRecovery();
@@ -453,7 +453,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator($tracker, $spyLogger);
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // info ログが出力されていることを確認
+        // Verify info log is output
         $infoLogs = $spyLogger->getLogsByLevel('info');
         $this->assertNotEmpty($infoLogs);
         $this->assertStringContainsString('Recovering missed event', $infoLogs[0]['message']);
@@ -579,7 +579,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $event = $this->createClockAwareEvent('echo test');
         $event->cron('0 * * * *');
         $event->enableRecovery();
-        // when(false) を設定 → filtersPass は false を返す
+        // Set when(false) -> filtersPass returns false
         $event->when(function () {
             return false;
         });
@@ -596,7 +596,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator($tracker);
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // リカバリでは filtersPass を呼ばないためディスパッチされる
+        // Recovery does not call filtersPass, so the event is dispatched
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
     }
 
@@ -621,12 +621,12 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator(null, $spyLogger);
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // 例外イベントはスキップされ、正常イベントのみディスパッチされる
+        // The exception-throwing event is skipped; only the normal event is dispatched
         $this->assertSame(1, $this->dispatcher->getDispatchCount());
         $dispatched = $this->dispatcher->getDispatched();
         $this->assertSame($eventThatPasses, $dispatched[0]['event']);
 
-        // warning ログが出力されることを検証
+        // Verify a warning log is output
         $this->assertTrue($spyLogger->hasLogContaining('warning', 'filtersPass threw exception'));
     }
 
@@ -664,10 +664,10 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $orchestrator = $this->createOrchestrator(null, $spyLogger);
         $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
 
-        // イベントはスキップされる
+        // Event is skipped
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
 
-        // warning ログの内容を検証
+        // Verify the warning log contents
         $warningLogs = $spyLogger->getLogsByLevel('warning');
         $this->assertCount(1, $warningLogs);
         $this->assertStringContainsString('filtersPass threw exception', $warningLogs[0]['message']);

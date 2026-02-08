@@ -26,14 +26,14 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeLockProvider;
 
 /**
- * Orchestrator パイプラインでの native Event と ClockAwareEvent 混在テスト
+ * Mixed native Event and ClockAwareEvent test in Orchestrator pipeline
  *
- * 実 ClockAwareSchedule + withNativeEvents() で native Event を登録し、
- * DefaultScheduleOrchestrator → TrackingDispatcher → FakeDispatcher のパイプラインで
- * 両方の型が正しく処理されることを検証する。
+ * Registers native Events via real ClockAwareSchedule + withNativeEvents(), and verifies
+ * that both types are processed correctly in the
+ * DefaultScheduleOrchestrator -> TrackingDispatcher -> FakeDispatcher pipeline.
  *
- * 構成: Orchestrator → TrackingDispatcher → FakeDispatcher
- *       + CacheExecutionTracker + FakeCacheStore + FakeLockProvider
+ * Composition: Orchestrator -> TrackingDispatcher -> FakeDispatcher
+ *              + CacheExecutionTracker + FakeCacheStore + FakeLockProvider
  */
 class OrchestratorMixedEventsIntegrationTest extends TestCase
 {
@@ -145,10 +145,10 @@ class OrchestratorMixedEventsIntegrationTest extends TestCase
         $this->assertSame(2, $this->innerDispatcher->getDispatchCount());
 
         $dispatched = $this->innerDispatcher->getDispatched();
-        // withNativeEvents 内で登録 → native Event
+        // Registered inside withNativeEvents -> native Event
         $this->assertNotInstanceOf(ClockAwareEvent::class, $dispatched[0]['event']);
         $this->assertInstanceOf(Event::class, $dispatched[0]['event']);
-        // 通常モードで登録 → ClockAwareEvent
+        // Registered in normal mode -> ClockAwareEvent
         $this->assertInstanceOf(ClockAwareEvent::class, $dispatched[1]['event']);
     }
 
@@ -196,17 +196,17 @@ class OrchestratorMixedEventsIntegrationTest extends TestCase
 
         $schedule->exec('echo graceful-every5')->cron('*/5 * * * *')->withGracePeriod(30);
 
-        // 前回実行記録をセット（11:50:00 に実行済み → 11:55:00 が抜けている）
+        // Set last execution record (executed at 11:50:00 -> 11:55:00 was missed)
         $tracker = $this->createTracker();
         $events = $schedule->events();
 
-        // 両方のイベントに lastExecutedDue = 11:50:00 をセット
+        // Set lastExecutedDue = 11:50:00 for both events
         $lastExecutedDue = new DateTimeImmutable('2024-01-15 11:50:00');
         foreach ($events as $event) {
             $tracker->markExecuted($event, $lastExecutedDue);
         }
 
-        // Orchestrator を再構成（同じ cache/lockProvider を使用）
+        // Re-configure Orchestrator (using the same cache/lockProvider)
         $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
@@ -216,11 +216,11 @@ class OrchestratorMixedEventsIntegrationTest extends TestCase
             new NullSleeper()
         );
 
-        // shouldContinue(0) → ループに入らず、checkMissedExecutions のみ実行
+        // shouldContinue(0) -> does not enter loop, only checkMissedExecutions runs
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(0));
 
-        // native Event はリカバリ対象外（isRecoverableEvent = false）
-        // ClockAwareEvent のみがリカバリ dispatch される
+        // Native Event is not recoverable (isRecoverableEvent = false)
+        // Only ClockAwareEvent is dispatched via recovery
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
 
         $dispatched = $this->innerDispatcher->getDispatched();
@@ -252,21 +252,21 @@ class OrchestratorMixedEventsIntegrationTest extends TestCase
 
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
-        // native Event でも dispatch される
+        // Native Event is also dispatched
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
 
-        // FakeLockProvider でロック取得が呼ばれている（ロック → リリース済み）
-        // ロックはリリース済みなので locks は空になる
-        // FakeCacheStore に markExecuted の記録がある
+        // FakeLockProvider had lock acquisition called (lock -> released)
+        // Locks are released so locks collection is empty
+        // FakeCacheStore has markExecuted records
         $cacheData = $this->cache->getData();
         $this->assertNotEmpty($cacheData);
 
-        // markExecuted で書き込まれたキーが存在することを確認
+        // Verify the key written by markExecuted exists
         $event = $schedule->events()[0];
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertArrayHasKey($key, $cacheData);
 
-        // 値は dueAt のタイムスタンプ
+        // Value is the dueAt timestamp
         $expectedTimestamp = (new DateTimeImmutable('2024-01-15 12:00:00'))->getTimestamp();
         $this->assertSame($expectedTimestamp, $cacheData[$key]);
     }

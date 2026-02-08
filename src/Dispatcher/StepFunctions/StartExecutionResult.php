@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 /**
- * StartExecution API の結果を表す DTO
+ * DTO representing the result of the StartExecution API.
  */
 class StartExecutionResult
 {
@@ -26,7 +26,7 @@ class StartExecutionResult
     }
 
     /**
-     * Execution ARN を取得
+     * Get the Execution ARN.
      *
      * @return string
      */
@@ -36,7 +36,7 @@ class StartExecutionResult
     }
 
     /**
-     * 開始日時を取得
+     * Get the start date.
      *
      * @return \DateTimeInterface
      */

@@ -5,19 +5,19 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 /**
- * Step Functions クライアントのインターフェース
+ * Interface for the Step Functions client.
  *
- * AWS SDK への直接依存を避けるため、必要なメソッドのみを定義します。
+ * Defines only the required methods to avoid direct dependency on the AWS SDK.
  */
 interface StepFunctionsClientInterface
 {
     /**
-     * State Machine の Execution を開始する
+     * Start a State Machine execution.
      *
      * @param array{stateMachineArn: string, name?: string, input?: string} $args
      * @return StartExecutionResult
-     * @throws ExecutionAlreadyExistsException 同名の Execution が既に存在する場合
-     * @throws StepFunctionsException その他の Step Functions エラー
+     * @throws ExecutionAlreadyExistsException If an execution with the same name already exists
+     * @throws StepFunctionsException For other Step Functions errors
      */
     public function startExecution(array $args): StartExecutionResult;
 }

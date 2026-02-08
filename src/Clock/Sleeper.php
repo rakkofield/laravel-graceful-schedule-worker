@@ -10,8 +10,8 @@ class Sleeper implements SleeperInterface
     private $microseconds;
 
     /**
-     * @param int $microseconds スリープ時間（マイクロ秒、1以上）
-     * @throws \InvalidArgumentException $microseconds が 0 以下の場合
+     * @param int $microseconds Sleep duration in microseconds (must be >= 1)
+     * @throws \InvalidArgumentException If $microseconds is 0 or less
      */
     public function __construct(int $microseconds)
     {

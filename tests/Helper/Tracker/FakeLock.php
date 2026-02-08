@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 use Illuminate\Contracts\Cache\Lock;
 
 /**
- * Lock インターフェースの Fake 実装
+ * Fake implementation of the Lock interface
  */
 class FakeLock implements Lock
 {
@@ -34,7 +34,7 @@ class FakeLock implements Lock
     /**
      * @param string $name
      * @param int $seconds
-     * @param array<string, bool> $locks 参照渡し
+     * @param array<string, bool> $locks Passed by reference
      * @param string|null $owner
      */
     public function __construct(string $name, int $seconds, array &$locks, ?string $owner = null)

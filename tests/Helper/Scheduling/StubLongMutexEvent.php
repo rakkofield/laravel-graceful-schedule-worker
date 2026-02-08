@@ -8,7 +8,7 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 
 /**
- * mutexName() を任意の値に設定可能な Event の Stub
+ * Event Stub that allows setting mutexName() to an arbitrary value
  */
 class StubLongMutexEvent extends Event
 {

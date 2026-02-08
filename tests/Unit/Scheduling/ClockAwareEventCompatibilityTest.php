@@ -12,17 +12,17 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 
 /**
- * ClockAwareEvent の Laravel Event 互換性テスト
+ * Laravel Event compatibility tests for ClockAwareEvent
  *
- * Laravel Event の標準機能（cron スケジューリング、フィルタ、mutex）が
- * ClockAwareEvent でも正しく動作することを保証する。
- * コード変更は不要。既存動作の文書化・保証を目的とする。
+ * Ensures standard Laravel Event features (cron scheduling, filters, mutex)
+ * work correctly with ClockAwareEvent.
+ * No code changes required. Purpose is to document and guarantee existing behavior.
  *
- * - cron/everyMinute/hourly/daily 等のスケジューリングメソッド
- * - when()/skip() フィルタの filtersPass() 反映
- * - between() フィルタ追加
- * - withoutOverlapping() の EventMutex 連携
- * - weekdays() 等の曜日制約
+ * - cron/everyMinute/hourly/daily scheduling methods
+ * - when()/skip() filter reflection in filtersPass()
+ * - between() filter addition
+ * - withoutOverlapping() EventMutex integration
+ * - weekdays() day-of-week constraints
  */
 class ClockAwareEventCompatibilityTest extends TestCase
 {
@@ -164,7 +164,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
         // Now lock the mutex (simulate a running event)
         $this->mutex->create($event);
 
-        // 同一コマンド ('echo test') → 同一 mutexName → ロック済み mutex にヒットする
+        // Same command ('echo test') -> same mutexName -> hits the already locked mutex
         $event2 = $this->createEvent();
         $event2->withoutOverlapping();
 
@@ -262,13 +262,13 @@ class ClockAwareEventCompatibilityTest extends TestCase
         $event = $this->createEvent();
         $event->between('09:00', '17:00');
 
-        // 定義時は範囲内
+        // Within range at definition time
         $this->assertTrue($event->filtersPass($this->app));
 
-        // clock を範囲外に変更
+        // Change clock to outside the range
         $this->clock->setTime(new DateTimeImmutable('2024-01-15 20:00:00'));
 
-        // 遅延評価なので新しい時刻で再評価される
+        // Lazy evaluation, so re-evaluated with the new time
         $this->assertFalse($event->filtersPass($this->app));
     }
 

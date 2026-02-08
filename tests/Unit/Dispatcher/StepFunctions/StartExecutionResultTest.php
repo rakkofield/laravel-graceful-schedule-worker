@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class StartExecutionResultTest extends TestCase
 {
     /**
-     * @testdox SER.1 getExecutionArn() が Execution ARN を返す
+     * @testdox SER.1 getExecutionArn() returns the Execution ARN
      */
     public function testGetExecutionArnReturnsArn(): void
     {
@@ -26,7 +26,7 @@ class StartExecutionResultTest extends TestCase
     }
 
     /**
-     * @testdox SER.2 getStartDate() が開始日時を返す
+     * @testdox SER.2 getStartDate() returns the start date
      */
     public function testGetStartDateReturnsStartDate(): void
     {
@@ -39,7 +39,7 @@ class StartExecutionResultTest extends TestCase
     }
 
     /**
-     * @testdox SER.3 コンストラクタで渡された値がイミュータブルに保持される
+     * @testdox SER.3 Values passed via constructor are held immutably
      */
     public function testValuesAreImmutable(): void
     {
@@ -48,7 +48,7 @@ class StartExecutionResultTest extends TestCase
 
         $result = new StartExecutionResult($arn, $startDate);
 
-        // 2回取得しても同じ値が返る
+        // Same value is returned even when accessed twice
         $this->assertSame($result->getExecutionArn(), $result->getExecutionArn());
         $this->assertSame($result->getStartDate(), $result->getStartDate());
     }

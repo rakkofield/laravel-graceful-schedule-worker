@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class FailedStepFunctionsDispatchResultTest extends TestCase
 {
     /**
-     * @testdox FSR.1 failed() で FailedDispatchResultInterface を返す
+     * @testdox FSR.1 failed() returns FailedDispatchResultInterface
      */
     public function testFailedReturnsFailedDispatchResultInterface(): void
     {
@@ -29,7 +29,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FSR.2 getDispatcherType() が 'stepfunctions' を返す
+     * @testdox FSR.2 getDispatcherType() returns 'stepfunctions'
      */
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
@@ -44,7 +44,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FSR.3 failed() で command が null の場合は空文字列になる
+     * @testdox FSR.3 failed() with null command returns empty string
      */
     public function testFailedWithNullCommandReturnsEmptyString(): void
     {
@@ -59,7 +59,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FSR.4 failed() で例外を渡すと getException() で取得できる
+     * @testdox FSR.4 failed() with exception makes it available via getException()
      */
     public function testFailedReturnsException(): void
     {
@@ -76,7 +76,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FSR.5 failed() で例外を渡さない場合は getException() が null を返す
+     * @testdox FSR.5 getException() returns null when no exception is provided
      */
     public function testFailedWithoutExceptionReturnsNull(): void
     {
@@ -91,7 +91,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FSR.6 getDispatchedAt() が DateTimeImmutable を返す
+     * @testdox FSR.6 getDispatchedAt() returns DateTimeImmutable
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
@@ -110,7 +110,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FSR.7 getExecutionName() が Execution 名を返す
+     * @testdox FSR.7 getExecutionName() returns the Execution name
      */
     public function testGetExecutionNameReturnsExecutionName(): void
     {
@@ -125,7 +125,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FSR.8 getEventIdentifier() がイベント識別子を返す
+     * @testdox FSR.8 getEventIdentifier() returns the event identifier
      */
     public function testGetEventIdentifierReturnsIdentifier(): void
     {

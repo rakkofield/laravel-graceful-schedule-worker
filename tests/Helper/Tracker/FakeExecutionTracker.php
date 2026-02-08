@@ -8,7 +8,7 @@ use DateTimeInterface;
 use Illuminate\Console\Scheduling\Event;
 
 /**
- * ExecutionTrackerInterface の Fake 実装
+ * Fake implementation of ExecutionTrackerInterface
  */
 class FakeExecutionTracker implements ExecutionTrackerInterface
 {
@@ -55,7 +55,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     {
         $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
 
-        // 特定のロック結果が設定されている場合はそれを返す
+        // Return the configured result if a specific lock result has been set
         if (isset($this->lockResults[$key])) {
             return $this->lockResults[$key];
         }
@@ -78,10 +78,10 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * テスト用: リカバリ判定結果を設定
+     * Test helper: set recovery determination result
      *
      * @param string $mutexName
-     * @param DateTimeInterface|null $missedDue リカバリすべき場合は missedDue、そうでなければ null
+     * @param DateTimeInterface|null $missedDue The missed due time if recovery is needed, null otherwise
      */
     public function setRecoverableResult(string $mutexName, ?DateTimeInterface $missedDue): void
     {
@@ -89,7 +89,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * テスト用: ロック取得結果を設定
+     * Test helper: set lock acquisition result
      *
      * @param string $mutexName
      * @param DateTimeInterface $dueAt
@@ -102,7 +102,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * テスト用: 実行記録を取得
+     * Test helper: get execution records
      *
      * @return array<string, DateTimeInterface>
      */
@@ -112,7 +112,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * テスト用: ロック状態を取得
+     * Test helper: get lock state
      *
      * @return array<string, bool>
      */
@@ -122,7 +122,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * テスト用: 実行記録を設定
+     * Test helper: set execution record
      *
      * @param string $mutexName
      * @param DateTimeInterface $dueAt
@@ -133,7 +133,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * テスト用: リセット
+     * Test helper: reset
      */
     public function reset(): void
     {

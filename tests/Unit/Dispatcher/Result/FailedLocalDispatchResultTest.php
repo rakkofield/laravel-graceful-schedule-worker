@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class FailedLocalDispatchResultTest extends TestCase
 {
     /**
-     * @testdox FLR.1 FailedDispatchResultInterface を実装する
+     * @testdox FLR.1 Implements FailedDispatchResultInterface
      */
     public function testImplementsFailedDispatchResultInterface(): void
     {
@@ -25,7 +25,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FLR.2 エラーメッセージを保持する
+     * @testdox FLR.2 Stores error message
      */
     public function testStoresErrorMessage(): void
     {
@@ -36,7 +36,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FLR.3 getDispatcherType が 'local' を返す
+     * @testdox FLR.3 getDispatcherType returns 'local'
      */
     public function testGetDispatcherTypeReturnsLocal(): void
     {
@@ -46,7 +46,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FLR.4 eventIdentifier と eventCommand を保持する
+     * @testdox FLR.4 Stores eventIdentifier and eventCommand
      */
     public function testStoresEventIdentifierAndCommand(): void
     {
@@ -93,7 +93,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FLR.8 dispatchedAt を明示的に渡した場合はその値が返される
+     * @testdox FLR.8 Returns explicitly provided dispatchedAt value
      */
     public function testGetDispatchedAtReturnsExplicitValue(): void
     {

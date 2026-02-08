@@ -8,9 +8,9 @@ use DateTimeImmutable;
 use Symfony\Component\Process\Process;
 
 /**
- * LocalDispatcher の成功結果クラス
+ * Success result class for LocalDispatcher.
  *
- * Process オブジェクトを保持し、プロセスの状態管理を可能にします。
+ * Holds the Process object and enables process state management.
  */
 class StartedLocalDispatchResult implements StartedDispatchResultInterface
 {
@@ -77,7 +77,7 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     }
 
     /**
-     * Process オブジェクトを取得
+     * Get the Process object.
      *
      * @return Process
      */
@@ -87,7 +87,7 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     }
 
     /**
-     * プロセスが実行中かどうか
+     * Check whether the process is running.
      *
      * @return bool
      */
@@ -97,7 +97,7 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     }
 
     /**
-     * プロセスの終了コードを取得
+     * Get the process exit code.
      *
      * @return int|null
      */

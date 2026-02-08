@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 class SystemClockTest extends TestCase
 {
     /**
-     * @testdox SC.1 now() が現在時刻の DateTimeImmutable を返す
+     * @testdox SC.1 now() returns a DateTimeImmutable with the current time
      */
     public function testReturnsCurrentTime(): void
     {
@@ -25,13 +25,13 @@ class SystemClockTest extends TestCase
     }
 
     /**
-     * @testdox SC.2 連続呼び出しで時刻が進む
+     * @testdox SC.2 Time advances on consecutive calls
      */
     public function testAdvancesTimeOnConsecutiveCalls(): void
     {
         $clock = new SystemClock();
         $first = $clock->now();
-        usleep(1000); // 1ms待機
+        usleep(1000); // wait 1ms
         $second = $clock->now();
 
         $this->assertGreaterThanOrEqual($first->getTimestamp(), $second->getTimestamp());

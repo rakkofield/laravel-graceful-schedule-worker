@@ -17,7 +17,7 @@ use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
- * Cache を使用した ExecutionTracker 実装
+ * Cache-based ExecutionTracker implementation.
  */
 class CacheExecutionTracker implements ExecutionTrackerInterface
 {
@@ -53,8 +53,8 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
      * @param Repository $cache
      * @param LockProvider $lockProvider
      * @param LoggerInterface $logger
-     * @param int $lockTtl ロックの TTL（秒）
-     * @throws InvalidArgumentException lockTtl が正の整数でない場合
+     * @param int $lockTtl Lock TTL in seconds
+     * @throws InvalidArgumentException If lockTtl is not a positive integer
      */
     public function __construct(
         Repository $cache,
@@ -88,10 +88,10 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     {
         $lastExecutedDue = $this->getLastExecutedDue($event);
         if ($lastExecutedDue === null) {
-            return null; // 初回実行は取りこぼしなし
+            return null; // First execution, no missed executions
         }
 
-        // cron 式から前回の実行予定時刻を計算（例外はそのまま伝播）
+        // Calculate the previous run date from the cron expression (exceptions propagate as-is)
         try {
             $cron = new CronExpression($event->expression);
             $previousRunDate = $cron->getPreviousRunDate($now);
@@ -104,12 +104,12 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         }
         $missedDue = DateTimeImmutable::createFromMutable($previousRunDate);
 
-        // 取りこぼしチェック（タイムスタンプで比較）
+        // Check for missed execution (compare by timestamp)
         if ($missedDue->getTimestamp() <= $lastExecutedDue->getTimestamp()) {
-            return null; // 取りこぼしなし
+            return null; // No missed execution
         }
 
-        // grace period チェック（ClockAwareEvent の場合のみ）
+        // Grace period check (only for ClockAwareEvent)
         if ($event instanceof ClockAwareEvent) {
             $gracePeriod = $event->getGracePeriod();
             if ($gracePeriod !== null) {
@@ -120,7 +120,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
                         'missedDue' => $missedDue->format('Y-m-d H:i:s'),
                         'deadline' => $deadline->format('Y-m-d H:i:s'),
                     ]);
-                    return null; // grace period 超過
+                    return null; // Grace period exceeded
                 }
             }
         }
@@ -158,10 +158,10 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * 最後に実行された予定時刻を取得する
+     * Get the last executed due time.
      *
-     * @param Event $event 対象イベント
-     * @return DateTimeImmutable|null 最後の実行予定時刻（未実行なら null）
+     * @param Event $event Target event
+     * @return DateTimeImmutable|null Last executed due time (null if never executed)
      */
     private function getLastExecutedDue(Event $event): ?DateTimeImmutable
     {

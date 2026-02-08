@@ -11,9 +11,9 @@ use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 
 /**
- * テスト用 Schedule スパイ
+ * Schedule Spy for testing
  *
- * dueEvents の戻り値を制御可能にします。
+ * Allows controlling the return value of dueEvents.
  */
 class SpySchedule extends Schedule
 {
@@ -26,7 +26,7 @@ class SpySchedule extends Schedule
      */
     public function __construct(EventMutex $eventMutex, SchedulingMutex $schedulingMutex)
     {
-        // Container にバインドしてから親のコンストラクタを呼ぶ
+        // Bind to Container before calling the parent constructor
         $container = Container::getInstance();
         $container->instance(EventMutex::class, $eventMutex);
         $container->instance(SchedulingMutex::class, $schedulingMutex);
@@ -35,7 +35,7 @@ class SpySchedule extends Schedule
     }
 
     /**
-     * dueEvents が返すイベントを設定
+     * Set events that dueEvents will return
      *
      * @param array<Event> $events
      * @return void
@@ -57,9 +57,9 @@ class SpySchedule extends Schedule
     }
 
     /**
-     * テスト用: イベントを追加
+     * Test helper: add an event
      *
-     * Schedule::events() が返すイベントリストに追加します。
+     * Adds to the event list returned by Schedule::events().
      *
      * @param Event $event
      * @return void

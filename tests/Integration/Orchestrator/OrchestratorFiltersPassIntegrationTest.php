@@ -26,14 +26,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeLockProvider;
 
 /**
- * Orchestrator の filtersPass 統合テスト
+ * Orchestrator filtersPass integration test
  *
- * 実 ClockAwareSchedule を使用し（SpySchedule ではなく）、
- * filtersPass が Orchestrator → TrackingDispatcher → FakeDispatcher のパイプラインで
- * 正しく機能することを検証する。
+ * Uses a real ClockAwareSchedule (not SpySchedule) to verify that
+ * filtersPass works correctly in the Orchestrator -> TrackingDispatcher -> FakeDispatcher pipeline.
  *
- * 構成: Orchestrator → TrackingDispatcher → FakeDispatcher
- *       + CacheExecutionTracker + FakeCacheStore + FakeLockProvider
+ * Composition: Orchestrator -> TrackingDispatcher -> FakeDispatcher
+ *              + CacheExecutionTracker + FakeCacheStore + FakeLockProvider
  */
 class OrchestratorFiltersPassIntegrationTest extends TestCase
 {
@@ -141,7 +140,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
-        // when(false) のため filtersPass で弾かれ、dispatch されない
+        // Rejected by filtersPass due to when(false), not dispatched
         $this->assertSame(0, $this->innerDispatcher->getDispatchCount());
     }
 
@@ -155,13 +154,13 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             ->everyMinute()
             ->withoutOverlapping();
 
-        // mutex をロック済みにする（前回実行がまだ動いている状態をシミュレート）
+        // Pre-lock the mutex (simulate a previous execution still running)
         $this->eventMutex->create($event);
 
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
-        // withoutOverlapping + mutex locked → filtersPass でスキップ
+        // withoutOverlapping + mutex locked -> skipped by filtersPass
         $this->assertSame(0, $this->innerDispatcher->getDispatchCount());
     }
 
@@ -193,10 +192,10 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
-        // 3 イベント中、1 つだけが filtersPass を通過
+        // Only 1 out of 3 events passes filtersPass
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
 
-        // dispatch されたのは 'echo pass' のイベント
+        // The dispatched event is the 'echo pass' one
         $dispatched = $this->innerDispatcher->getDispatched();
         $this->assertStringContainsString('echo pass', (string) $dispatched[0]['event']->command);
     }
@@ -216,7 +215,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
-        // environments(['production']) + app env=testing → isDue = false → dispatch されない
+        // environments(['production']) + app env=testing -> isDue = false -> not dispatched
         $this->assertSame(0, $this->innerDispatcher->getDispatchCount());
     }
 
@@ -239,7 +238,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         $orchestrator = $this->createOrchestrator();
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
-        // evenInMaintenanceMode() ありのイベントのみ dispatch される
+        // Only the event with evenInMaintenanceMode() is dispatched
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
         $dispatched = $this->innerDispatcher->getDispatched();
         $this->assertStringContainsString('echo maintenance-ok', (string) $dispatched[0]['event']->command);
@@ -250,8 +249,8 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testEvaluationTimeConsistency(): void
     {
-        // AdvancingClock: now() を呼ぶたびに 1 秒進む
-        // 12:00:00 からスタート。freeze なしなら dueEvents と between で異なる時刻になりうる。
+        // AdvancingClock: advances 1 second on each now() call
+        // Starts at 12:00:00. Without freeze, dueEvents and between could evaluate at different times.
         $advancingClock = new AdvancingClock(
             new DateTimeImmutable('2024-01-15 12:00:00'),
             1
@@ -259,13 +258,13 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
 
         $schedule = new ClockAwareSchedule($advancingClock);
 
-        // between('11:59', '12:01') → 12:00:00 は範囲内
-        // AdvancingClock で freeze なしなら between 評価時に clock が進んでしまう可能性がある
+        // between('11:59', '12:01') -> 12:00:00 is within range
+        // Without freeze, AdvancingClock could advance during between evaluation
         $capturedTimes = [];
         $schedule->exec('echo consistency-test')
             ->everyMinute()
             ->when(function () use ($schedule, &$capturedTimes) {
-                // when() filter 内で event の clock の now() を記録
+                // Record the event clock's now() inside the when() filter
                 $events = $schedule->events();
                 $event = $events[0];
                 $reflection = new \ReflectionProperty(ClockAwareEvent::class, 'clock');
@@ -276,8 +275,8 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             })
             ->between('11:59', '12:01');
 
-        // Orchestrator を構成
-        // Orchestrator 自身の clock も 12:00:00 から始める（AdvancingClock）
+        // Configure Orchestrator
+        // Orchestrator's own clock also starts at 12:00:00 (FixedClock)
         $orchestratorClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $tracker = $this->createTracker();
         $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
@@ -292,11 +291,11 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
 
         $orchestrator->run($schedule, $this->app, $this->createShouldContinue(1));
 
-        // evaluateAt により freeze されるので、
-        // when() と between() の両方が同一時刻（12:00:00）で評価される
+        // evaluateAt freezes the clock, so both when() and between()
+        // are evaluated at the same time (12:00:00)
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
 
-        // captured times はすべて同じ値であること
+        // All captured times should be the same value
         $this->assertNotEmpty($capturedTimes);
         foreach ($capturedTimes as $time) {
             $this->assertEquals($capturedTimes[0], $time);

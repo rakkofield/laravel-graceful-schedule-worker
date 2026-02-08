@@ -12,14 +12,14 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInter
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
- * 複数のDispatcherを保持し、event.typeに応じて委譲する
+ * Holds multiple dispatchers and delegates based on event type.
  */
 class CompositeDispatcher implements ScheduleDispatcherInterface
 {
     /** @var array<string, ScheduleDispatcherInterface> */
     private $dispatchers;
 
-    /** @var string DIで注入（config参照はServiceProviderのみ） */
+    /** @var string Injected via DI (config is only accessed in ServiceProvider) */
     private $defaultType;
 
     /** @var LoggerInterface */
@@ -28,8 +28,8 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /**
      * @param array<string, ScheduleDispatcherInterface> $dispatchers
      * @param string $defaultType
-     * @param LoggerInterface $logger ロガー
-     * @throws \InvalidArgumentException dispatchers が空または defaultType が存在しない場合
+     * @param LoggerInterface $logger Logger
+     * @throws \InvalidArgumentException If dispatchers is empty or defaultType does not exist
      */
     public function __construct(array $dispatchers, string $defaultType, LoggerInterface $logger)
     {
@@ -50,12 +50,12 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * 単一イベントをディスパッチする
+     * Dispatch a single event.
      *
-     * @param Event $event 実行するスケジュールイベント
-     * @param Container $container Laravel コンテナインスタンス
-     * @param DateTimeInterface $dueAt 実行予定時刻
-     * @return DispatchResultInterface ディスパッチ結果
+     * @param Event $event The schedule event to execute
+     * @param Container $container Laravel container instance
+     * @param DateTimeInterface $dueAt Scheduled due time
+     * @return DispatchResultInterface Dispatch result
      */
     public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
@@ -72,7 +72,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * イベントから使用するDispatcherタイプを解決する
+     * Resolve the dispatcher type to use from the event.
      *
      * @param Event $event
      * @return string
@@ -94,7 +94,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
             try {
                 $dispatcher->cleanup();
             } catch (\Exception $e) {
-                // 1つのディスパッチャーの失敗が他に影響しないようにする
+                // Ensure one dispatcher's failure does not affect others
                 $this->logger->warning('[GracefulScheduleWorker] Failed to cleanup dispatcher', [
                     'dispatcher' => $type,
                     'error' => $e->getMessage(),
@@ -113,7 +113,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
             try {
                 $dispatcher->stopAll();
             } catch (\Exception $e) {
-                // 1つのディスパッチャーの失敗が他に影響しないようにする
+                // Ensure one dispatcher's failure does not affect others
                 $this->logger->warning('[GracefulScheduleWorker] Failed to stop dispatcher', [
                     'dispatcher' => $type,
                     'error' => $e->getMessage(),

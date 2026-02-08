@@ -9,9 +9,9 @@ use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Store;
 
 /**
- * LockProvider インターフェースの Fake 実装
+ * Fake implementation of the LockProvider interface
  *
- * Store インターフェースも実装し、FakeCacheStore と組み合わせて使用する。
+ * Also implements the Store interface, used in combination with FakeCacheStore.
  */
 class FakeLockProvider implements LockProvider, Store
 {
@@ -160,7 +160,7 @@ class FakeLockProvider implements LockProvider, Store
     }
 
     /**
-     * テスト用: ロック状態を取得
+     * Test helper: get lock state
      *
      * @return array<string, bool>
      */
@@ -170,7 +170,7 @@ class FakeLockProvider implements LockProvider, Store
     }
 
     /**
-     * テスト用: ストアデータを取得
+     * Test helper: get store data
      *
      * @return array<string, mixed>
      */
@@ -180,7 +180,7 @@ class FakeLockProvider implements LockProvider, Store
     }
 
     /**
-     * テスト用: リセット
+     * Test helper: reset
      */
     public function reset(): void
     {

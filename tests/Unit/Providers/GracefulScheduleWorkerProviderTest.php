@@ -129,7 +129,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.1 ClockInterface をシングルトンとして登録する
+     * @testdox GP.1 Registers ClockInterface as a singleton
      */
     public function testRegistersClockInterfaceAsSingleton(): void
     {
@@ -143,7 +143,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.2 ClockInterface が同一インスタンスを返す
+     * @testdox GP.2 ClockInterface returns the same instance
      */
     public function testClockInterfaceReturnsSameInstance(): void
     {
@@ -156,7 +156,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.3 ClockAwareSchedule が ClockInterface を受け取る
+     * @testdox GP.3 ClockAwareSchedule receives ClockInterface
      */
     public function testClockAwareScheduleReceivesClockInterface(): void
     {
@@ -170,7 +170,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.4 LocalDispatcher をシングルトンとして登録する
+     * @testdox GP.4 Registers LocalDispatcher as a singleton
      */
     public function testRegistersLocalDispatcherAsSingleton(): void
     {
@@ -184,7 +184,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.5 ScheduleDispatcherInterface を TrackingDispatcher として登録する
+     * @testdox GP.5 Registers ScheduleDispatcherInterface as TrackingDispatcher
      */
     public function testRegistersScheduleDispatcherInterfaceAsTrackingDispatcher(): void
     {
@@ -198,7 +198,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.6 ScheduleDispatcherInterface が同一インスタンスを返す
+     * @testdox GP.6 ScheduleDispatcherInterface returns the same instance
      */
     public function testCompositeDispatcherReturnsSameInstance(): void
     {
@@ -211,7 +211,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.7 dispatch 設定が 'local' の場合 TrackingDispatcher を返す
+     * @testdox GP.7 Returns TrackingDispatcher when dispatch config is 'local'
      */
     public function testScheduleDispatcherInterfaceReturnsTrackingDispatcher(): void
     {
@@ -224,7 +224,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.8 ScheduleOrchestratorInterface をシングルトンとして登録する
+     * @testdox GP.8 Registers ScheduleOrchestratorInterface as a singleton
      */
     public function testRegistersScheduleOrchestratorInterfaceAsSingleton(): void
     {
@@ -238,7 +238,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.9 ScheduleOrchestrator が同一インスタンスを返す
+     * @testdox GP.9 ScheduleOrchestrator returns the same instance
      */
     public function testScheduleOrchestratorReturnsSameInstance(): void
     {
@@ -350,7 +350,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $orchestrator = $this->app->make(ScheduleOrchestratorInterface::class);
         $this->assertInstanceOf(DefaultScheduleOrchestrator::class, $orchestrator);
 
-        // リフレクションで tracker プロパティを確認
+        // Verify tracker property via reflection
         $reflection = new \ReflectionClass($orchestrator);
         $property = $reflection->getProperty('tracker');
         $property->setAccessible(true);
@@ -372,7 +372,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $orchestrator = $this->app->make(ScheduleOrchestratorInterface::class);
         $this->assertInstanceOf(DefaultScheduleOrchestrator::class, $orchestrator);
 
-        // リフレクションで tracker プロパティを確認
+        // Verify tracker property via reflection
         $reflection = new \ReflectionClass($orchestrator);
         $property = $reflection->getProperty('tracker');
         $property->setAccessible(true);
@@ -382,11 +382,11 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.14 config が未登録の場合は NullExecutionTracker を返す
+     * @testdox GP.14 Returns NullExecutionTracker when config is not bound
      */
     public function testReturnsNullTrackerWhenConfigNotBound(): void
     {
-        // config バインディングを削除するために新しい Container を構築
+        // Build a new Container to remove the config binding
         $app = new Container();
         Container::setInstance($app);
 
@@ -405,11 +405,11 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.15 cache store が LockProvider を実装しない場合は RuntimeException をスローする
+     * @testdox GP.15 Throws RuntimeException when cache store does not implement LockProvider
      */
     public function testThrowsRuntimeExceptionWhenStoreDoesNotImplementLockProvider(): void
     {
-        // LockProvider を実装しない Store を使用
+        // Use a Store that does not implement LockProvider
         $nonLockProviderStore = new FakeNonLockProviderStore();
         $cacheStore = new FakeCacheStore($nonLockProviderStore);
         $this->app->singleton('cache', function () use ($cacheStore) {

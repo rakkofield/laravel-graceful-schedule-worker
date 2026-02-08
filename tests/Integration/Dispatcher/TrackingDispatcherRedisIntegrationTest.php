@@ -23,7 +23,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\RedisTestTrait;
 
 /**
- * TrackingDispatcher + CacheExecutionTracker + Redis の統合テスト
+ * TrackingDispatcher + CacheExecutionTracker + Redis integration test
  *
  * @requires extension redis
  */
@@ -110,7 +110,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
 
-        // Redis に markExecuted 記録が存在
+        // markExecuted record exists in Redis
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertTrue($this->cache->has($key));
         $this->assertEquals($dueAt->getTimestamp(), $this->cache->get($key));
@@ -129,11 +129,11 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
             FakeStartedDispatchResult::create($event->mutexName(), 'echo test-lock', 'fake')
         );
 
-        // 1回目: 成功
+        // First call: success
         $result1 = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
 
-        // 2回目: ロック取得失敗でスキップ
+        // Second call: skipped due to lock acquisition failure
         $result2 = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt);
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result2);
         $this->assertSame('lock_not_acquired', $result2->getReason());
@@ -158,7 +158,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
 
-        // markExecuted 記録なし
+        // No markExecuted record
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertFalse($this->cache->has($key));
     }
@@ -180,7 +180,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
 
         $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result);
 
-        // AlreadyRunning でも markExecuted される
+        // markExecuted is called even for AlreadyRunning
         $key = 'schedule:tracker:last:' . $event->mutexName();
         $this->assertTrue($this->cache->has($key));
     }
@@ -230,7 +230,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
         $result1 = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt1);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
 
-        // 異なる dueAt ならロックは独立
+        // Different dueAt means independent locks
         $result2 = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt2);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result2);
 

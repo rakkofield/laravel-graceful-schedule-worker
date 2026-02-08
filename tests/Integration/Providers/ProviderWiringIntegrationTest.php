@@ -27,7 +27,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeLockProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 
 /**
- * ServiceProvider が組み立てたコンポーネントチェーンの動作検証
+ * Behavioral verification of the component chain assembled by ServiceProvider
  */
 class ProviderWiringIntegrationTest extends TestCase
 {

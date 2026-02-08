@@ -66,7 +66,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.1 dispatchEvent が StartedLocalDispatchResult を返す
+     * @testdox LD.1 dispatchEvent returns StartedLocalDispatchResult
      */
     public function testReturnsLocalDispatchResult(): void
     {
@@ -80,7 +80,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.2 成功時に StartedDispatchResultInterface を返す
+     * @testdox LD.2 Returns StartedDispatchResultInterface on success
      */
     public function testReturnsStartedDispatchResultInterfaceOnSuccess(): void
     {
@@ -93,7 +93,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.3 正しい eventIdentifier を返す
+     * @testdox LD.3 Returns correct eventIdentifier
      */
     public function testReturnsCorrectEventIdentifier(): void
     {
@@ -106,7 +106,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.4 正しい eventCommand を返す
+     * @testdox LD.4 Returns correct eventCommand
      */
     public function testReturnsCorrectEventCommand(): void
     {
@@ -115,12 +115,12 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // buildCommand() により元のコマンドが含まれたフルコマンドが返される
+        // buildCommand() returns the full command containing the original command
         $this->assertStringContainsString('php artisan report:daily', $result->getEventCommand());
     }
 
     /**
-     * @testdox LD.5 dispatcherType が 'local' を返す
+     * @testdox LD.5 dispatcherType returns 'local'
      */
     public function testReturnsCorrectDispatcherType(): void
     {
@@ -133,7 +133,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.6 バックグラウンドでプロセスを起動する
+     * @testdox LD.6 Starts process in background
      */
     public function testStartsProcessInBackground(): void
     {
@@ -151,7 +151,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.7 dispatchedAt タイムスタンプを返す
+     * @testdox LD.7 Returns dispatchedAt timestamp
      */
     public function testReturnsDispatchedAtTimestamp(): void
     {
@@ -169,7 +169,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.8 ディスパッチ直後にプロセスが実行中である
+     * @testdox LD.8 Process is running immediately after dispatch
      */
     public function testHasRunningProcessImmediatelyAfterDispatch(): void
     {
@@ -208,7 +208,7 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // runInBackground = true のとき schedule:finish が含まれる
+        // schedule:finish is included when runInBackground = true
         $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
     }
 
@@ -223,7 +223,7 @@ class LocalDispatcherTest extends TestCase
 
         $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // runInBackground は変更されない（Event の設定を尊重する）
+        // runInBackground is not changed (respects Event's setting)
         $this->assertFalse($event->runInBackground);
     }
 
@@ -238,12 +238,12 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // buildCommand() により出力リダイレクトが含まれる
+        // buildCommand() includes output redirection
         $this->assertStringContainsString('/tmp/test-output.log', $result->getEventCommand());
     }
 
     /**
-     * @testdox LD.13 beforeCallbacks で例外が発生した場合は失敗結果を返す
+     * @testdox LD.13 Returns failed result when beforeCallbacks throw an exception
      */
     public function testReturnsFailedWhenBeforeCallbackThrows(): void
     {
@@ -259,7 +259,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.14 beforeCallbacks で Error が発生した場合は再スローされる
+     * @testdox LD.14 Error from beforeCallbacks is rethrown
      */
     public function testRethrowsErrorFromBeforeCallback(): void
     {
@@ -280,27 +280,27 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
 
-        // 即座に完了するプロセスをディスパッチ（background）
+        // Dispatch a process that completes immediately (background)
         $event1 = $this->createEvent('echo test1');
         $event1->runInBackground = true;
         $result1 = $dispatcher->dispatchEvent($event1, $this->app, $this->dueAt);
 
-        // プロセスの完了を待つ
+        // Wait for the process to complete
         $result1->getProcess()->wait();
 
-        // 長時間実行するプロセスをディスパッチ（background）
+        // Dispatch a long-running process (background)
         $event2 = $this->createEvent('sleep 10');
         $event2->runInBackground = true;
         $result2 = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
 
-        // cleanup を呼ぶ
+        // Call cleanup
         $dispatcher->cleanup();
 
-        // stopAll を呼んで残っているプロセスを確認
-        // sleep プロセスがまだ実行中なので stop される
+        // Call stopAll and verify remaining processes
+        // The sleep process is still running so it will be stopped
         $this->assertTrue($result2->isRunning());
 
-        // クリーンアップ
+        // Cleanup
         $result2->getProcess()->stop(0);
     }
 
@@ -311,7 +311,7 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
 
-        // 複数のプロセスをディスパッチ（background）
+        // Dispatch multiple processes (background)
         $event1 = $this->createEvent('sleep 10');
         $event1->runInBackground = true;
         $result1 = $dispatcher->dispatchEvent($event1, $this->app, $this->dueAt);
@@ -320,14 +320,14 @@ class LocalDispatcherTest extends TestCase
         $event2->runInBackground = true;
         $result2 = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
 
-        // 両方とも実行中であることを確認
+        // Verify both are running
         $this->assertTrue($result1->isRunning());
         $this->assertTrue($result2->isRunning());
 
-        // stopAll を呼ぶ
+        // Call stopAll
         $dispatcher->stopAll();
 
-        // 両方とも停止していることを確認
+        // Verify both are stopped
         $this->assertFalse($result1->isRunning());
         $this->assertFalse($result2->isRunning());
     }
@@ -339,19 +339,19 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
 
-        // 即座に完了するプロセスをディスパッチ（background）
+        // Dispatch a process that completes immediately (background)
         $event = $this->createEvent('echo test');
         $event->runInBackground = true;
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // プロセスの完了を待つ
+        // Wait for the process to complete
         $result->getProcess()->wait();
         $this->assertFalse($result->isRunning());
 
-        // 例外なく stopAll を呼べることを確認
+        // Verify stopAll can be called without exception
         $dispatcher->stopAll();
 
-        // テスト通過 = 例外なし
+        // Test passes = no exception
         $this->assertTrue(true);
     }
 
@@ -366,10 +366,10 @@ class LocalDispatcherTest extends TestCase
         $event->runInBackground = true;
         $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // stopAll で停止されることで、内部リストに追加されていることを間接的に確認
+        // Indirectly verify it was added to the internal list by stopping via stopAll
         $dispatcher->stopAll();
 
-        // 再度ディスパッチしても問題ないことを確認（内部リストがクリアされている）
+        // Verify dispatching again works fine (internal list has been cleared)
         $event2 = $this->createEvent('echo test');
         $event2->runInBackground = true;
         $result = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
@@ -412,7 +412,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
 
         $proc = new StubProcess(true);
-        // terminateOnSignal = false → SIGTERM を無視する
+        // terminateOnSignal = false -> ignores SIGTERM
         $proc->setTerminateOnSignal(false);
 
         $dispatcher->addRunningProcess($this->createStubResult($proc, 'event1'));
@@ -430,7 +430,7 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
 
-        // signal() で例外を投げるプロセス（無名クラスで StubProcess を拡張）
+        // Process that throws on signal() (anonymous class extending StubProcess)
         $throwingProc = new class (true) extends StubProcess {
             public function signal(int $signal): void
             {
@@ -445,10 +445,10 @@ class LocalDispatcherTest extends TestCase
         $dispatcher->addRunningProcess($this->createStubResult($throwingProc, 'throwing'));
         $dispatcher->addRunningProcess($this->createStubResult($normalProc, 'normal'));
 
-        // 例外なく完了する
+        // Completes without exception
         $dispatcher->stopAll();
 
-        // 正常なプロセスには SIGTERM が送信されている
+        // SIGTERM was sent to the normal process
         $this->assertContains(SIGTERM, $normalProc->getReceivedSignals());
     }
 
@@ -462,16 +462,16 @@ class LocalDispatcherTest extends TestCase
         $runningProc = new StubProcess(true);
         $runningProc->setTerminateOnSignal(true);
 
-        $stoppedProc = new StubProcess(false); // 既に停止済み
+        $stoppedProc = new StubProcess(false); // Already stopped
 
         $dispatcher->addRunningProcess($this->createStubResult($runningProc, 'running'));
         $dispatcher->addRunningProcess($this->createStubResult($stoppedProc, 'stopped'));
 
         $dispatcher->stopAll();
 
-        // running プロセスには SIGTERM が送信される
+        // SIGTERM is sent to the running process
         $this->assertContains(SIGTERM, $runningProc->getReceivedSignals());
-        // 停止済みプロセスにはシグナルが送信されない
+        // No signal is sent to the already stopped process
         $this->assertEmpty($stoppedProc->getReceivedSignals());
     }
 
@@ -482,11 +482,11 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo foreground');
-        // runInBackground のデフォルトは false
+        // runInBackground defaults to false
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // 同期実行なので、戻り時には既にプロセスが終了している
+        // Synchronous execution, so the process has already finished by the time it returns
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
         $this->assertFalse($result->isRunning());
         $this->assertSame(0, $result->getExitCode());
@@ -499,7 +499,7 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createSpyEvent('echo test');
-        // runInBackground のデフォルトは false
+        // runInBackground defaults to false
 
         $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
@@ -514,12 +514,12 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
-        // runInBackground のデフォルトは false
+        // runInBackground defaults to false
 
         $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // stopAll を呼んでも何もないことを確認（内部リストが空）
-        // cleanup 後に stopAll しても例外なし = 追跡リストに追加されていない
+        // Verify stopAll has nothing to do (internal list is empty)
+        // No exception after cleanup + stopAll = not added to tracking list
         $dispatcher->cleanup();
         $dispatcher->stopAll();
 
@@ -537,7 +537,7 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // 非同期実行なので、戻り時にはまだプロセスが実行中
+        // Asynchronous execution, so the process is still running when it returns
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
         $this->assertTrue($result->isRunning());
 
@@ -545,7 +545,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.27 ClockAwareEvent を background で dispatchEvent に渡すと buildProcessCommand() 経由でコマンドが生成される
+     * @testdox LD.27 ClockAwareEvent in background dispatch generates command via buildProcessCommand()
      */
     public function testClockAwareEventUseBuildProcessCommandInBackground(): void
     {
@@ -556,16 +556,16 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // buildProcessCommand() により末尾の & が除去されている
+        // buildProcessCommand() removes the trailing &
         $this->assertStringNotContainsString(' &', $result->getEventCommand());
-        // schedule:finish が含まれる（buildCommand は background で schedule:finish を付与する）
+        // schedule:finish is included (buildCommand appends schedule:finish for background)
         $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
 
         $result->getProcess()->wait();
     }
 
     /**
-     * @testdox LD.28 Foreground で非ゼロ exit code のとき afterCallbacks に正しい exit code が渡される
+     * @testdox LD.28 Foreground non-zero exit code is passed correctly to afterCallbacks
      */
     public function testForegroundNonZeroExitCodePassedToAfterCallbacks(): void
     {
@@ -580,7 +580,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.29 Foreground で afterCallbacks が例外をスローしても StartedLocalDispatchResult が返される
+     * @testdox LD.29 Foreground returns StartedLocalDispatchResult even when afterCallbacks throw an exception
      */
     public function testForegroundAfterCallbackExceptionReturnsStartedResult(): void
     {

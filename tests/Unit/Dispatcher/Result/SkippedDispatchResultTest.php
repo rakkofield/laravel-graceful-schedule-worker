@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 class SkippedDispatchResultTest extends TestCase
 {
     /**
-     * @testdox SD.1 getEventIdentifier がコンストラクタの値を返す
+     * @testdox SD.1 getEventIdentifier returns constructor value
      */
     public function testGetEventIdentifier(): void
     {
@@ -20,7 +20,7 @@ class SkippedDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SD.2 getEventCommand がコンストラクタの値を返す
+     * @testdox SD.2 getEventCommand returns constructor value
      */
     public function testGetEventCommand(): void
     {
@@ -30,7 +30,7 @@ class SkippedDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SD.3 getReason がコンストラクタの値を返す
+     * @testdox SD.3 getReason returns constructor value
      */
     public function testGetReason(): void
     {
@@ -40,7 +40,7 @@ class SkippedDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SD.4 getDispatcherType は 'tracking' を返す
+     * @testdox SD.4 getDispatcherType returns 'tracking'
      */
     public function testGetDispatcherType(): void
     {
@@ -50,7 +50,7 @@ class SkippedDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SD.5 getDispatchedAt がコンストラクタの値を返す
+     * @testdox SD.5 getDispatchedAt returns constructor value
      */
     public function testGetDispatchedAtWithExplicitValue(): void
     {
@@ -61,7 +61,7 @@ class SkippedDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SD.6 getDispatchedAt が省略時は現在時刻を返す
+     * @testdox SD.6 getDispatchedAt returns current time when omitted
      */
     public function testGetDispatchedAtWithDefaultValue(): void
     {
@@ -76,7 +76,7 @@ class SkippedDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SD.7 SkippedDispatchResultInterface を実装している
+     * @testdox SD.7 Implements SkippedDispatchResultInterface
      */
     public function testImplementsSkippedDispatchResultInterface(): void
     {
@@ -86,7 +86,7 @@ class SkippedDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SD.8 DispatchResultInterface を実装している
+     * @testdox SD.8 Implements DispatchResultInterface
      */
     public function testImplementsDispatchResultInterface(): void
     {

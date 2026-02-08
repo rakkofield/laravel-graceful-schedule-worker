@@ -14,15 +14,15 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 
 /**
- * ClockAwareSchedule の Laravel 互換性テスト
+ * Laravel compatibility tests for ClockAwareSchedule
  *
- * Laravel Schedule の標準機能が ClockAwareSchedule でも正しく動作することを保証する。
- * コード変更は不要。既存動作の文書化・保証を目的とする。
+ * Ensures standard Laravel Schedule features work correctly with ClockAwareSchedule.
+ * No code changes required. Purpose is to document and guarantee existing behavior.
  *
- * - call() は CallbackEvent を返す（ClockAwareEvent ではない）
- * - exec() で withGracePeriod() / enableRecovery() / dispatchVia() のチェーンが可能
- * - チェーン順序に依存しない
- * - timezone がイベントに伝播する
+ * - call() returns CallbackEvent (not ClockAwareEvent)
+ * - exec() can chain withGracePeriod() / enableRecovery() / dispatchVia()
+ * - Chain order independent
+ * - timezone propagates to events
  */
 class ClockAwareScheduleCompatibilityTest extends TestCase
 {
@@ -135,7 +135,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     {
         $app = new FakeApplication();
 
-        // clock = 12:00 → everyMinute は due、dailyAt('03:00') は not due
+        // clock = 12:00 -> everyMinute is due, dailyAt('03:00') is not due
         $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
 
         $this->schedule->exec('echo every-minute')->everyMinute();
@@ -154,7 +154,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     {
         $app = new FakeApplication();
 
-        // clock の実時刻は 12:00 だが、evaluateAt で 03:00 に freeze
+        // Clock's actual time is 12:00, but frozen to 03:00 via evaluateAt
         $this->clock->setTime(new DateTimeImmutable('2024-01-15 12:00:00'));
 
         $this->schedule->exec('echo every-minute')->everyMinute();
@@ -167,7 +167,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
             $dueEvents = $this->schedule->dueEvents($app)->all();
         });
 
-        // 03:00 に freeze → everyMinute と dailyAt('03:00') 両方 due
+        // Frozen to 03:00 -> both everyMinute and dailyAt('03:00') are due
         $this->assertCount(2, $dueEvents);
     }
 
@@ -176,7 +176,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
      */
     public function testJobReturnsCallbackEvent(): void
     {
-        // job() は内部で call() を使うため CallbackEvent を返す
+        // job() uses call() internally, so it returns CallbackEvent
         $event = $this->schedule->job(new class {
             public function handle(): void
             {

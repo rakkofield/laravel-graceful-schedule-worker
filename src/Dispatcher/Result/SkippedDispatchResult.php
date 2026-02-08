@@ -7,9 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 use DateTimeImmutable;
 
 /**
- * スキップされたディスパッチ結果クラス
+ * Skipped dispatch result class.
  *
- * ロック取得失敗など、ディスパッチがスキップされた場合に使用します。
+ * Used when dispatch is skipped, such as lock acquisition failure.
  */
 class SkippedDispatchResult implements SkippedDispatchResultInterface
 {
@@ -28,7 +28,7 @@ class SkippedDispatchResult implements SkippedDispatchResultInterface
     /**
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param string $reason スキップ理由
+     * @param string $reason Skip reason
      * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
@@ -60,10 +60,10 @@ class SkippedDispatchResult implements SkippedDispatchResultInterface
     }
 
     /**
-     * Dispatcher 種別を取得
+     * Get the dispatcher type.
      *
-     * SkippedDispatchResult は TrackingDispatcher 専用のため、
-     * 常に 'tracking' を返す。
+     * SkippedDispatchResult is exclusive to TrackingDispatcher,
+     * so it always returns 'tracking'.
      *
      * @return string
      */

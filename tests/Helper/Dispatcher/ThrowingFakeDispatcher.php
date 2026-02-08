@@ -10,7 +10,7 @@ use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 
 /**
- * テスト用：cleanup()/stopAll() で例外をスローする FakeDispatcher
+ * FakeDispatcher for testing that throws exceptions on cleanup()/stopAll()
  */
 class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
 {

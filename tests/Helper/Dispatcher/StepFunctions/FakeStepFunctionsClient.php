@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 use DateTimeImmutable;
 
 /**
- * テスト用の Fake Step Functions クライアント
+ * Fake Step Functions client for testing
  */
 class FakeStepFunctionsClient implements StepFunctionsClientInterface
 {
@@ -51,14 +51,14 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
             'startDate' => $startDate,
         ];
 
-        // 同じ名前での再実行を防ぐ
+        // Prevent re-execution with the same name
         $this->existingExecutions[$name] = true;
 
         return new StartExecutionResult($executionArn, $startDate);
     }
 
     /**
-     * 次回の startExecution で ExecutionAlreadyExists をスローするよう設定
+     * Configure the next startExecution to throw ExecutionAlreadyExists
      *
      * @param string $executionName
      * @return void
@@ -69,7 +69,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     }
 
     /**
-     * 次回の startExecution で一般エラーをスローするよう設定
+     * Configure the next startExecution to throw a general error
      *
      * @param string $message
      * @return void
@@ -80,7 +80,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     }
 
     /**
-     * 既存の Execution を追加（同名の startExecution が失敗するようになる）
+     * Add an existing Execution (startExecution with the same name will fail)
      *
      * @param string $name
      * @return void
@@ -91,7 +91,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     }
 
     /**
-     * 実行された Execution の一覧を取得
+     * Get the list of executed Executions
      *
      * @return array<int, array{
      *     stateMachineArn: string,
@@ -107,7 +107,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     }
 
     /**
-     * 最後に実行された Execution を取得
+     * Get the last executed Execution
      *
      * @return array{
      *     stateMachineArn: string,
@@ -126,7 +126,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     }
 
     /**
-     * 状態をリセット
+     * Reset state
      *
      * @return void
      */

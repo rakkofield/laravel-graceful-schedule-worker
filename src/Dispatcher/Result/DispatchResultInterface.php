@@ -5,43 +5,43 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 /**
- * Dispatcher の結果を型安全に扱うためのインターフェース
+ * Interface for type-safe handling of dispatcher results.
  *
- * 共通メタデータを定義し、各 Dispatcher 固有の情報は具象クラスで保持します。
+ * Defines common metadata; dispatcher-specific information is held by concrete classes.
  *
- * 成功時は StartedDispatchResultInterface、失敗時は FailedDispatchResultInterface を
- * 使用することで、型安全に結果を扱うことができます。
+ * Use StartedDispatchResultInterface for success and FailedDispatchResultInterface
+ * for failure to handle results in a type-safe manner.
  */
 interface DispatchResultInterface
 {
     /**
-     * イベントの識別子を取得（mutex name）
+     * Get the event identifier (mutex name).
      *
-     * @return string イベント識別子
+     * @return string Event identifier
      */
     public function getEventIdentifier(): string;
 
     /**
-     * 実行コマンドを取得
+     * Get the executed command.
      *
-     * LocalDispatcher: シェル実行コマンド（出力リダイレクト含む）
-     * StepFunctionsDispatcher: Event::command の値
+     * LocalDispatcher: shell command (including output redirection)
+     * StepFunctionsDispatcher: value of Event::command
      *
-     * @return string 実行コマンド
+     * @return string Executed command
      */
     public function getEventCommand(): string;
 
     /**
-     * Dispatcher 種別を取得
+     * Get the dispatcher type.
      *
-     * @return string Dispatcher 種別（'local' | 'stepfunctions' | 'tracking'）
+     * @return string Dispatcher type ('local' | 'stepfunctions' | 'tracking')
      */
     public function getDispatcherType(): string;
 
     /**
-     * ディスパッチ時刻を取得
+     * Get the dispatch timestamp.
      *
-     * @return \DateTimeImmutable ディスパッチ時刻
+     * @return \DateTimeImmutable Dispatch timestamp
      */
     public function getDispatchedAt(): \DateTimeImmutable;
 }

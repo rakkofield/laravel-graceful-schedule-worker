@@ -9,24 +9,24 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 /**
- * Kernel に use して ClockAwareSchedule を自動登録する trait
+ * Trait for Kernel that automatically registers ClockAwareSchedule.
  *
- * defineConsoleSchedule() をオーバーライドし、ClockAwareSchedule を
- * Schedule シングルトンとして登録する。利用側は gracefulSchedule() を
- * 実装するだけで完全な型ヒント付きスケジュール定義が可能。
+ * Overrides defineConsoleSchedule() to register ClockAwareSchedule as
+ * the Schedule singleton. Users only need to implement gracefulSchedule()
+ * to get fully type-hinted schedule definitions.
  *
- * schedule() に残っているイベントは Laravel 標準の Event として登録され、
- * gracefulSchedule() のイベントは ClockAwareEvent として登録される。
- * これにより、タスク単位での段階的移行が可能。
+ * Events remaining in schedule() are registered as standard Laravel Events,
+ * while events in gracefulSchedule() are registered as ClockAwareEvents.
+ * This enables gradual migration on a per-task basis.
  *
- * 前提: Illuminate\Foundation\Console\Kernel を extends したクラスで使用すること。
- * ($this->app, scheduleTimezone(), scheduleCache() に依存)
+ * Prerequisite: Must be used in a class that extends Illuminate\Foundation\Console\Kernel.
+ * (Depends on $this->app, scheduleTimezone(), scheduleCache())
  */
 trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
 {
     /**
-     * ClockAwareEvent を使うスケジュール定義。
-     * schedule() から段階的にタスクを移動する。
+     * Schedule definition using ClockAwareEvent.
+     * Gradually migrate tasks from schedule() to this method.
      *
      * @param ClockAwareSchedule $schedule
      * @return void
@@ -37,7 +37,7 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
     }
 
     /**
-     * ClockAwareSchedule を Schedule シングルトンとして登録する。
+     * Register ClockAwareSchedule as the Schedule singleton.
      *
      * @return void
      */
@@ -50,12 +50,12 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
             $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone());
             $schedule->useCache($this->scheduleCache());
 
-            // schedule() のイベントは Laravel 標準の Event（振る舞い変化なし）
+            // Events from schedule() are standard Laravel Events (no behavior change)
             $schedule->withNativeEvents(function () use ($schedule) {
                 $this->schedule($schedule);
             });
 
-            // gracefulSchedule() のイベントは ClockAwareEvent（新しい振る舞い）
+            // Events from gracefulSchedule() are ClockAwareEvents (new behavior)
             $this->gracefulSchedule($schedule);
 
             return $schedule;

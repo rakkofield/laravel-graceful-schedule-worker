@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 /**
- * put() で例外をスローする FakeCacheStore 拡張
+ * FakeCacheStore extension that throws exceptions on put()
  *
- * markExecuted 失敗時のエラーハンドリングをテストするために使用
+ * Used to test error handling when markExecuted fails
  */
 class ThrowingFakeCacheStore extends FakeCacheStore
 {
@@ -15,7 +15,7 @@ class ThrowingFakeCacheStore extends FakeCacheStore
     private $putException;
 
     /**
-     * put() で例外をスローするように設定
+     * Configure put() to throw an exception
      *
      * @param \Exception $exception
      * @return void

@@ -7,9 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 use DateTimeImmutable;
 
 /**
- * StepFunctionsDispatcher で既に実行中の場合の結果クラス
+ * Result class for when execution is already running in StepFunctionsDispatcher.
  *
- * ExecutionAlreadyExists が発生した場合に使用します。
+ * Used when ExecutionAlreadyExists occurs.
  */
 class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatchResultInterface
 {
@@ -76,7 +76,7 @@ class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatc
     }
 
     /**
-     * Execution Name を取得
+     * Get the Execution Name.
      *
      * @return string
      */

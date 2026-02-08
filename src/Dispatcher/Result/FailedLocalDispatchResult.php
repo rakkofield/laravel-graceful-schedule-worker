@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 use DateTimeImmutable;
 
 /**
- * LocalDispatcher の失敗結果クラス
+ * Failure result class for LocalDispatcher.
  */
 class FailedLocalDispatchResult implements FailedDispatchResultInterface
 {

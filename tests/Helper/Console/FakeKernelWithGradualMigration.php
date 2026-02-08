@@ -9,10 +9,10 @@ use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 /**
- * schedule() と gracefulSchedule() の共存テスト用 Fake Kernel
+ * Fake Kernel for testing coexistence of schedule() and gracefulSchedule()
  *
- * schedule() で通常の Event を、gracefulSchedule() で ClockAwareEvent を登録し、
- * 段階的移行のシナリオをテストする。
+ * Registers native Events via schedule() and ClockAwareEvents via gracefulSchedule()
+ * to test gradual migration scenarios.
  */
 class FakeKernelWithGradualMigration
 {
@@ -20,19 +20,19 @@ class FakeKernelWithGradualMigration
         defineConsoleSchedule as public;
     }
 
-    /** @var Container ConsoleKernel::$app のスタブ */
+    /** @var Container Stub for ConsoleKernel::$app */
     public $app;
 
-    /** @var Event[] schedule() で登録されたイベント */
+    /** @var Event[] Events registered via schedule() */
     public $scheduleEvents = [];
 
-    /** @var Event[] gracefulSchedule() で登録されたイベント */
+    /** @var Event[] Events registered via gracefulSchedule() */
     public $gracefulScheduleEvents = [];
 
-    /** @var \DateTimeZone|string|null scheduleTimezone() の戻り値 */
+    /** @var \DateTimeZone|string|null Return value for scheduleTimezone() */
     private $timezone;
 
-    /** @var string|null scheduleCache() の戻り値 */
+    /** @var string|null Return value for scheduleCache() */
     private $cacheStore;
 
     /**

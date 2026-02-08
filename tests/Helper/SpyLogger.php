@@ -7,9 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker;
 use Psr\Log\AbstractLogger;
 
 /**
- * テスト用のロガー実装
+ * Logger implementation for testing
  *
- * ログメッセージを記録し、テストで検証できるようにする
+ * Records log messages so they can be verified in tests
  */
 class SpyLogger extends AbstractLogger
 {
@@ -36,7 +36,7 @@ class SpyLogger extends AbstractLogger
     }
 
     /**
-     * 記録されたログを取得
+     * Get recorded logs
      *
      * @return array<array{level: string, message: string, context: array}>
      */
@@ -46,7 +46,7 @@ class SpyLogger extends AbstractLogger
     }
 
     /**
-     * 指定レベルのログを取得
+     * Get logs by level
      *
      * @param string $level
      * @return array<array{level: string, message: string, context: array}>
@@ -62,7 +62,7 @@ class SpyLogger extends AbstractLogger
     }
 
     /**
-     * ログにメッセージが含まれているかをチェック
+     * Check if logs contain a message
      *
      * @param string $level
      * @param string $messageContains
@@ -79,7 +79,7 @@ class SpyLogger extends AbstractLogger
     }
 
     /**
-     * リセット
+     * Reset
      *
      * @return void
      */

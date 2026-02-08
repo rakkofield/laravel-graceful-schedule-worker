@@ -10,12 +10,12 @@ use Illuminate\Contracts\Foundation\Application;
 interface ScheduleOrchestratorInterface
 {
     /**
-     * スケジュールされたタスクを調整・実行する
+     * Orchestrate and execute scheduled tasks.
      *
-     * @param Schedule $schedule Laravel のスケジュールオブジェクト
-     * @param Application $app Laravel アプリケーションインスタンス
-     * @param callable $shouldContinue 実行継続の判定関数
-     * @return bool 実行が成功したかどうか
+     * @param Schedule $schedule Laravel schedule object
+     * @param Application $app Laravel application instance
+     * @param callable $shouldContinue Function to determine whether to continue execution
+     * @return bool Whether execution was successful
      */
     public function run(Schedule $schedule, Application $app, callable $shouldContinue): bool;
 }

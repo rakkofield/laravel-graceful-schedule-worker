@@ -14,7 +14,7 @@ use Symfony\Component\Process\Process;
 class StartedLocalDispatchResultTest extends TestCase
 {
     /**
-     * @testdox SLR.1 StartedDispatchResultInterface を実装する
+     * @testdox SLR.1 Implements StartedDispatchResultInterface
      */
     public function testImplementsStartedDispatchResultInterface(): void
     {
@@ -28,7 +28,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.2 Process を保持する
+     * @testdox SLR.2 Stores Process
      */
     public function testStoresProcess(): void
     {
@@ -41,7 +41,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.3 getDispatcherType が 'local' を返す
+     * @testdox SLR.3 getDispatcherType returns 'local'
      */
     public function testGetDispatcherTypeReturnsLocal(): void
     {
@@ -54,7 +54,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.4 正しい eventIdentifier を返す
+     * @testdox SLR.4 Returns correct eventIdentifier
      */
     public function testGetEventIdentifierReturnsCorrectValue(): void
     {
@@ -68,7 +68,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.5 正しい eventCommand を返す
+     * @testdox SLR.5 Returns correct eventCommand
      */
     public function testGetEventCommandReturnsCorrectValue(): void
     {
@@ -82,7 +82,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.6 getDispatchedAt が DateTimeImmutable を返す
+     * @testdox SLR.6 getDispatchedAt returns DateTimeImmutable
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
@@ -99,7 +99,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.7 プロセス実行中は isRunning が true を返す
+     * @testdox SLR.7 isRunning returns true when process is running
      */
     public function testIsRunningReturnsTrueWhenProcessIsRunning(): void
     {
@@ -112,7 +112,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.8 プロセス停止後は isRunning が false を返す
+     * @testdox SLR.8 isRunning returns false after process stops
      */
     public function testIsRunningReturnsFalseWhenProcessIsNotRunning(): void
     {
@@ -125,7 +125,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.9 プロセスの exit code を返す
+     * @testdox SLR.9 Returns process exit code
      */
     public function testGetExitCodeReturnsProcessExitCode(): void
     {
@@ -138,7 +138,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.10 実行中のプロセスの exit code は null を返す
+     * @testdox SLR.10 Returns null exit code when process is still running
      */
     public function testGetExitCodeReturnsNullWhenProcessStillRunning(): void
     {
@@ -151,7 +151,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.11 dispatchedAt を明示的に渡した場合はその値が返される
+     * @testdox SLR.11 Returns explicitly provided dispatchedAt value
      */
     public function testGetDispatchedAtReturnsExplicitValue(): void
     {
