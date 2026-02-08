@@ -8,10 +8,8 @@ use Closure;
 use Cron\CronExpression;
 use Cron\FieldFactory;
 use DateInterval;
-use Illuminate\Console\Application;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
-use Illuminate\Support\ProcessUtils;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 class ClockAwareEvent extends Event
@@ -206,22 +204,14 @@ class ClockAwareEvent extends Event
     /**
      * Build the command string for execution via Symfony Process.
      *
-     * Constructs the command directly instead of post-processing buildCommand().
-     * This ensures schedule:finish output is redirected to the same file as the main command,
-     * rather than being swallowed by the outer > /dev/null 2>&1 that buildCommand() adds.
-     *
-     * Assumes runInBackground = true when called.
+     * Delegates to ProcessCommandBuilder which extends Laravel's CommandBuilder,
+     * inheriting ensureCorrectUser() and Windows support while removing the
+     * outer "> /dev/null 2>&1 &" that Process::start() doesn't need.
      *
      * @return string
      */
     public function buildProcessCommand()
     {
-        $output = ProcessUtils::escapeArgument($this->output);
-        $redirect = $this->shouldAppendOutput ? ' >> ' : ' > ';
-        $finished = Application::formatCommandString('schedule:finish')
-            . ' "' . $this->mutexName() . '"';
-
-        return '(' . $this->command . $redirect . $output . ' 2>&1 ; '
-            . $finished . ' "$?"' . $redirect . $output . ' 2>&1)';
+        return (new ProcessCommandBuilder())->buildCommand($this);
     }
 }
