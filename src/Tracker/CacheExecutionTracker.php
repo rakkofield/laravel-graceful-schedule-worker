@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use Cron\CronExpression;
+use Cron\FieldFactory;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -93,7 +94,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
         // Calculate the previous run date from the cron expression (exceptions propagate as-is)
         try {
-            $cron = new CronExpression($event->expression);
+            $cron = new CronExpression($event->expression, new FieldFactory());
             $previousRunDate = $cron->getPreviousRunDate($now);
         } catch (\Exception $e) {
             throw new InvalidArgumentException(

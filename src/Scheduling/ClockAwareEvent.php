@@ -6,6 +6,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use Closure;
 use Cron\CronExpression;
+use Cron\FieldFactory;
 use DateInterval;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
@@ -130,7 +131,7 @@ class ClockAwareEvent extends Event
             $date = $date->setTimezone($tz);
         }
 
-        return (new CronExpression($this->expression))->isDue($date->format('Y-m-d H:i:s'));
+        return (new CronExpression($this->expression, new FieldFactory()))->isDue($date->format('Y-m-d H:i:s'));
     }
 
     /**
