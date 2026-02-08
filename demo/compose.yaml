@@ -10,6 +10,14 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   php:
     build:
       dockerfile: Dockerfile
@@ -20,6 +28,9 @@ services:
     depends_on:
       moto:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - SFN_ENDPOINT=http://moto:5000
       - AWS_SUPPRESS_PHP_DEPRECATION_WARNING=true
+      - REDIS_HOST=redis

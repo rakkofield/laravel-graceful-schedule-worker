@@ -3,7 +3,9 @@ FROM php:7.4-cli
 RUN apt-get update \
   && apt-get install -y libzip-dev \
   && docker-php-ext-configure pcntl --enable-pcntl \
-  && docker-php-ext-install pcntl zip
+  && docker-php-ext-install pcntl zip \
+  && pecl install redis \
+  && docker-php-ext-enable redis
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

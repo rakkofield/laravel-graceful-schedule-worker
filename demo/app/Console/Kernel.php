@@ -113,7 +113,7 @@ class Kernel extends ConsoleKernel
         // (a local AWS mock) is used as the Step Functions endpoint.
         // The State Machine is created automatically at container startup
         // by bin/setup-stepfunctions.php.
-        $schedule->command('hello')->everyMinute()
+        $schedule->exec('echo "hello from stepfunctions"')->everyMinute()
             ->dispatchVia('stepfunctions');
     }
 
