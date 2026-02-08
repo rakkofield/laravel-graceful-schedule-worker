@@ -122,7 +122,13 @@ skeleton/                 # テスト用 Laravel アプリケーション
 ## テストスタイル
 
 - メソッド命名: `test` prefix + camelCase（例: `testReturnsCurrentTime`）
-- テストID: `@testdox T1.1` 形式で PHPDoc に記述
+- テストID: `@testdox {Prefix}.{seq} 説明テキスト` 形式で PHPDoc に記述
+  - Prefix はテストファイルごとに一意の 2-4 文字英大文字
+  - Unit テスト: テスト対象クラス名の略語（例: LocalDispatcher → `LD`）
+  - Integration テスト: クラス名略語 + `I`（例: CacheTracker Integration → `CTI`）
+  - E2E テスト: `E2E` 固定
+  - 全プレフィックス一覧は `docs/TESTDOX_IDS.md` を参照
+  - 新規プレフィックス追加時は既存プレフィックスとの重複がないことを確認する
 - `declare(strict_types=1)` 必須（src/ と tests/ 両方）
 - tearDown で `Container::setInstance(null)` を呼ぶ（Container を使用するテスト）
 - Mock 禁止: Interface には Fake、実クラスには Stub/Spy を使用

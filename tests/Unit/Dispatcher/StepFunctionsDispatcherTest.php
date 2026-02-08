@@ -74,7 +74,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.1 startExecution 成功時に StepFunctionsDispatchResult を返す
+     * @testdox SFD.1 startExecution 成功時に StepFunctionsDispatchResult を返す
      */
     public function testReturnsStepFunctionsDispatchResultOnSuccess(): void
     {
@@ -89,7 +89,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.2 ExecutionAlreadyExists で AlreadyRunningDispatchResultInterface を返す
+     * @testdox SFD.2 ExecutionAlreadyExists で AlreadyRunningDispatchResultInterface を返す
      */
     public function testReturnsAlreadyRunningOnExecutionAlreadyExists(): void
     {
@@ -105,7 +105,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.3 Execution Name が mutexName + timestamp から生成される
+     * @testdox SFD.3 Execution Name が mutexName + timestamp から生成される
      */
     public function testExecutionNameIsGeneratedFromMutexAndTimestamp(): void
     {
@@ -121,7 +121,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.4 入力 JSON に command, mutexName, dueAt が含まれる
+     * @testdox SFD.4 入力 JSON に command, mutexName, dueAt が含まれる
      */
     public function testInputContainsRequiredFields(): void
     {
@@ -143,7 +143,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.5 getDispatcherType() が 'stepfunctions' を返す
+     * @testdox SFD.5 getDispatcherType() が 'stepfunctions' を返す
      */
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
@@ -156,7 +156,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.6 一般エラー時に FailedDispatchResultInterface と getError() でメッセージ
+     * @testdox SFD.6 一般エラー時に FailedDispatchResultInterface と getError() でメッセージ
      */
     public function testReturnsFailedOnGeneralError(): void
     {
@@ -173,7 +173,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.7 正しい stateMachineArn が使用される
+     * @testdox SFD.7 正しい stateMachineArn が使用される
      */
     public function testUsesCorrectStateMachineArn(): void
     {
@@ -188,7 +188,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.8 成功時に executionArn が取得できる
+     * @testdox SFD.8 成功時に executionArn が取得できる
      */
     public function testReturnsExecutionArnOnSuccess(): void
     {
@@ -202,7 +202,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.9 イベント識別子が正しく返される
+     * @testdox SFD.9 イベント識別子が正しく返される
      */
     public function testReturnsCorrectEventIdentifier(): void
     {
@@ -215,7 +215,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.10 コマンドが正しく返される
+     * @testdox SFD.10 コマンドが正しく返される
      */
     public function testReturnsCorrectEventCommand(): void
     {
@@ -228,7 +228,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.11 一般エラー時に getException() で例外を取得できる
+     * @testdox SFD.11 一般エラー時に getException() で例外を取得できる
      */
     public function testReturnsExceptionOnGeneralError(): void
     {
@@ -244,7 +244,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.12 cleanup が例外をスローしない（no-op）
+     * @testdox SFD.12 cleanup が例外をスローしない（no-op）
      */
     public function testCleanupIsNoOp(): void
     {
@@ -258,7 +258,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.13 stopAll が例外をスローしない（no-op）
+     * @testdox SFD.13 stopAll が例外をスローしない（no-op）
      */
     public function testStopAllIsNoOp(): void
     {
@@ -272,7 +272,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T5.14 json_encode 失敗時に FailedStepFunctionsDispatchResult を返す
+     * @testdox SFD.14 json_encode 失敗時に FailedStepFunctionsDispatchResult を返す
      */
     public function testReturnsFailedResultOnJsonEncodeFailure(): void
     {

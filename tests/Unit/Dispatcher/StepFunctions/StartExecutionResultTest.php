@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class StartExecutionResultTest extends TestCase
 {
     /**
-     * @testdox T6.1 getExecutionArn() が Execution ARN を返す
+     * @testdox SER.1 getExecutionArn() が Execution ARN を返す
      */
     public function testGetExecutionArnReturnsArn(): void
     {
@@ -26,7 +26,7 @@ class StartExecutionResultTest extends TestCase
     }
 
     /**
-     * @testdox T6.2 getStartDate() が開始日時を返す
+     * @testdox SER.2 getStartDate() が開始日時を返す
      */
     public function testGetStartDateReturnsStartDate(): void
     {
@@ -39,7 +39,7 @@ class StartExecutionResultTest extends TestCase
     }
 
     /**
-     * @testdox T6.3 コンストラクタで渡された値がイミュータブルに保持される
+     * @testdox SER.3 コンストラクタで渡された値がイミュータブルに保持される
      */
     public function testValuesAreImmutable(): void
     {

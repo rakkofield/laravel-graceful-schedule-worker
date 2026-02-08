@@ -58,7 +58,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.1 call() returns CallbackEvent (not ClockAwareEvent)
+     * @testdox CSC.1 call() returns CallbackEvent (not ClockAwareEvent)
      */
     public function testCallReturnsCallbackEvent(): void
     {
@@ -71,7 +71,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.2 exec()->daily()->withGracePeriod(30) chain
+     * @testdox CSC.2 exec()->daily()->withGracePeriod(30) chain
      */
     public function testExecDailyWithGracePeriodChain(): void
     {
@@ -86,7 +86,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.3 exec()->withGracePeriod(30)->daily() order-independent chain
+     * @testdox CSC.3 exec()->withGracePeriod(30)->daily() order-independent chain
      */
     public function testExecWithGracePeriodDailyChain(): void
     {
@@ -101,7 +101,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.4 exec()->hourly()->dispatchVia()->enableRecovery() triple chain
+     * @testdox CSC.4 exec()->hourly()->dispatchVia()->enableRecovery() triple chain
      */
     public function testTripleMethodChain(): void
     {
@@ -117,7 +117,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.5 Constructor timezone propagates to events
+     * @testdox CSC.5 Constructor timezone propagates to events
      */
     public function testTimezonePropagatesToEvents(): void
     {
@@ -129,7 +129,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.6 dueEvents() returns only events due at clock time
+     * @testdox CSC.6 dueEvents() returns only events due at clock time
      */
     public function testDueEventsReturnsOnlyEventsDueAtClockTime(): void
     {
@@ -148,7 +148,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.7 evaluateAt() freezes time for dueEvents() evaluation
+     * @testdox CSC.7 evaluateAt() freezes time for dueEvents() evaluation
      */
     public function testEvaluateAtFreezesDueEventsEvaluation(): void
     {
@@ -172,7 +172,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.8 job() returns CallbackEvent (not ClockAwareEvent)
+     * @testdox CSC.8 job() returns CallbackEvent (not ClockAwareEvent)
      */
     public function testJobReturnsCallbackEvent(): void
     {
@@ -188,7 +188,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.9 events() returns mixed ClockAwareEvent and CallbackEvent
+     * @testdox CSC.9 events() returns mixed ClockAwareEvent and CallbackEvent
      */
     public function testEventsReturnsMixedTypes(): void
     {
@@ -207,7 +207,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T5.10 dueEvents() changes result when clock advances
+     * @testdox CSC.10 dueEvents() changes result when clock advances
      */
     public function testDueEventsChangesWhenClockAdvances(): void
     {

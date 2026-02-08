@@ -34,7 +34,7 @@ class NullExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T6.1 markExecuted does nothing (no exception)
+     * @testdox NT.1 markExecuted does nothing (no exception)
      */
     public function testMarkExecutedDoesNothing(): void
     {
@@ -47,7 +47,7 @@ class NullExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T6.2 getMissedDueIfRecoverable always returns null
+     * @testdox NT.2 getMissedDueIfRecoverable always returns null
      */
     public function testGetMissedDueIfRecoverableAlwaysReturnsNull(): void
     {
@@ -60,7 +60,7 @@ class NullExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T6.3 acquireLock always returns true
+     * @testdox NT.3 acquireLock always returns true
      */
     public function testAcquireLockAlwaysReturnsTrue(): void
     {
@@ -77,7 +77,7 @@ class NullExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T6.4 releaseLock does nothing (no exception)
+     * @testdox NT.4 releaseLock does nothing (no exception)
      */
     public function testReleaseLockDoesNothing(): void
     {

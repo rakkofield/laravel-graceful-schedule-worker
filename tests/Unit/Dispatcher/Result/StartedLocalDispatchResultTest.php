@@ -14,7 +14,7 @@ use Symfony\Component\Process\Process;
 class StartedLocalDispatchResultTest extends TestCase
 {
     /**
-     * @testdox T2.20
+     * @testdox SLR.1
      */
     public function testImplementsStartedDispatchResultInterface(): void
     {
@@ -28,7 +28,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.22
+     * @testdox SLR.2
      */
     public function testStoresProcess(): void
     {
@@ -41,7 +41,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.25
+     * @testdox SLR.3
      */
     public function testGetDispatcherTypeReturnsLocal(): void
     {
@@ -54,7 +54,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.26
+     * @testdox SLR.4
      */
     public function testGetEventIdentifierReturnsCorrectValue(): void
     {
@@ -68,7 +68,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.27
+     * @testdox SLR.5
      */
     public function testGetEventCommandReturnsCorrectValue(): void
     {
@@ -82,7 +82,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.28
+     * @testdox SLR.6
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
@@ -99,7 +99,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.29
+     * @testdox SLR.7
      */
     public function testIsRunningReturnsTrueWhenProcessIsRunning(): void
     {
@@ -112,7 +112,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.30
+     * @testdox SLR.8
      */
     public function testIsRunningReturnsFalseWhenProcessIsNotRunning(): void
     {
@@ -125,7 +125,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.32
+     * @testdox SLR.9
      */
     public function testGetExitCodeReturnsProcessExitCode(): void
     {
@@ -138,7 +138,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.34
+     * @testdox SLR.10
      */
     public function testGetExitCodeReturnsNullWhenProcessStillRunning(): void
     {
@@ -151,7 +151,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.40 dispatchedAt を明示的に渡した場合はその値が返される
+     * @testdox SLR.11 dispatchedAt を明示的に渡した場合はその値が返される
      */
     public function testGetDispatchedAtReturnsExplicitValue(): void
     {

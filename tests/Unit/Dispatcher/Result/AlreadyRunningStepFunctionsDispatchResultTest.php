@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
 {
     /**
-     * @testdox T6.1 AlreadyRunningDispatchResultInterface を実装する
+     * @testdox ARR.1 AlreadyRunningDispatchResultInterface を実装する
      */
     public function testImplementsAlreadyRunningDispatchResultInterface(): void
     {
@@ -28,7 +28,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T6.2 getDispatcherType() が 'stepfunctions' を返す
+     * @testdox ARR.2 getDispatcherType() が 'stepfunctions' を返す
      */
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
@@ -43,7 +43,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T6.3 getExecutionName() が Execution 名を返す
+     * @testdox ARR.3 getExecutionName() が Execution 名を返す
      */
     public function testGetExecutionNameReturnsExecutionName(): void
     {
@@ -58,7 +58,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T6.4 getEventIdentifier() がイベント識別子を返す
+     * @testdox ARR.4 getEventIdentifier() がイベント識別子を返す
      */
     public function testGetEventIdentifierReturnsIdentifier(): void
     {
@@ -73,7 +73,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T6.5 getEventCommand() がコマンドを返す
+     * @testdox ARR.5 getEventCommand() がコマンドを返す
      */
     public function testGetEventCommandReturnsCommand(): void
     {
@@ -88,7 +88,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T6.6 getDispatchedAt() が DateTimeImmutable を返す
+     * @testdox ARR.6 getDispatchedAt() が DateTimeImmutable を返す
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
@@ -105,7 +105,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T6.7 カスタム dispatchedAt を指定できる
+     * @testdox ARR.7 カスタム dispatchedAt を指定できる
      */
     public function testAcceptsCustomDispatchedAt(): void
     {

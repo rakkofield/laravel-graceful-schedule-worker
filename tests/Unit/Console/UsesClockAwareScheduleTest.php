@@ -47,7 +47,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T7.1 defineConsoleSchedule registers ClockAwareSchedule as Schedule singleton
+     * @testdox UCS.1 defineConsoleSchedule registers ClockAwareSchedule as Schedule singleton
      */
     public function testDefineConsoleScheduleRegistersClockAwareSchedule(): void
     {
@@ -60,7 +60,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T7.2 gracefulSchedule receives the ClockAwareSchedule instance
+     * @testdox UCS.2 gracefulSchedule receives the ClockAwareSchedule instance
      */
     public function testGracefulScheduleReceivesClockAwareSchedule(): void
     {
@@ -73,7 +73,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T7.3 scheduleTimezone is passed to ClockAwareSchedule
+     * @testdox UCS.3 scheduleTimezone is passed to ClockAwareSchedule
      */
     public function testScheduleTimezoneIsPassedToClockAwareSchedule(): void
     {
@@ -88,7 +88,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T7.4 Schedule singleton is resolved only once
+     * @testdox UCS.4 Schedule singleton is resolved only once
      */
     public function testScheduleSingletonIsResolvedOnlyOnce(): void
     {
@@ -102,7 +102,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T7.5 ClockAwareSchedule uses injected ClockInterface
+     * @testdox UCS.5 ClockAwareSchedule uses injected ClockInterface
      */
     public function testClockAwareScheduleUsesInjectedClock(): void
     {
@@ -127,7 +127,7 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T7.6 ClockAwareSchedule::class resolves to the same singleton as Schedule::class
+     * @testdox UCS.6 ClockAwareSchedule::class resolves to the same singleton as Schedule::class
      */
     public function testClockAwareScheduleClassResolvesToSameSingleton(): void
     {

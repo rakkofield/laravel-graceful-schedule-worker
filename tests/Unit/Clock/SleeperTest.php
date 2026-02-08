@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 class SleeperTest extends TestCase
 {
     /**
-     * @testdox T1.1 正の値でインスタンスを生成できる
+     * @testdox SL.1 正の値でインスタンスを生成できる
      */
     public function testConstructsWithPositiveValue(): void
     {
@@ -18,7 +18,7 @@ class SleeperTest extends TestCase
     }
 
     /**
-     * @testdox T1.2 0 以下の値で InvalidArgumentException をスロー
+     * @testdox SL.2 0 以下の値で InvalidArgumentException をスロー
      */
     public function testThrowsOnZero(): void
     {
@@ -27,7 +27,7 @@ class SleeperTest extends TestCase
     }
 
     /**
-     * @testdox T1.3 負の値で InvalidArgumentException をスロー
+     * @testdox SL.3 負の値で InvalidArgumentException をスロー
      */
     public function testThrowsOnNegative(): void
     {
@@ -36,7 +36,7 @@ class SleeperTest extends TestCase
     }
 
     /**
-     * @testdox T1.4 sleep() が実行される（短い時間で検証）
+     * @testdox SL.4 sleep() が実行される（短い時間で検証）
      */
     public function testSleepExecutes(): void
     {

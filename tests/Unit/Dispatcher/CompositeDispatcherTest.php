@@ -70,7 +70,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.11
+     * @testdox CD.1
      */
     public function testDelegatesToEventSpecifiedDispatcher(): void
     {
@@ -101,7 +101,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.12
+     * @testdox CD.2
      */
     public function testUsesDefaultWhenNoEventSetting(): void
     {
@@ -132,7 +132,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.13
+     * @testdox CD.3
      */
     public function testUsesDefaultWhenDispatcherTypeIsNull(): void
     {
@@ -163,7 +163,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.14
+     * @testdox CD.4
      */
     public function testThrowsOnUnknownType(): void
     {
@@ -185,7 +185,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.15
+     * @testdox CD.5
      */
     public function testReceivesDefaultTypeViaConstructor(): void
     {
@@ -206,7 +206,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.16
+     * @testdox CD.6
      */
     public function testThrowsWhenDispatchersArrayIsEmpty(): void
     {
@@ -217,7 +217,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.17
+     * @testdox CD.7
      */
     public function testThrowsWhenDefaultTypeNotInDispatchers(): void
     {
@@ -237,7 +237,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.18 cleanup が全子ディスパッチャーに委譲される
+     * @testdox CD.8 cleanup が全子ディスパッチャーに委譲される
      */
     public function testCleanupDelegatesToAllChildDispatchers(): void
     {
@@ -263,7 +263,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.19 stopAll が全子ディスパッチャーに委譲される
+     * @testdox CD.9 stopAll が全子ディスパッチャーに委譲される
      */
     public function testStopAllDelegatesToAllChildDispatchers(): void
     {
@@ -289,7 +289,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.20 cleanup が1つの子で例外が発生しても他の子に委譲される
+     * @testdox CD.10 cleanup が1つの子で例外が発生しても他の子に委譲される
      */
     public function testCleanupContinuesWhenChildThrows(): void
     {
@@ -318,7 +318,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.21 stopAll が1つの子で例外が発生しても他の子に委譲される
+     * @testdox CD.11 stopAll が1つの子で例外が発生しても他の子に委譲される
      */
     public function testStopAllContinuesWhenChildThrows(): void
     {
@@ -347,7 +347,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.22 cleanup で例外発生時にログが出力される
+     * @testdox CD.12 cleanup で例外発生時にログが出力される
      */
     public function testCleanupLogsWarningWhenChildThrows(): void
     {
@@ -379,7 +379,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.23 stopAll で例外発生時にログが出力される
+     * @testdox CD.13 stopAll で例外発生時にログが出力される
      */
     public function testStopAllLogsWarningWhenChildThrows(): void
     {

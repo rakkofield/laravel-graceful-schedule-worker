@@ -53,7 +53,7 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox TI.20 schedule:run resolves Schedule::class as ClockAwareSchedule
+     * @testdox TI.11 schedule:run resolves Schedule::class as ClockAwareSchedule
      */
     public function testScheduleRunResolvesClockAwareSchedule(): void
     {
@@ -62,7 +62,7 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox TI.21 Events from gracefulSchedule() are ClockAwareEvent instances
+     * @testdox TI.12 Events from gracefulSchedule() are ClockAwareEvent instances
      */
     public function testEventsAreClockAwareEventInstances(): void
     {
@@ -77,7 +77,7 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox TI.22 dueEvents() returns everyMinute event as due
+     * @testdox TI.13 dueEvents() returns everyMinute event as due
      */
     public function testDueEventsReturnsEveryMinuteEventAsDue(): void
     {
@@ -90,7 +90,7 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox TI.23 filtersPass() returns true on due ClockAwareEvent
+     * @testdox TI.14 filtersPass() returns true on due ClockAwareEvent
      */
     public function testFiltersPassOnDueClockAwareEvent(): void
     {
@@ -103,7 +103,7 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox TI.24 Artisan schedule:run exits 0 and processes due events
+     * @testdox TI.15 Artisan schedule:run exits 0 and processes due events
      */
     public function testArtisanScheduleRunProcessesDueEvents(): void
     {

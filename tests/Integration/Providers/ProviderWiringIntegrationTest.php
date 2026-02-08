@@ -125,7 +125,7 @@ class ProviderWiringIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T13.1 Resolved dispatcher can dispatch local event
+     * @testdox PWI.1 Resolved dispatcher can dispatch local event
      */
     public function testResolvedDispatcherCanDispatchLocalEvent(): void
     {
@@ -146,7 +146,7 @@ class ProviderWiringIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T13.2 Tracker enabled creates full tracking chain
+     * @testdox PWI.2 Tracker enabled creates full tracking chain
      */
     public function testTrackerEnabledCreatesFullTrackingChain(): void
     {
@@ -191,7 +191,7 @@ class ProviderWiringIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T13.3 Tracker disabled uses NullTracker
+     * @testdox PWI.3 Tracker disabled uses NullTracker
      */
     public function testTrackerDisabledUsesNullTracker(): void
     {
@@ -210,7 +210,7 @@ class ProviderWiringIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T13.4 Orchestrator receives correct dependencies
+     * @testdox PWI.4 Orchestrator receives correct dependencies
      */
     public function testOrchestratorReceivesCorrectDependencies(): void
     {

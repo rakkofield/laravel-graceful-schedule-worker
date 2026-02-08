@@ -12,7 +12,7 @@ use RuntimeException;
 class FreezableClockTest extends TestCase
 {
     /**
-     * @testdox T1.5
+     * @testdox FC.1
      */
     public function testDelegatesToInnerClockWhenNotFrozen(): void
     {
@@ -24,7 +24,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox T1.6
+     * @testdox FC.2
      */
     public function testReturnsFrozenTimeWithinCallback(): void
     {
@@ -39,7 +39,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox T1.7
+     * @testdox FC.3
      */
     public function testWithFrozenTimeReturnsCallbackResult(): void
     {
@@ -55,7 +55,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox T1.8
+     * @testdox FC.4
      */
     public function testUnfreezesAfterCallback(): void
     {
@@ -72,7 +72,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox T1.9
+     * @testdox FC.5
      */
     public function testUnfreezesEvenIfCallbackThrows(): void
     {
@@ -95,7 +95,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox T1.10
+     * @testdox FC.6
      */
     public function testFrozenTimeStaysConstantAcrossMultipleCalls(): void
     {
@@ -117,7 +117,7 @@ class FreezableClockTest extends TestCase
     }
 
     /**
-     * @testdox T1.11
+     * @testdox FC.7
      */
     public function testThrowsOnNestedWithFrozenTime(): void
     {

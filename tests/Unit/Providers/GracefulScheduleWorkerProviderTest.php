@@ -129,7 +129,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.1
+     * @testdox GP.1
      */
     public function testRegistersClockInterfaceAsSingleton(): void
     {
@@ -143,7 +143,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.2
+     * @testdox GP.2
      */
     public function testClockInterfaceReturnsSameInstance(): void
     {
@@ -156,7 +156,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.5
+     * @testdox GP.3
      */
     public function testClockAwareScheduleReceivesClockInterface(): void
     {
@@ -170,7 +170,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.6
+     * @testdox GP.4
      */
     public function testRegistersLocalDispatcherAsSingleton(): void
     {
@@ -184,7 +184,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.7
+     * @testdox GP.5
      */
     public function testRegistersScheduleDispatcherInterfaceAsTrackingDispatcher(): void
     {
@@ -198,7 +198,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.8
+     * @testdox GP.6
      */
     public function testCompositeDispatcherReturnsSameInstance(): void
     {
@@ -211,7 +211,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.9
+     * @testdox GP.7
      */
     public function testScheduleDispatcherInterfaceReturnsTrackingDispatcher(): void
     {
@@ -224,7 +224,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.10
+     * @testdox GP.8
      */
     public function testRegistersScheduleOrchestratorInterfaceAsSingleton(): void
     {
@@ -238,7 +238,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.11
+     * @testdox GP.9
      */
     public function testScheduleOrchestratorReturnsSameInstance(): void
     {
@@ -251,7 +251,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.12 Registers ExecutionTrackerInterface when enabled
+     * @testdox GP.10 Registers ExecutionTrackerInterface when enabled
      */
     public function testRegistersExecutionTrackerInterfaceWhenEnabled(): void
     {
@@ -295,7 +295,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.13 Registers NullExecutionTracker when disabled
+     * @testdox GP.11 Registers NullExecutionTracker when disabled
      */
     public function testRegistersNullExecutionTrackerWhenDisabled(): void
     {
@@ -311,7 +311,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.14 Orchestrator receives Tracker when enabled
+     * @testdox GP.12 Orchestrator receives Tracker when enabled
      */
     public function testOrchestratorReceivesTrackerWhenEnabled(): void
     {
@@ -360,7 +360,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.15 Orchestrator has NullExecutionTracker when disabled
+     * @testdox GP.13 Orchestrator has NullExecutionTracker when disabled
      */
     public function testOrchestratorHasNullExecutionTrackerWhenDisabled(): void
     {
@@ -382,7 +382,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.16 config が未登録の場合は NullExecutionTracker を返す
+     * @testdox GP.14 config が未登録の場合は NullExecutionTracker を返す
      */
     public function testReturnsNullTrackerWhenConfigNotBound(): void
     {
@@ -405,7 +405,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox T3.17 cache store が LockProvider を実装しない場合は RuntimeException をスローする
+     * @testdox GP.15 cache store が LockProvider を実装しない場合は RuntimeException をスローする
      */
     public function testThrowsRuntimeExceptionWhenStoreDoesNotImplementLockProvider(): void
     {

@@ -38,7 +38,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.1 Event と dueAt から Execution Name を生成する
+     * @testdox ENG.1 Event と dueAt から Execution Name を生成する
      */
     public function testGeneratesExecutionNameFromEventAndDueAt(): void
     {
@@ -53,7 +53,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.2 不正な文字をハイフンに置換する
+     * @testdox ENG.2 不正な文字をハイフンに置換する
      */
     public function testSanitizesInvalidCharacters(): void
     {
@@ -67,7 +67,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.3 80文字を超える場合はハッシュを使用して短縮する
+     * @testdox ENG.3 80文字を超える場合はハッシュを使用して短縮する
      */
     public function testTruncatesLongNamesWithHash(): void
     {
@@ -81,7 +81,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.4 同じ入力からは同じ出力が得られる（決定論的）
+     * @testdox ENG.4 同じ入力からは同じ出力が得られる（決定論的）
      */
     public function testIsDeterministic(): void
     {
@@ -95,7 +95,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.5 長い名前でも同じ入力から同じハッシュが生成される
+     * @testdox ENG.5 長い名前でも同じ入力から同じハッシュが生成される
      */
     public function testLongNamesAreDeterministic(): void
     {
@@ -110,7 +110,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.6 80文字以下の名前はトランケーションされない
+     * @testdox ENG.6 80文字以下の名前はトランケーションされない
      */
     public function testNamesAtOrBelowLimitAreNotTruncated(): void
     {
@@ -126,7 +126,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.7 結果は許可文字のみで構成される
+     * @testdox ENG.7 結果は許可文字のみで構成される
      */
     public function testResultContainsOnlyValidCharacters(): void
     {
@@ -139,7 +139,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.8 80文字を超える mutexName ではハッシュで切り詰められ結果が80文字以内になる
+     * @testdox ENG.8 80文字を超える mutexName ではハッシュで切り詰められ結果が80文字以内になる
      */
     public function testTruncatesWithHashWhenMutexNameExceeds80Chars(): void
     {
@@ -156,7 +156,7 @@ class ExecutionNameGeneratorTest extends TestCase
     }
 
     /**
-     * @testdox T4.1.9 切り詰められた名前にはハッシュサフィックスが含まれる
+     * @testdox ENG.9 切り詰められた名前にはハッシュサフィックスが含まれる
      */
     public function testTruncatedNameContainsHashSuffix(): void
     {

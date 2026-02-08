@@ -86,7 +86,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     }
 
     /**
-     * @testdox T7.1 markExecuted stores data in Redis
+     * @testdox CTI.1 markExecuted stores data in Redis
      */
     public function testMarkExecutedStoresDataInRedis(): void
     {
@@ -103,7 +103,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     }
 
     /**
-     * @testdox T7.2 acquireLock returns true on first call
+     * @testdox CTI.2 acquireLock returns true on first call
      */
     public function testAcquireLockReturnsTrueOnFirstCall(): void
     {
@@ -117,7 +117,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     }
 
     /**
-     * @testdox T7.3 Second acquireLock on same key fails
+     * @testdox CTI.3 Second acquireLock on same key fails
      */
     public function testSecondAcquireLockOnSameKeyFails(): void
     {
@@ -133,7 +133,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     }
 
     /**
-     * @testdox T7.4 acquireLock succeeds after releaseLock
+     * @testdox CTI.4 acquireLock succeeds after releaseLock
      */
     public function testAcquireLockSucceedsAfterReleaseLock(): void
     {
@@ -149,7 +149,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     }
 
     /**
-     * @testdox T7.5 getMissedDueIfRecoverable retrieves data from Redis
+     * @testdox CTI.5 getMissedDueIfRecoverable retrieves data from Redis
      */
     public function testGetMissedDueIfRecoverableRetrievesDataFromRedis(): void
     {
@@ -171,7 +171,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     }
 
     /**
-     * @testdox T7.6 Concurrent lock acquisition across separate trackers fails
+     * @testdox CTI.6 Concurrent lock acquisition across separate trackers fails
      */
     public function testConcurrentLockAcquisitionAcrossSeparateTrackersFails(): void
     {
@@ -189,7 +189,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     }
 
     /**
-     * @testdox T7.7 Lock expires after TTL allowing re-acquisition
+     * @testdox CTI.7 Lock expires after TTL allowing re-acquisition
      * @group slow
      */
     public function testLockExpiresAfterTtlAllowingReAcquisition(): void

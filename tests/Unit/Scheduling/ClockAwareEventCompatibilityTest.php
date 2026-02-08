@@ -63,7 +63,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.1 everyMinute() sets correct cron expression
+     * @testdox CEC.1 everyMinute() sets correct cron expression
      */
     public function testEveryMinuteSetsCorrectCron(): void
     {
@@ -74,7 +74,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.2 hourly() sets correct cron expression
+     * @testdox CEC.2 hourly() sets correct cron expression
      */
     public function testHourlySetsCorrectCron(): void
     {
@@ -85,7 +85,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.3 daily() and dailyAt() set correct cron expressions
+     * @testdox CEC.3 daily() and dailyAt() set correct cron expressions
      */
     public function testDailySetsCorrectCron(): void
     {
@@ -99,7 +99,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.4 when(true) passes filtersPass
+     * @testdox CEC.4 when(true) passes filtersPass
      */
     public function testWhenTruePassesFiltersPass(): void
     {
@@ -112,7 +112,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.5 when(false) fails filtersPass
+     * @testdox CEC.5 when(false) fails filtersPass
      */
     public function testWhenFalseFailsFiltersPass(): void
     {
@@ -125,7 +125,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.6 skip(true) fails filtersPass
+     * @testdox CEC.6 skip(true) fails filtersPass
      */
     public function testSkipTrueFailsFiltersPass(): void
     {
@@ -138,7 +138,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.7 between() adds filter
+     * @testdox CEC.7 between() adds filter
      */
     public function testBetweenAddsFilter(): void
     {
@@ -151,7 +151,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.8 withoutOverlapping adds skip filter based on EventMutex
+     * @testdox CEC.8 withoutOverlapping adds skip filter based on EventMutex
      */
     public function testWithoutOverlappingAddsSkipFilter(): void
     {
@@ -173,7 +173,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.9 weekdays() modifies cron expression
+     * @testdox CEC.9 weekdays() modifies cron expression
      */
     public function testWeekdaysModifiesCron(): void
     {
@@ -184,7 +184,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.10 expressionPasses uses injected clock
+     * @testdox CEC.10 expressionPasses uses injected clock
      */
     public function testExpressionPassesUsesInjectedClock(): void
     {
@@ -199,7 +199,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.11 expressionPasses with different clock time
+     * @testdox CEC.11 expressionPasses with different clock time
      */
     public function testExpressionPassesWithDifferentClockTime(): void
     {
@@ -214,7 +214,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.12 expressionPasses respects timezone
+     * @testdox CEC.12 expressionPasses respects timezone
      */
     public function testExpressionPassesRespectsTimezone(): void
     {
@@ -230,7 +230,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.13 between uses injected clock
+     * @testdox CEC.13 between uses injected clock
      */
     public function testBetweenUsesInjectedClock(): void
     {
@@ -242,7 +242,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.14 between rejects outside range
+     * @testdox CEC.14 between rejects outside range
      */
     public function testBetweenRejectsOutsideRange(): void
     {
@@ -254,7 +254,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.15 between evaluates lazily not at definition time
+     * @testdox CEC.15 between evaluates lazily not at definition time
      */
     public function testBetweenEvaluatesLazilyNotAtDefinitionTime(): void
     {
@@ -273,7 +273,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.16 unlessBetween uses injected clock
+     * @testdox CEC.16 unlessBetween uses injected clock
      */
     public function testUnlessBetweenUsesInjectedClock(): void
     {
@@ -285,7 +285,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.17 unlessBetween rejects inside range
+     * @testdox CEC.17 unlessBetween rejects inside range
      */
     public function testUnlessBetweenRejectsInsideRange(): void
     {
@@ -297,7 +297,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.18 between handles midnight crossing
+     * @testdox CEC.18 between handles midnight crossing
      */
     public function testBetweenHandlesMidnightCrossing(): void
     {
@@ -309,7 +309,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.19 environments affects isDue
+     * @testdox CEC.19 environments affects isDue
      */
     public function testEnvironmentsAffectsIsDue(): void
     {
@@ -323,7 +323,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.20 evenInMaintenanceMode affects isDue
+     * @testdox CEC.20 evenInMaintenanceMode affects isDue
      */
     public function testEvenInMaintenanceModeAffectsIsDue(): void
     {
@@ -337,7 +337,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.21 maintenance mode default blocks isDue
+     * @testdox CEC.21 maintenance mode default blocks isDue
      */
     public function testMaintenanceModeDefaultBlocksIsDue(): void
     {
@@ -351,7 +351,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.22 description is stored on event
+     * @testdox CEC.22 description is stored on event
      */
     public function testDescriptionIsStoredOnEvent(): void
     {
@@ -362,7 +362,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.23 typical Kernel.php chaining pattern works
+     * @testdox CEC.23 typical Kernel.php chaining pattern works
      */
     public function testTypicalKernelChainPatternWorks(): void
     {
@@ -392,7 +392,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.24 onOneServer chaining works
+     * @testdox CEC.24 onOneServer chaining works
      */
     public function testOnOneServerChaining(): void
     {
@@ -406,7 +406,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.25 withGracePeriod(0) sets recoverable without grace period
+     * @testdox CEC.25 withGracePeriod(0) sets recoverable without grace period
      */
     public function testWithGracePeriodZeroSetsRecoverableWithoutGracePeriod(): void
     {
@@ -418,7 +418,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.26 everyFiveMinutes sets correct cron expression
+     * @testdox CEC.26 everyFiveMinutes sets correct cron expression
      */
     public function testEveryFiveMinutesSetsCorrectCron(): void
     {
@@ -429,7 +429,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.27 dispatchVia chained with schedule methods
+     * @testdox CEC.27 dispatchVia chained with schedule methods
      */
     public function testDispatchViaChainedWithScheduleMethods(): void
     {
@@ -446,7 +446,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.28 getSummaryForDisplay returns command summary
+     * @testdox CEC.28 getSummaryForDisplay returns command summary
      */
     public function testGetSummaryForDisplayReturnsCommandSummary(): void
     {
@@ -457,7 +457,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
     }
 
     /**
-     * @testdox T6.29 mutexName is consistent for same command
+     * @testdox CEC.29 mutexName is consistent for same command
      */
     public function testMutexNameConsistentForSameCommand(): void
     {

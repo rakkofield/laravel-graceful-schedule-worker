@@ -63,7 +63,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
     }
 
     /**
-     * @testdox T4.10 Outputs running message when started
+     * @testdox GC.1 Outputs running message when started
      */
     public function testOutputsRunningMessageWhenStarted(): void
     {

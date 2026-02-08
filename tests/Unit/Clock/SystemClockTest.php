@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 class SystemClockTest extends TestCase
 {
     /**
-     * @testdox T1.1
+     * @testdox SC.1
      */
     public function testReturnsCurrentTime(): void
     {
@@ -25,7 +25,7 @@ class SystemClockTest extends TestCase
     }
 
     /**
-     * @testdox T1.2
+     * @testdox SC.2
      */
     public function testAdvancesTimeOnConsecutiveCalls(): void
     {

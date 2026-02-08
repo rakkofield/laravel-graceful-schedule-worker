@@ -125,7 +125,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T6.1 実際の StartExecution API 呼び出しが成功する
+     * @testdox SFI.1 実際の StartExecution API 呼び出しが成功する
      */
     public function testRealStartExecutionSucceeds(): void
     {
@@ -141,7 +141,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T6.2 同一 Execution Name での2回目呼び出しで ExecutionAlreadyExists
+     * @testdox SFI.2 同一 Execution Name での2回目呼び出しで ExecutionAlreadyExists
      */
     public function testDuplicateExecutionReturnsAlreadyRunning(): void
     {
@@ -172,7 +172,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T6.3 State Machine が実際に実行される
+     * @testdox SFI.3 State Machine が実際に実行される
      */
     public function testStateMachineActuallyExecutes(): void
     {

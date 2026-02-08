@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class StartedStepFunctionsDispatchResultTest extends TestCase
 {
     /**
-     * @testdox T5.1 StartedDispatchResultInterface を実装する
+     * @testdox SSR.1 StartedDispatchResultInterface を実装する
      */
     public function testImplementsStartedDispatchResultInterface(): void
     {
@@ -29,7 +29,7 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.4 getDispatcherType() が 'stepfunctions' を返す
+     * @testdox SSR.2 getDispatcherType() が 'stepfunctions' を返す
      */
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
@@ -45,7 +45,7 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.5 getExecutionArn() が ARN を返す
+     * @testdox SSR.3 getExecutionArn() が ARN を返す
      */
     public function testGetExecutionArnReturnsArn(): void
     {
@@ -62,7 +62,7 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.6 getExecutionName() が Execution 名を返す
+     * @testdox SSR.4 getExecutionName() が Execution 名を返す
      */
     public function testGetExecutionNameReturnsExecutionName(): void
     {
@@ -78,7 +78,7 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.7 getEventIdentifier() がイベント識別子を返す
+     * @testdox SSR.5 getEventIdentifier() がイベント識別子を返す
      */
     public function testGetEventIdentifierReturnsIdentifier(): void
     {
@@ -94,7 +94,7 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.8 getEventCommand() がコマンドを返す
+     * @testdox SSR.6 getEventCommand() がコマンドを返す
      */
     public function testGetEventCommandReturnsCommand(): void
     {
@@ -110,7 +110,7 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.9 getDispatchedAt() が DateTimeImmutable を返す
+     * @testdox SSR.7 getDispatchedAt() が DateTimeImmutable を返す
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
@@ -128,7 +128,7 @@ class StartedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T5.10 カスタム dispatchedAt を指定できる
+     * @testdox SSR.8 カスタム dispatchedAt を指定できる
      */
     public function testAcceptsCustomDispatchedAt(): void
     {

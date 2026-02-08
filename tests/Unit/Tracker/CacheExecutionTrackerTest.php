@@ -66,7 +66,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.1 markExecuted stores timestamp in cache
+     * @testdox CT.1 markExecuted stores timestamp in cache
      */
     public function testMarkExecutedStoresTimestamp(): void
     {
@@ -82,7 +82,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.2 constructor throws exception for non-positive lockTtl
+     * @testdox CT.2 constructor throws exception for non-positive lockTtl
      */
     public function testConstructorThrowsExceptionForNonPositiveLockTtl(): void
     {
@@ -93,7 +93,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.2b constructor throws exception for negative lockTtl
+     * @testdox CT.3 constructor throws exception for negative lockTtl
      */
     public function testConstructorThrowsExceptionForNegativeLockTtl(): void
     {
@@ -104,7 +104,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.3 getMissedDueIfRecoverable returns null on first run
+     * @testdox CT.4 getMissedDueIfRecoverable returns null on first run
      */
     public function testGetMissedDueIfRecoverableReturnsNullOnFirstRun(): void
     {
@@ -119,7 +119,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.4 getMissedDueIfRecoverable returns missedDue when missed
+     * @testdox CT.5 getMissedDueIfRecoverable returns missedDue when missed
      */
     public function testGetMissedDueIfRecoverableReturnsMissedDue(): void
     {
@@ -140,7 +140,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.5 getMissedDueIfRecoverable returns null when on schedule
+     * @testdox CT.6 getMissedDueIfRecoverable returns null when on schedule
      */
     public function testGetMissedDueIfRecoverableReturnsNullWhenOnSchedule(): void
     {
@@ -159,7 +159,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.6 getMissedDueIfRecoverable returns null when grace period exceeded
+     * @testdox CT.7 getMissedDueIfRecoverable returns null when grace period exceeded
      */
     public function testGetMissedDueIfRecoverableReturnsNullWhenGracePeriodExceeded(): void
     {
@@ -188,7 +188,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.7 getMissedDueIfRecoverable returns missedDue within grace period
+     * @testdox CT.8 getMissedDueIfRecoverable returns missedDue within grace period
      */
     public function testGetMissedDueIfRecoverableReturnsMissedDueWithinGracePeriod(): void
     {
@@ -210,7 +210,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.8 getMissedDueIfRecoverable throws on invalid cron expression
+     * @testdox CT.9 getMissedDueIfRecoverable throws on invalid cron expression
      */
     public function testGetMissedDueIfRecoverableThrowsOnInvalidCron(): void
     {
@@ -233,7 +233,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.9 acquireLock returns true on success
+     * @testdox CT.10 acquireLock returns true on success
      */
     public function testAcquireLockReturnsTrueOnSuccess(): void
     {
@@ -248,7 +248,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.10 acquireLock returns false when already locked
+     * @testdox CT.11 acquireLock returns false when already locked
      */
     public function testAcquireLockReturnsFalseWhenLocked(): void
     {
@@ -266,7 +266,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.11 releaseLock removes lock and allows re-acquisition
+     * @testdox CT.12 releaseLock removes lock and allows re-acquisition
      */
     public function testReleaseLockRemovesLock(): void
     {
@@ -286,7 +286,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.13 markExecuted uses grace period for TTL calculation with ClockAwareEvent
+     * @testdox CT.13 markExecuted uses grace period for TTL calculation with ClockAwareEvent
      */
     public function testMarkExecutedUsesGracePeriodForTtl(): void
     {
@@ -304,7 +304,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.14 getMissedDueIfRecoverable works with non-ClockAwareEvent (no grace period check)
+     * @testdox CT.14 getMissedDueIfRecoverable works with non-ClockAwareEvent (no grace period check)
      */
     public function testGetMissedDueIfRecoverableWorksWithNonClockAwareEvent(): void
     {
@@ -324,7 +324,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox T4.15 getMissedDueIfRecoverable returns missedDue when ClockAwareEvent has no gracePeriod set
+     * @testdox CT.15 getMissedDueIfRecoverable returns missedDue when ClockAwareEvent has no gracePeriod set
      */
     public function testGetMissedDueIfRecoverableReturnsMissedDueWhenNoGracePeriod(): void
     {

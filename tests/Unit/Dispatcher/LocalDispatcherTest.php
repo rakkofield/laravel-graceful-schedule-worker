@@ -66,7 +66,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.1
+     * @testdox LD.1
      */
     public function testReturnsLocalDispatchResult(): void
     {
@@ -80,7 +80,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.2
+     * @testdox LD.2
      */
     public function testReturnsStartedDispatchResultInterfaceOnSuccess(): void
     {
@@ -93,7 +93,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.3
+     * @testdox LD.3
      */
     public function testReturnsCorrectEventIdentifier(): void
     {
@@ -106,7 +106,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.4
+     * @testdox LD.4
      */
     public function testReturnsCorrectEventCommand(): void
     {
@@ -120,7 +120,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.5
+     * @testdox LD.5
      */
     public function testReturnsCorrectDispatcherType(): void
     {
@@ -133,7 +133,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.6
+     * @testdox LD.6
      */
     public function testStartsProcessInBackground(): void
     {
@@ -151,7 +151,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.7
+     * @testdox LD.7
      */
     public function testReturnsDispatchedAtTimestamp(): void
     {
@@ -169,7 +169,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.10
+     * @testdox LD.8
      */
     public function testHasRunningProcessImmediatelyAfterDispatch(): void
     {
@@ -185,7 +185,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.11 beforeCallbacks are called before dispatch
+     * @testdox LD.9 beforeCallbacks are called before dispatch
      */
     public function testBeforeCallbacksAreCalledBeforeDispatch(): void
     {
@@ -198,7 +198,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.12 background buildCommand includes schedule:finish
+     * @testdox LD.10 background buildCommand includes schedule:finish
      */
     public function testBuildCommandIncludesScheduleFinish(): void
     {
@@ -213,7 +213,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.13 runInBackground is preserved after dispatch
+     * @testdox LD.11 runInBackground is preserved after dispatch
      */
     public function testRunInBackgroundIsPreservedAfterDispatch(): void
     {
@@ -228,7 +228,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.14 output redirection is included in command
+     * @testdox LD.12 output redirection is included in command
      */
     public function testOutputRedirectionIsIncludedInCommand(): void
     {
@@ -243,7 +243,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.15 beforeCallbacks で例外が発生した場合は失敗結果を返す
+     * @testdox LD.13 beforeCallbacks で例外が発生した場合は失敗結果を返す
      */
     public function testReturnsFailedWhenBeforeCallbackThrows(): void
     {
@@ -259,7 +259,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.16 beforeCallbacks で Error が発生した場合は再スローされる
+     * @testdox LD.14 beforeCallbacks で Error が発生した場合は再スローされる
      */
     public function testRethrowsErrorFromBeforeCallback(): void
     {
@@ -274,7 +274,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.17 cleanup removes completed processes from internal list
+     * @testdox LD.15 cleanup removes completed processes from internal list
      */
     public function testCleanupRemovesCompletedProcesses(): void
     {
@@ -305,7 +305,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.18 stopAll stops all running processes
+     * @testdox LD.16 stopAll stops all running processes
      */
     public function testStopAllStopsAllRunningProcesses(): void
     {
@@ -333,7 +333,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.19 stopAll handles already stopped processes gracefully
+     * @testdox LD.17 stopAll handles already stopped processes gracefully
      */
     public function testStopAllHandlesAlreadyStoppedProcesses(): void
     {
@@ -356,7 +356,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.20 dispatchEvent automatically adds result to running processes
+     * @testdox LD.18 dispatchEvent automatically adds result to running processes
      */
     public function testDispatchEventAddsResultToRunningProcesses(): void
     {
@@ -384,7 +384,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.21 stopAll sends SIGTERM to all running processes
+     * @testdox LD.19 stopAll sends SIGTERM to all running processes
      */
     public function testStopAllSendsSignalToAllProcesses(): void
     {
@@ -405,7 +405,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.22 stopAll sends SIGKILL to processes that don't stop after SIGTERM
+     * @testdox LD.20 stopAll sends SIGKILL to processes that don't stop after SIGTERM
      */
     public function testStopAllSendsKillToProcessesThatDontStop(): void
     {
@@ -424,7 +424,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.23 stopAll handles signal exception gracefully
+     * @testdox LD.21 stopAll handles signal exception gracefully
      */
     public function testStopAllHandlesSignalExceptionGracefully(): void
     {
@@ -453,7 +453,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.24 stopAll skips signal for non-running processes
+     * @testdox LD.22 stopAll skips signal for non-running processes
      */
     public function testStopAllSkipsSignalForNonRunningProcesses(): void
     {
@@ -476,7 +476,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.25 foreground event runs synchronously with Process::run()
+     * @testdox LD.23 foreground event runs synchronously with Process::run()
      */
     public function testForegroundEventRunsSynchronously(): void
     {
@@ -493,7 +493,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.26 foreground event calls afterCallbacksWithExitCode
+     * @testdox LD.24 foreground event calls afterCallbacksWithExitCode
      */
     public function testForegroundEventCallsAfterCallbacks(): void
     {
@@ -508,7 +508,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.27 foreground event result is not added to running processes
+     * @testdox LD.25 foreground event result is not added to running processes
      */
     public function testForegroundEventResultNotAddedToRunningProcesses(): void
     {
@@ -527,7 +527,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.28 background event runs asynchronously with Process::start()
+     * @testdox LD.26 background event runs asynchronously with Process::start()
      */
     public function testBackgroundEventRunsAsynchronously(): void
     {
@@ -545,7 +545,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.29 ClockAwareEvent を background で dispatchEvent に渡すと buildProcessCommand() 経由でコマンドが生成される
+     * @testdox LD.27 ClockAwareEvent を background で dispatchEvent に渡すと buildProcessCommand() 経由でコマンドが生成される
      */
     public function testClockAwareEventUseBuildProcessCommandInBackground(): void
     {
@@ -565,7 +565,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.30 Foreground で非ゼロ exit code のとき afterCallbacks に正しい exit code が渡される
+     * @testdox LD.28 Foreground で非ゼロ exit code のとき afterCallbacks に正しい exit code が渡される
      */
     public function testForegroundNonZeroExitCodePassedToAfterCallbacks(): void
     {
@@ -580,7 +580,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox T2.31 Foreground で afterCallbacks が例外をスローしても StartedLocalDispatchResult が返される
+     * @testdox LD.29 Foreground で afterCallbacks が例外をスローしても StartedLocalDispatchResult が返される
      */
     public function testForegroundAfterCallbackExceptionReturnsStartedResult(): void
     {

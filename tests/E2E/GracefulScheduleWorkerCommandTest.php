@@ -56,7 +56,7 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
     }
 
     /**
-     * @testdox T4.1 Graceful shutdown stops gracefully on SIGTERM
+     * @testdox E2E.1 Graceful shutdown stops gracefully on SIGTERM
      */
     public function testGracefulShutdownStopsGracefullyOnSigterm(): void
     {

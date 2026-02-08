@@ -37,7 +37,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T1.12
+     * @testdox CS.1
      */
     public function testReturnsClockAwareEventFromCommand(): void
     {
@@ -50,7 +50,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T1.13
+     * @testdox CS.2
      */
     public function testReturnsClockAwareEventFromExec(): void
     {
@@ -63,7 +63,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T1.14
+     * @testdox CS.3
      */
     public function testCreatesClockAwareEventsFromMultipleMethods(): void
     {
@@ -81,7 +81,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T1.15
+     * @testdox CS.4
      */
     public function testExecHandlesParametersCorrectly(): void
     {
@@ -94,7 +94,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T1.16
+     * @testdox CS.5
      */
     public function testCommandHandlesParametersCorrectly(): void
     {
@@ -107,7 +107,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T1.17
+     * @testdox CS.6
      */
     public function testEvaluateAtFreezesEventClock(): void
     {
@@ -130,7 +130,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T1.18
+     * @testdox CS.7
      */
     public function testEvaluateAtUnfreezesAfterCallback(): void
     {
@@ -154,7 +154,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox T1.19
+     * @testdox CS.8
      */
     public function testExecPassesFreezableClockToEvent(): void
     {

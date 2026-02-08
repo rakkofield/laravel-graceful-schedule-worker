@@ -54,7 +54,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T3.18 boot() で schedule:graceful-work コマンドが登録される
+     * @testdox GPI.1 boot() で schedule:graceful-work コマンドが登録される
      */
     public function testBootRegistersGracefulScheduleWorkCommand(): void
     {
@@ -67,7 +67,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T3.19 boot() で config ファイルの publish が登録される
+     * @testdox GPI.2 boot() で config ファイルの publish が登録される
      */
     public function testBootRegistersConfigPublishing(): void
     {
@@ -90,7 +90,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T3.20 register() で graceful-scheduler 設定がマージされる
+     * @testdox GPI.3 register() で graceful-scheduler 設定がマージされる
      */
     public function testRegisterMergesConfig(): void
     {
@@ -100,7 +100,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T3.21 StepFunctions バインディングで credentials が設定される
+     * @testdox GPI.4 StepFunctions バインディングで credentials が設定される
      */
     public function testStepFunctionsBindingsWithCredentials(): void
     {
@@ -128,7 +128,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T3.22 StepFunctions バインディングで endpoint が設定される
+     * @testdox GPI.5 StepFunctions バインディングで endpoint が設定される
      */
     public function testStepFunctionsBindingsWithEndpoint(): void
     {
@@ -152,7 +152,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T3.23 StepFunctions の ExecutionNameGeneratorInterface がバインドされる
+     * @testdox GPI.6 StepFunctions の ExecutionNameGeneratorInterface がバインドされる
      */
     public function testStepFunctionsBindsExecutionNameGenerator(): void
     {
@@ -161,7 +161,7 @@ class ProviderBootIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T3.24 StepFunctions の StepFunctionsDispatcher がバインドされる
+     * @testdox GPI.7 StepFunctions の StepFunctionsDispatcher がバインドされる
      */
     public function testStepFunctionsBindsDispatcher(): void
     {

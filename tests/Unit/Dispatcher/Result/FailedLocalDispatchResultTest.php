@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class FailedLocalDispatchResultTest extends TestCase
 {
     /**
-     * @testdox T2.23
+     * @testdox FLR.1
      */
     public function testImplementsFailedDispatchResultInterface(): void
     {
@@ -25,7 +25,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.24
+     * @testdox FLR.2
      */
     public function testStoresErrorMessage(): void
     {
@@ -36,7 +36,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.25
+     * @testdox FLR.3
      */
     public function testGetDispatcherTypeReturnsLocal(): void
     {
@@ -46,7 +46,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.35
+     * @testdox FLR.4
      */
     public function testStoresEventIdentifierAndCommand(): void
     {
@@ -58,7 +58,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.36 stores exception when provided
+     * @testdox FLR.5 stores exception when provided
      */
     public function testStoresException(): void
     {
@@ -69,7 +69,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.37 returns null exception when not provided
+     * @testdox FLR.6 returns null exception when not provided
      */
     public function testReturnsNullExceptionWhenNotProvided(): void
     {
@@ -79,7 +79,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.39 getDispatchedAt returns DateTimeImmutable
+     * @testdox FLR.7 getDispatchedAt returns DateTimeImmutable
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
@@ -93,7 +93,7 @@ class FailedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox T2.41 dispatchedAt を明示的に渡した場合はその値が返される
+     * @testdox FLR.8 dispatchedAt を明示的に渡した場合はその値が返される
      */
     public function testGetDispatchedAtReturnsExplicitValue(): void
     {

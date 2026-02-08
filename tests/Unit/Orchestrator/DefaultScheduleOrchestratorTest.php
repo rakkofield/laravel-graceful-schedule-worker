@@ -122,7 +122,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.1 run_executes_due_events
+     * @testdox DO.1 run_executes_due_events
      */
     public function testRunExecutesDueEvents(): void
     {
@@ -141,7 +141,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.2 run_skips_non_due_events
+     * @testdox DO.2 run_skips_non_due_events
      */
     public function testRunSkipsNonDueEvents(): void
     {
@@ -155,7 +155,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.3 run_calls_dispatcher_dispatchEvent_for_each_event
+     * @testdox DO.3 run_calls_dispatcher_dispatchEvent_for_each_event
      */
     public function testRunCallsDispatcherDispatchEventForEachEvent(): void
     {
@@ -175,7 +175,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.4 run_stops_when_shouldContinue_false
+     * @testdox DO.4 run_stops_when_shouldContinue_false
      */
     public function testRunStopsWhenShouldContinueFalse(): void
     {
@@ -197,7 +197,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox run_returns_true_on_success
+     * @testdox DO.5
      */
     public function testRunReturnsTrueOnSuccess(): void
     {
@@ -211,7 +211,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox run_manages_local_dispatch_results
+     * @testdox DO.6
      */
     public function testRunManagesLocalDispatchResults(): void
     {
@@ -231,7 +231,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox stopAll is called on dispatcher when orchestrator stops
+     * @testdox DO.7
      */
     public function testStopAllIsCalledOnDispatcherWhenOrchestratorStops(): void
     {
@@ -249,7 +249,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox cleanup is called on dispatcher in each loop iteration
+     * @testdox DO.8
      */
     public function testCleanupIsCalledOnDispatcherInEachLoopIteration(): void
     {
@@ -267,7 +267,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.6 同一分内で複数回ループしても1回しかディスパッチされない
+     * @testdox DO.9 同一分内で複数回ループしても1回しかディスパッチされない
      */
     public function testOnlyDispatchesOncePerMinute(): void
     {
@@ -286,7 +286,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.7 秒が0でない場合はディスパッチをスキップする
+     * @testdox DO.10 秒が0でない場合はディスパッチをスキップする
      */
     public function testSkipsDispatchWhenSecondIsNotZero(): void
     {
@@ -313,7 +313,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.8 dispatchEvent に dueAt が渡される
+     * @testdox DO.11 dispatchEvent に dueAt が渡される
      */
     public function testPassesDueAtToDispatcher(): void
     {
@@ -337,7 +337,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.23 Checks missed executions at startup and recovers
+     * @testdox DO.12 Checks missed executions at startup and recovers
      */
     public function testChecksMissedExecutionsAtStartupAndRecovers(): void
     {
@@ -372,7 +372,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.24 Skips missed event when getMissedDueIfRecoverable returns null
+     * @testdox DO.13 Skips missed event when getMissedDueIfRecoverable returns null
      */
     public function testSkipsMissedEventWhenGetMissedDueIfRecoverableReturnsNull(): void
     {
@@ -400,7 +400,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.25 Does not recover non-recoverable event
+     * @testdox DO.14 Does not recover non-recoverable event
      */
     public function testDoesNotRecoverNonRecoverableEvent(): void
     {
@@ -429,7 +429,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.29 Logs info when recovering missed event
+     * @testdox DO.15 Logs info when recovering missed event
      */
     public function testLogsInfoWhenRecoveringMissedEvent(): void
     {
@@ -472,7 +472,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.30 filtersPass when(true) → event is dispatched
+     * @testdox DO.16 filtersPass when(true) → event is dispatched
      */
     public function testFiltersPassWhenTrueEventIsDispatched(): void
     {
@@ -489,7 +489,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.31 filtersPass when(false) → event is not dispatched
+     * @testdox DO.17 filtersPass when(false) → event is not dispatched
      */
     public function testFiltersPassWhenFalseEventIsNotDispatched(): void
     {
@@ -506,7 +506,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.32 filtersPass skip(true) → event is not dispatched
+     * @testdox DO.18 filtersPass skip(true) → event is not dispatched
      */
     public function testFiltersPassSkipTrueEventIsNotDispatched(): void
     {
@@ -523,7 +523,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.33 filtersPass skip(false) → event is dispatched
+     * @testdox DO.19 filtersPass skip(false) → event is dispatched
      */
     public function testFiltersPassSkipFalseEventIsDispatched(): void
     {
@@ -540,7 +540,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.34 filtersPass only dispatches events that pass filters
+     * @testdox DO.20 filtersPass only dispatches events that pass filters
      */
     public function testFiltersPassOnlyDispatchesPassingEvents(): void
     {
@@ -570,7 +570,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.35 Recovery does not check filtersPass
+     * @testdox DO.21 Recovery does not check filtersPass
      */
     public function testRecoveryDoesNotCheckFiltersPass(): void
     {
@@ -601,7 +601,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.36 filtersPass exception skips event and continues
+     * @testdox DO.22 filtersPass exception skips event and continues
      */
     public function testFiltersPassExceptionSkipsEventAndContinues(): void
     {
@@ -631,7 +631,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.38 filtersPass with Closure condition that returns false → not dispatched
+     * @testdox DO.23 filtersPass with Closure condition that returns false → not dispatched
      */
     public function testFiltersPassWithClosureCondition(): void
     {
@@ -649,7 +649,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox T3.37 filtersPass exception logs warning with details
+     * @testdox DO.24 filtersPass exception logs warning with details
      */
     public function testFiltersPassExceptionLogsWarning(): void
     {

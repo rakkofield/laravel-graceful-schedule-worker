@@ -93,7 +93,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T8.1 Lock acquired and markExecuted on success with Redis
+     * @testdox TDI.1 Lock acquired and markExecuted on success with Redis
      */
     public function testLockAcquiredAndMarkExecutedOnSuccess(): void
     {
@@ -117,7 +117,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T8.2 Second dispatch skipped by Redis lock
+     * @testdox TDI.2 Second dispatch skipped by Redis lock
      */
     public function testSecondDispatchSkippedByRedisLock(): void
     {
@@ -142,7 +142,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T8.3 Failed dispatch does not markExecuted
+     * @testdox TDI.3 Failed dispatch does not markExecuted
      */
     public function testFailedDispatchDoesNotMarkExecuted(): void
     {
@@ -164,7 +164,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T8.4 AlreadyRunning result marks executed
+     * @testdox TDI.4 AlreadyRunning result marks executed
      */
     public function testAlreadyRunningResultMarksExecuted(): void
     {
@@ -186,7 +186,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T8.5 Error log on failed dispatch
+     * @testdox TDI.5 Error log on failed dispatch
      */
     public function testErrorLogOnFailedDispatch(): void
     {
@@ -214,7 +214,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox T8.6 Different dueAt allows same event dispatch
+     * @testdox TDI.6 Different dueAt allows same event dispatch
      */
     public function testDifferentDueAtAllowsSameEventDispatch(): void
     {

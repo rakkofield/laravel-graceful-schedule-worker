@@ -24,7 +24,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.4
+     * @testdox CE.1
      */
     public function testCanInjectClock(): void
     {
@@ -35,7 +35,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.5
+     * @testdox CE.2
      */
     public function testCanSetGracePeriod(): void
     {
@@ -48,7 +48,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.6
+     * @testdox CE.3
      */
     public function testCanEnableRecovery(): void
     {
@@ -61,7 +61,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.8
+     * @testdox CE.4
      */
     public function testRecoverableIsFalseByDefault(): void
     {
@@ -73,7 +73,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.5.1
+     * @testdox CE.2.1
      */
     public function testWithGracePeriodSetsRecoverableToTrue(): void
     {
@@ -86,7 +86,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.5.2
+     * @testdox CE.2.2
      */
     public function testWithGracePeriodSetsCorrectInterval(): void
     {
@@ -107,7 +107,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.5.3
+     * @testdox CE.2.3
      */
     public function testWithGracePeriodWithNullSetsUnlimited(): void
     {
@@ -121,7 +121,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.5.4
+     * @testdox CE.2.4
      */
     public function testWithGracePeriodZeroSetsRecoverableWithoutGracePeriod(): void
     {
@@ -135,7 +135,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.6.1
+     * @testdox CE.3.1
      */
     public function testEnableRecoverySetsRecoverableWithUnlimitedGrace(): void
     {
@@ -149,7 +149,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.9
+     * @testdox CE.5
      */
     public function testDispatchViaReturnsSelfForMethodChaining(): void
     {
@@ -162,7 +162,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.10
+     * @testdox CE.6
      */
     public function testGetDispatcherTypeReturnsNullByDefault(): void
     {
@@ -173,7 +173,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.11
+     * @testdox CE.7
      */
     public function testDispatchViaSetsDispatcherType(): void
     {
@@ -186,7 +186,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.12.1 buildProcessCommand includes schedule:finish
+     * @testdox CE.8.1 buildProcessCommand includes schedule:finish
      */
     public function testBuildProcessCommandIncludesScheduleFinish(): void
     {
@@ -200,7 +200,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.12.2 buildProcessCommand does not end with &
+     * @testdox CE.8.2 buildProcessCommand does not end with &
      */
     public function testBuildProcessCommandDoesNotEndWithAmpersand(): void
     {
@@ -214,7 +214,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.13 between() はタイムゾーン指定時にタイムゾーン変換して判定する
+     * @testdox CE.9 between() はタイムゾーン指定時にタイムゾーン変換して判定する
      */
     public function testBetweenWithTimezoneConvertsTimeCorrectly(): void
     {
@@ -230,7 +230,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.13.1 between() はタイムゾーン指定時に範囲外なら false を返す
+     * @testdox CE.9.1 between() はタイムゾーン指定時に範囲外なら false を返す
      */
     public function testBetweenWithTimezoneReturnsFalseWhenOutOfRange(): void
     {
@@ -246,7 +246,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.14 between() は日付跨ぎで now が翌日側にいる場合に start を前日にずらす
+     * @testdox CE.10 between() は日付跨ぎで now が翌日側にいる場合に start を前日にずらす
      */
     public function testBetweenMidnightWrapAroundWithNowAfterMidnight(): void
     {
@@ -261,7 +261,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.14.1 between() は日付跨ぎで now が前日側にいる場合に end を翌日にずらす
+     * @testdox CE.10.1 between() は日付跨ぎで now が前日側にいる場合に end を翌日にずらす
      */
     public function testBetweenMidnightWrapAroundWithNowBeforeMidnight(): void
     {
@@ -277,7 +277,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox T1.15 unlessBetween() はタイムゾーン指定時にタイムゾーン変換して判定する
+     * @testdox CE.11 unlessBetween() はタイムゾーン指定時にタイムゾーン変換して判定する
      */
     public function testUnlessBetweenWithTimezoneConvertsTimeCorrectly(): void
     {
