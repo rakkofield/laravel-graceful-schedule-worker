@@ -1,0 +1,15 @@
+{
+  "Comment": "Demo state machine for scheduler",
+  "StartAt": "ExecuteTask",
+  "States": {
+    "ExecuteTask": {
+      "Type": "Pass",
+      "Parameters": {
+        "command.$": "$.command",
+        "mutexName.$": "$.mutexName",
+        "dueAt.$": "$.dueAt"
+      },
+      "End": true
+    }
+  }
+}

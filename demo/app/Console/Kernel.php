@@ -106,16 +106,15 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(10);
 
         // ---------------------------------------------------------------
-        // Example 3: Step Functions dispatch (commented out)
+        // Example 3: Step Functions dispatch via moto
         // ---------------------------------------------------------------
-        // To enable Step Functions dispatch:
-        //   1. Install AWS SDK: composer require aws/aws-sdk-php
-        //   2. Set SCHEDULE_DISPATCH=stepfunctions in .env
-        //   3. Set SCHEDULE_STATE_MACHINE_ARN in .env
-        //   4. Uncomment the block below
-        //
-        // $schedule->command('hello')->everyMinute()
-        //     ->dispatchVia('stepfunctions');
+        // dispatchVia('stepfunctions') routes this task through AWS Step Functions
+        // instead of local process execution. In the demo environment, moto
+        // (a local AWS mock) is used as the Step Functions endpoint.
+        // The State Machine is created automatically at container startup
+        // by bin/setup-stepfunctions.php.
+        $schedule->command('hello')->everyMinute()
+            ->dispatchVia('stepfunctions');
     }
 
     /**

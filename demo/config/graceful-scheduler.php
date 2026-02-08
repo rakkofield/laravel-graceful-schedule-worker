@@ -25,6 +25,7 @@ return [
         'state_machine_arn' => env('SCHEDULE_STATE_MACHINE_ARN'),
         'region' => env('AWS_DEFAULT_REGION', 'ap-northeast-1'),
         'version' => 'latest',
+        'endpoint' => env('SFN_ENDPOINT'),
         'credentials' => [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
