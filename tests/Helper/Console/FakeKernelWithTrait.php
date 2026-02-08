@@ -4,19 +4,23 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
+use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 /**
  * UsesClockAwareSchedule trait のテスト用 Fake Kernel
  *
- * illuminate/foundation に依存せず trait の動作を検証するため、
- * 最小限のスタブ実装を持つ。
+ * ConsoleKernel の $this->app, scheduleTimezone(), scheduleCache() を
+ * スタブ実装で提供する。
  */
 class FakeKernelWithTrait
 {
     use UsesClockAwareSchedule {
         defineConsoleSchedule as public;
     }
+
+    /** @var Container ConsoleKernel::$app のスタブ */
+    public $app;
 
     /** @var ClockAwareSchedule|null gracefulSchedule() で受け取った schedule */
     public $receivedSchedule;
@@ -27,18 +31,13 @@ class FakeKernelWithTrait
     /** @var string|null scheduleCache() の戻り値 */
     private $cacheStore;
 
-    /** @var bool scheduleTimezone() を持つかどうか */
-    private $hasTimezoneMethod = true;
-
-    /** @var bool scheduleCache() を持つかどうか */
-    private $hasCacheMethod = true;
-
     /**
      * @param \DateTimeZone|string|null $timezone
      * @param string|null $cacheStore
      */
     public function __construct($timezone = null, $cacheStore = null)
     {
+        $this->app = Container::getInstance();
         $this->timezone = $timezone;
         $this->cacheStore = $cacheStore;
     }

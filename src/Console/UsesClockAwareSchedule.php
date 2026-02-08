@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
@@ -16,8 +15,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
  * Schedule シングルトンとして登録する。利用側は gracefulSchedule() を
  * 実装するだけで完全な型ヒント付きスケジュール定義が可能。
  *
- * illuminate/foundation に依存しないため、ConsoleKernel のメソッド
- * (scheduleTimezone, scheduleCache) は method_exists で存在確認する。
+ * 前提: Illuminate\Foundation\Console\Kernel を extends したクラスで使用すること。
+ * ($this->app, scheduleTimezone(), scheduleCache() に依存)
  */
 trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
 {
@@ -34,22 +33,13 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
      */
     protected function defineConsoleSchedule()
     {
-        $container = Container::getInstance();
-
-        $container->singleton(Schedule::class, function () use ($container) {
+        $this->app->singleton(Schedule::class, function ($app) {
             /** @var ClockInterface $clock */
-            $clock = $container->make(ClockInterface::class);
+            $clock = $app->make(ClockInterface::class);
 
-            /** @var \DateTimeZone|string|null $timezone */
-            $timezone = method_exists($this, 'scheduleTimezone') ? $this->scheduleTimezone() : null;
+            $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone());
 
-            $schedule = new ClockAwareSchedule($clock, $timezone);
-
-            if (method_exists($this, 'scheduleCache')) {
-                $schedule->useCache($this->scheduleCache());
-            }
-
-            $this->gracefulSchedule($schedule);
+            $this->gracefulSchedule($schedule->useCache($this->scheduleCache()));
 
             return $schedule;
         });
