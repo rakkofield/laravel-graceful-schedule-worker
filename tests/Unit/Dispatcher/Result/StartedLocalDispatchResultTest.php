@@ -14,7 +14,7 @@ use Symfony\Component\Process\Process;
 class StartedLocalDispatchResultTest extends TestCase
 {
     /**
-     * @testdox SLR.1
+     * @testdox SLR.1 StartedDispatchResultInterface を実装する
      */
     public function testImplementsStartedDispatchResultInterface(): void
     {
@@ -28,7 +28,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.2
+     * @testdox SLR.2 Process を保持する
      */
     public function testStoresProcess(): void
     {
@@ -41,7 +41,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.3
+     * @testdox SLR.3 getDispatcherType が 'local' を返す
      */
     public function testGetDispatcherTypeReturnsLocal(): void
     {
@@ -54,7 +54,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.4
+     * @testdox SLR.4 正しい eventIdentifier を返す
      */
     public function testGetEventIdentifierReturnsCorrectValue(): void
     {
@@ -68,7 +68,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.5
+     * @testdox SLR.5 正しい eventCommand を返す
      */
     public function testGetEventCommandReturnsCorrectValue(): void
     {
@@ -82,7 +82,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.6
+     * @testdox SLR.6 getDispatchedAt が DateTimeImmutable を返す
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
@@ -99,7 +99,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.7
+     * @testdox SLR.7 プロセス実行中は isRunning が true を返す
      */
     public function testIsRunningReturnsTrueWhenProcessIsRunning(): void
     {
@@ -112,7 +112,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.8
+     * @testdox SLR.8 プロセス停止後は isRunning が false を返す
      */
     public function testIsRunningReturnsFalseWhenProcessIsNotRunning(): void
     {
@@ -125,7 +125,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.9
+     * @testdox SLR.9 プロセスの exit code を返す
      */
     public function testGetExitCodeReturnsProcessExitCode(): void
     {
@@ -138,7 +138,7 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.10
+     * @testdox SLR.10 実行中のプロセスの exit code は null を返す
      */
     public function testGetExitCodeReturnsNullWhenProcessStillRunning(): void
     {

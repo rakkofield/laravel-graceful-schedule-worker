@@ -66,7 +66,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.1
+     * @testdox LD.1 dispatchEvent が StartedLocalDispatchResult を返す
      */
     public function testReturnsLocalDispatchResult(): void
     {
@@ -80,7 +80,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.2
+     * @testdox LD.2 成功時に StartedDispatchResultInterface を返す
      */
     public function testReturnsStartedDispatchResultInterfaceOnSuccess(): void
     {
@@ -93,7 +93,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.3
+     * @testdox LD.3 正しい eventIdentifier を返す
      */
     public function testReturnsCorrectEventIdentifier(): void
     {
@@ -106,7 +106,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.4
+     * @testdox LD.4 正しい eventCommand を返す
      */
     public function testReturnsCorrectEventCommand(): void
     {
@@ -120,7 +120,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.5
+     * @testdox LD.5 dispatcherType が 'local' を返す
      */
     public function testReturnsCorrectDispatcherType(): void
     {
@@ -133,7 +133,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.6
+     * @testdox LD.6 バックグラウンドでプロセスを起動する
      */
     public function testStartsProcessInBackground(): void
     {
@@ -151,7 +151,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.7
+     * @testdox LD.7 dispatchedAt タイムスタンプを返す
      */
     public function testReturnsDispatchedAtTimestamp(): void
     {
@@ -169,7 +169,7 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.8
+     * @testdox LD.8 ディスパッチ直後にプロセスが実行中である
      */
     public function testHasRunningProcessImmediatelyAfterDispatch(): void
     {

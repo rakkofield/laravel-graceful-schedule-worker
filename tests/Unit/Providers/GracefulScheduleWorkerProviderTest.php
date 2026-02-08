@@ -129,7 +129,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.1
+     * @testdox GP.1 ClockInterface をシングルトンとして登録する
      */
     public function testRegistersClockInterfaceAsSingleton(): void
     {
@@ -143,7 +143,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.2
+     * @testdox GP.2 ClockInterface が同一インスタンスを返す
      */
     public function testClockInterfaceReturnsSameInstance(): void
     {
@@ -156,7 +156,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.3
+     * @testdox GP.3 ClockAwareSchedule が ClockInterface を受け取る
      */
     public function testClockAwareScheduleReceivesClockInterface(): void
     {
@@ -170,7 +170,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.4
+     * @testdox GP.4 LocalDispatcher をシングルトンとして登録する
      */
     public function testRegistersLocalDispatcherAsSingleton(): void
     {
@@ -184,7 +184,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.5
+     * @testdox GP.5 ScheduleDispatcherInterface を TrackingDispatcher として登録する
      */
     public function testRegistersScheduleDispatcherInterfaceAsTrackingDispatcher(): void
     {
@@ -198,7 +198,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.6
+     * @testdox GP.6 ScheduleDispatcherInterface が同一インスタンスを返す
      */
     public function testCompositeDispatcherReturnsSameInstance(): void
     {
@@ -211,7 +211,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.7
+     * @testdox GP.7 dispatch 設定が 'local' の場合 TrackingDispatcher を返す
      */
     public function testScheduleDispatcherInterfaceReturnsTrackingDispatcher(): void
     {
@@ -224,7 +224,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.8
+     * @testdox GP.8 ScheduleOrchestratorInterface をシングルトンとして登録する
      */
     public function testRegistersScheduleOrchestratorInterfaceAsSingleton(): void
     {
@@ -238,7 +238,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.9
+     * @testdox GP.9 ScheduleOrchestrator が同一インスタンスを返す
      */
     public function testScheduleOrchestratorReturnsSameInstance(): void
     {

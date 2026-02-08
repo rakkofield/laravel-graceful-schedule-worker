@@ -37,7 +37,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.1
+     * @testdox CS.1 command() が ClockAwareEvent を返す
      */
     public function testReturnsClockAwareEventFromCommand(): void
     {
@@ -50,7 +50,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.2
+     * @testdox CS.2 exec() が ClockAwareEvent を返す
      */
     public function testReturnsClockAwareEventFromExec(): void
     {
@@ -63,7 +63,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.3
+     * @testdox CS.3 複数のメソッドから ClockAwareEvent を生成できる
      */
     public function testCreatesClockAwareEventsFromMultipleMethods(): void
     {
@@ -81,7 +81,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.4
+     * @testdox CS.4 exec() がパラメータを正しく処理する
      */
     public function testExecHandlesParametersCorrectly(): void
     {
@@ -94,7 +94,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.5
+     * @testdox CS.5 command() がパラメータを正しく処理する
      */
     public function testCommandHandlesParametersCorrectly(): void
     {
@@ -107,7 +107,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.6
+     * @testdox CS.6 evaluateAt がイベントの Clock を凍結する
      */
     public function testEvaluateAtFreezesEventClock(): void
     {
@@ -130,7 +130,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.7
+     * @testdox CS.7 evaluateAt 完了後に凍結が解除される
      */
     public function testEvaluateAtUnfreezesAfterCallback(): void
     {
@@ -154,7 +154,7 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.8
+     * @testdox CS.8 exec() が FreezableClock をイベントに渡す
      */
     public function testExecPassesFreezableClockToEvent(): void
     {

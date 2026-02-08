@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 class SystemClockTest extends TestCase
 {
     /**
-     * @testdox SC.1
+     * @testdox SC.1 now() が現在時刻の DateTimeImmutable を返す
      */
     public function testReturnsCurrentTime(): void
     {
@@ -25,7 +25,7 @@ class SystemClockTest extends TestCase
     }
 
     /**
-     * @testdox SC.2
+     * @testdox SC.2 連続呼び出しで時刻が進む
      */
     public function testAdvancesTimeOnConsecutiveCalls(): void
     {

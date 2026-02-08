@@ -24,7 +24,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.1
+     * @testdox CE.1 Clock を注入してインスタンスを生成できる
      */
     public function testCanInjectClock(): void
     {
@@ -35,7 +35,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2
+     * @testdox CE.2 withGracePeriod がメソッドチェーン用に self を返す
      */
     public function testCanSetGracePeriod(): void
     {
@@ -48,7 +48,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.3
+     * @testdox CE.3 enableRecovery がメソッドチェーン用に self を返す
      */
     public function testCanEnableRecovery(): void
     {
@@ -61,7 +61,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.4
+     * @testdox CE.4 デフォルトで recoverable は false かつ gracePeriod は null
      */
     public function testRecoverableIsFalseByDefault(): void
     {
@@ -73,7 +73,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2.1
+     * @testdox CE.2.1 withGracePeriod が recoverable を true に設定する
      */
     public function testWithGracePeriodSetsRecoverableToTrue(): void
     {
@@ -86,7 +86,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2.2
+     * @testdox CE.2.2 withGracePeriod が正しい DateInterval を設定する
      */
     public function testWithGracePeriodSetsCorrectInterval(): void
     {
@@ -107,7 +107,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2.3
+     * @testdox CE.2.3 withGracePeriod(null) が無制限リカバリを設定する
      */
     public function testWithGracePeriodWithNullSetsUnlimited(): void
     {
@@ -121,7 +121,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.2.4
+     * @testdox CE.2.4 withGracePeriod(0) が gracePeriod なしで recoverable を設定する
      */
     public function testWithGracePeriodZeroSetsRecoverableWithoutGracePeriod(): void
     {
@@ -135,7 +135,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.3.1
+     * @testdox CE.3.1 enableRecovery が無制限 gracePeriod で recoverable を設定する
      */
     public function testEnableRecoverySetsRecoverableWithUnlimitedGrace(): void
     {
@@ -149,7 +149,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.5
+     * @testdox CE.5 dispatchVia がメソッドチェーン用に self を返す
      */
     public function testDispatchViaReturnsSelfForMethodChaining(): void
     {
@@ -162,7 +162,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.6
+     * @testdox CE.6 getDispatcherType のデフォルトは null
      */
     public function testGetDispatcherTypeReturnsNullByDefault(): void
     {
@@ -173,7 +173,7 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.7
+     * @testdox CE.7 dispatchVia が dispatcherType を設定する
      */
     public function testDispatchViaSetsDispatcherType(): void
     {

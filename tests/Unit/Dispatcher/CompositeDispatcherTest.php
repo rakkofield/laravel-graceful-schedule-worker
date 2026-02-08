@@ -70,7 +70,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.1
+     * @testdox CD.1 イベント指定のディスパッチャーに委譲する
      */
     public function testDelegatesToEventSpecifiedDispatcher(): void
     {
@@ -101,7 +101,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.2
+     * @testdox CD.2 イベント設定がない場合はデフォルトを使用する
      */
     public function testUsesDefaultWhenNoEventSetting(): void
     {
@@ -132,7 +132,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.3
+     * @testdox CD.3 dispatcherType が null の場合はデフォルトを使用する
      */
     public function testUsesDefaultWhenDispatcherTypeIsNull(): void
     {
@@ -163,7 +163,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.4
+     * @testdox CD.4 未知のディスパッチャータイプで例外をスローする
      */
     public function testThrowsOnUnknownType(): void
     {
@@ -185,7 +185,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.5
+     * @testdox CD.5 コンストラクタでデフォルトタイプを受け取る
      */
     public function testReceivesDefaultTypeViaConstructor(): void
     {
@@ -206,7 +206,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.6
+     * @testdox CD.6 ディスパッチャー配列が空の場合に例外をスローする
      */
     public function testThrowsWhenDispatchersArrayIsEmpty(): void
     {
@@ -217,7 +217,7 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.7
+     * @testdox CD.7 デフォルトタイプがディスパッチャーに存在しない場合に例外をスローする
      */
     public function testThrowsWhenDefaultTypeNotInDispatchers(): void
     {

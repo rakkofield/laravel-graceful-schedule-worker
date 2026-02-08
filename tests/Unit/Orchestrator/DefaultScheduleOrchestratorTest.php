@@ -197,7 +197,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox DO.5
+     * @testdox DO.5 run が成功時に true を返す
      */
     public function testRunReturnsTrueOnSuccess(): void
     {
@@ -211,7 +211,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox DO.6
+     * @testdox DO.6 run が LocalDispatchResult を管理する
      */
     public function testRunManagesLocalDispatchResults(): void
     {
@@ -231,7 +231,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox DO.7
+     * @testdox DO.7 run 終了後に dispatcher の stopAll が呼ばれる
      */
     public function testStopAllIsCalledOnDispatcherWhenOrchestratorStops(): void
     {
@@ -249,7 +249,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox DO.8
+     * @testdox DO.8 各ループイテレーションで dispatcher の cleanup が呼ばれる
      */
     public function testCleanupIsCalledOnDispatcherInEachLoopIteration(): void
     {
