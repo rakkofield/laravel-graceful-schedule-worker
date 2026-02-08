@@ -62,7 +62,7 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox TI.12 Events from gracefulSchedule() are ClockAwareEvent instances
+     * @testdox TI.12 schedule() events are native Event and gracefulSchedule() events are ClockAwareEvent
      */
     public function testEventsAreClockAwareEventInstances(): void
     {
@@ -70,14 +70,15 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
         $schedule = $this->app->make(Schedule::class);
         $events = $schedule->events();
 
-        $this->assertNotEmpty($events);
-        foreach ($events as $event) {
-            $this->assertInstanceOf(ClockAwareEvent::class, $event);
-        }
+        $this->assertCount(2, $events);
+        // schedule() のイベント（先に登録される）は native Event
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $events[0]);
+        // gracefulSchedule() のイベントは ClockAwareEvent
+        $this->assertInstanceOf(ClockAwareEvent::class, $events[1]);
     }
 
     /**
-     * @testdox TI.13 dueEvents() returns everyMinute event as due
+     * @testdox TI.13 dueEvents() returns both native and ClockAwareEvent events as due
      */
     public function testDueEventsReturnsEveryMinuteEventAsDue(): void
     {
@@ -85,12 +86,11 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
         $schedule = $this->app->make(Schedule::class);
         $dueEvents = $schedule->dueEvents($this->app)->all();
 
-        $this->assertCount(1, $dueEvents);
-        $this->assertStringContainsString('hello', $dueEvents[0]->command);
+        $this->assertCount(2, $dueEvents);
     }
 
     /**
-     * @testdox TI.14 filtersPass() returns true on due ClockAwareEvent
+     * @testdox TI.14 filtersPass() returns true on both native and ClockAwareEvent
      */
     public function testFiltersPassOnDueClockAwareEvent(): void
     {
@@ -99,7 +99,9 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
         $dueEvents = $schedule->dueEvents($this->app)->all();
 
         $this->assertNotEmpty($dueEvents);
-        $this->assertTrue($dueEvents[0]->filtersPass($this->app));
+        foreach ($dueEvents as $event) {
+            $this->assertTrue($event->filtersPass($this->app));
+        }
     }
 
     /**

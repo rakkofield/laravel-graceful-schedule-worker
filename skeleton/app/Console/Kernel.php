@@ -48,6 +48,17 @@ class Kernel extends ConsoleKernel
     }
 
     /**
+     * まだ gracefulSchedule() に移行していないタスク（native Event）。
+     *
+     * @param \Illuminate\Console\Scheduling\Schedule $schedule
+     * @return void
+     */
+    protected function schedule($schedule)
+    {
+        $schedule->exec('echo native-task')->everyMinute();
+    }
+
+    /**
      * Register the commands for the application.
      *
      * @return void

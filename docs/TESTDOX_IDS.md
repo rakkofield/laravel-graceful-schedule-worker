@@ -57,6 +57,7 @@
 |---|---|---|
 | Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 4 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
+| Orchestrator/OrchestratorMixedEventsIntegrationTest | `TI` | 4 |
 | Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 5 |
 | Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 3 |
 | Dispatcher/TrackingDispatcherRedisIntegrationTest | `TDI` | 6 |
@@ -78,4 +79,5 @@
 |---|---|
 | OrchestratorFlowIntegrationTest | TI.1〜TI.4 |
 | OrchestratorFiltersPassIntegrationTest | TI.5〜TI.10 |
+| OrchestratorMixedEventsIntegrationTest | TI.16〜TI.19 |
 | ScheduleRunCompatibilityIntegrationTest | TI.11〜TI.15 |
