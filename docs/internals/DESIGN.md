@@ -65,7 +65,7 @@
 
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)**: アーキテクチャの詳細設計
 - **[STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md)**: Step Functions実装の詳細
-- **[IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md)**: 冪等性実装のガイドライン
+- **[IDEMPOTENCY_GUIDE.md](../guide/IDEMPOTENCY_GUIDE.md)**: 冪等性実装のガイドライン
 
 ---
 
@@ -2210,7 +2210,7 @@ Laravel の `ManagesFrequencies` トレイトには `Carbon::now()` を直接使
 ## 利用例
 
 > **Note**: At-least-once セマンティックによる冪等性の要求については
-> [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) を参照
+> [IDEMPOTENCY_GUIDE.md](../guide/IDEMPOTENCY_GUIDE.md) を参照
 
 ### 基本的な使い方
 

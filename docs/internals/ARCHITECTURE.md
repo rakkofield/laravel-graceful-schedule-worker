@@ -86,7 +86,7 @@ Amazon ECS 環境でこのパッケージを運用する際、以下の課題が
 詳細は [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) を参照してください。
 
 > **Note**: アプリケーション側の冪等性実装については
-> [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) を参照
+> [IDEMPOTENCY_GUIDE.md](../guide/IDEMPOTENCY_GUIDE.md) を参照
 
 ---
 
@@ -563,7 +563,7 @@ ECS Task 3 (Scheduler) ──┘
 - [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) - Step Functions 実装詳細
 - [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) - 実行保証の理論的背景と責任分担
 - [SCHEDULER_COMPARISON.md](./SCHEDULER_COMPARISON.md) - 業界スケジューラーの比較（Kubernetes, Airflow, EventBridge, Celery Beat）
-- [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) - 冪等性ガイドライン
+- [IDEMPOTENCY_GUIDE.md](../guide/IDEMPOTENCY_GUIDE.md) - 冪等性ガイドライン
 
 ### Laravel
 

@@ -270,7 +270,7 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 
 > **注意:** Step Functions 経由では `before()` / `after()` / `onSuccess()` / `onFailure()` / `appendOutputTo()` は動作しません。
 
-詳しくは [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) を参照してください。
+詳しくは [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) を参照してください。
 
 ---
 

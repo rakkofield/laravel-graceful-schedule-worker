@@ -130,7 +130,7 @@ $schedule->command('reports:daily')->dailyAt('02:00')
     ->withGracePeriod(30); // recover if missed within 30 minutes
 ```
 
-> **Important:** Recoverable tasks must be idempotent. See [docs/IDEMPOTENCY_GUIDE.md](docs/IDEMPOTENCY_GUIDE.md).
+> **Important:** Recoverable tasks must be idempotent. See [docs/guide/IDEMPOTENCY_GUIDE.md](docs/guide/IDEMPOTENCY_GUIDE.md).
 
 ### Step Functions integration
 
@@ -147,7 +147,7 @@ $schedule->command('reports:daily')->dailyAt('02:00')
     ->withGracePeriod(30);
 ```
 
-See [docs/STEPFUNCTIONS_IMPLEMENTATION.md](docs/STEPFUNCTIONS_IMPLEMENTATION.md) for full setup.
+See [docs/internals/STEPFUNCTIONS_IMPLEMENTATION.md](docs/internals/STEPFUNCTIONS_IMPLEMENTATION.md) for full setup.
 
 ## Configuration
 
@@ -194,24 +194,29 @@ Most Laravel scheduling methods work unchanged:
 | `$schedule->call(Closure)` | Not supported — convert to Artisan commands |
 | `lastDayOfMonth()` | May be inaccurate across month boundaries in long-running workers |
 
-See [docs/SCHEDULER_COMPATIBILITY.md](docs/SCHEDULER_COMPATIBILITY.md) for details.
+See [docs/internals/SCHEDULER_COMPATIBILITY.md](docs/internals/SCHEDULER_COMPATIBILITY.md) for details.
 
 ## Migration from Laravel Scheduler
 
-Migration requires minimal changes — your existing `schedule()` body can be copied almost as-is into `gracefulSchedule()`. For projects with many tasks, gradual migration is also supported: keep `schedule()` as-is and move tasks one by one to `gracefulSchedule()`. See [docs/MIGRATION.md](docs/MIGRATION.md) for a step-by-step guide.
+Migration requires minimal changes — your existing `schedule()` body can be copied almost as-is into `gracefulSchedule()`. For projects with many tasks, gradual migration is also supported: keep `schedule()` as-is and move tasks one by one to `gracefulSchedule()`. See [docs/guide/MIGRATION.md](docs/guide/MIGRATION.md) for a step-by-step guide.
 
 ## Documentation
 
-- [Quick Start Guide (Japanese)](docs/QUICKSTART.md)
-- [Migration Guide (Japanese)](docs/MIGRATION.md)
-- [Design Specification](docs/DESIGN.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Scheduler Compatibility](docs/SCHEDULER_COMPATIBILITY.md)
-- [Idempotency Guide](docs/IDEMPOTENCY_GUIDE.md)
-- [Execution Semantics](docs/SCHEDULE_EXECUTION_SEMANTICS.md)
-- [Step Functions Implementation](docs/STEPFUNCTIONS_IMPLEMENTATION.md)
-- [Step Functions Considerations](docs/STEPFUNCTIONS_CONSIDERATIONS.md)
-- [Scheduler Comparison](docs/SCHEDULER_COMPARISON.md)
+### Usage Guides
+
+- [Quick Start Guide (Japanese)](docs/guide/QUICKSTART.md)
+- [Migration Guide (Japanese)](docs/guide/MIGRATION.md)
+- [Idempotency Guide](docs/guide/IDEMPOTENCY_GUIDE.md)
+- [Step Functions Considerations](docs/guide/STEPFUNCTIONS_CONSIDERATIONS.md)
+
+### Internal Design
+
+- [Design Specification](docs/internals/DESIGN.md)
+- [Architecture](docs/internals/ARCHITECTURE.md)
+- [Scheduler Compatibility](docs/internals/SCHEDULER_COMPATIBILITY.md)
+- [Execution Semantics](docs/internals/SCHEDULE_EXECUTION_SEMANTICS.md)
+- [Step Functions Implementation](docs/internals/STEPFUNCTIONS_IMPLEMENTATION.md)
+- [Scheduler Comparison](docs/internals/SCHEDULER_COMPARISON.md)
 
 ## Demo
 

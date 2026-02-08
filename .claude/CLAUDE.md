@@ -83,8 +83,9 @@ PHP_SA_BINARY=/path/to/php8.1 composer phpstan
 
 ## 設計ドキュメント
 
-- `docs/DESIGN.md` - メイン設計仕様（最初に参照）
-- `docs/` - その他の設計ドキュメント（ARCHITECTURE, STEPFUNCTIONS_IMPLEMENTATION 等）
+- `docs/internals/DESIGN.md` - メイン設計仕様（最初に参照）
+- `docs/internals/` - 内部設計ドキュメント（ARCHITECTURE, SCHEDULER_COMPATIBILITY 等）
+- `docs/guide/` - ユーザー向けガイド（QUICKSTART, MIGRATION 等）
 - `.claude/plans/` - 実装計画
 
 ## ディレクトリ構成
@@ -127,7 +128,7 @@ skeleton/                 # テスト用 Laravel アプリケーション
   - Unit テスト: テスト対象クラス名の略語（例: LocalDispatcher → `LD`）
   - Integration テスト: クラス名略語 + `I`（例: CacheTracker Integration → `CTI`）
   - E2E テスト: `E2E` 固定
-  - 全プレフィックス一覧は `docs/TESTDOX_IDS.md` を参照
+  - 全プレフィックス一覧は `docs/internals/TESTDOX_IDS.md` を参照
   - 新規プレフィックス追加時は既存プレフィックスとの重複がないことを確認する
 - `declare(strict_types=1)` 必須（src/ と tests/ 両方）
 - tearDown で `Container::setInstance(null)` を呼ぶ（Container を使用するテスト）

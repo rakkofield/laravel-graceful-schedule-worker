@@ -1,7 +1,7 @@
 # Laravel Graceful Schedule Worker - 冪等性ガイドライン
 
 > **Note**: At-least-once セマンティックの詳細は
-> [ARCHITECTURE.md - 実行保証モデル](./ARCHITECTURE.md#実行保証モデル) を参照
+> [ARCHITECTURE.md - 実行保証モデル](../internals/ARCHITECTURE.md#実行保証モデル) を参照
 
 ## 目次
 
@@ -165,9 +165,9 @@ class InvoiceGenerationJob
 
 ## 詳細情報
 
-- [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) - 実行保証の理論的背景と詳細
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - アーキテクチャ設計
-- [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) - Step Functions 実装詳細
+- [SCHEDULE_EXECUTION_SEMANTICS.md](../internals/SCHEDULE_EXECUTION_SEMANTICS.md) - 実行保証の理論的背景と詳細
+- [ARCHITECTURE.md](../internals/ARCHITECTURE.md) - アーキテクチャ設計
+- [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) - Step Functions 実装詳細
 
 ---
 

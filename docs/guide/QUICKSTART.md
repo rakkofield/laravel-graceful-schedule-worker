@@ -218,7 +218,7 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 
 > **注意:** Step Functions 経由の場合、`before()` / `after()` / `onSuccess()` / `onFailure()` / `appendOutputTo()` は動作しません。
 
-詳細な設定は [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) を参照してください。
+詳細な設定は [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) を参照してください。
 
 ---
 
@@ -264,7 +264,7 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 | `$schedule->call(Closure)` | 非対応 | Artisan コマンドに変換が必要 |
 | `lastDayOfMonth()` | 制限あり | 月境界で不正確になる可能性 |
 
-詳しくは [SCHEDULER_COMPATIBILITY.md](./SCHEDULER_COMPATIBILITY.md) を参照してください。
+詳しくは [SCHEDULER_COMPATIBILITY.md](../internals/SCHEDULER_COMPATIBILITY.md) を参照してください。
 
 ---
 
@@ -272,10 +272,10 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 
 - [MIGRATION.md](./MIGRATION.md) — 既存 Laravel スケジューラからの移行ガイド
 - [IDEMPOTENCY_GUIDE.md](./IDEMPOTENCY_GUIDE.md) — 冪等性ガイドライン
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — アーキテクチャ設計
-- [DESIGN.md](./DESIGN.md) — 設計仕様
-- [SCHEDULER_COMPATIBILITY.md](./SCHEDULER_COMPATIBILITY.md) — メソッド互換性の詳細
-- [SCHEDULE_EXECUTION_SEMANTICS.md](./SCHEDULE_EXECUTION_SEMANTICS.md) — 実行保証の詳細
-- [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTIONS_IMPLEMENTATION.md) — Step Functions 実装詳細
+- [ARCHITECTURE.md](../internals/ARCHITECTURE.md) — アーキテクチャ設計
+- [DESIGN.md](../internals/DESIGN.md) — 設計仕様
+- [SCHEDULER_COMPATIBILITY.md](../internals/SCHEDULER_COMPATIBILITY.md) — メソッド互換性の詳細
+- [SCHEDULE_EXECUTION_SEMANTICS.md](../internals/SCHEDULE_EXECUTION_SEMANTICS.md) — 実行保証の詳細
+- [STEPFUNCTIONS_IMPLEMENTATION.md](../internals/STEPFUNCTIONS_IMPLEMENTATION.md) — Step Functions 実装詳細
 - [STEPFUNCTIONS_CONSIDERATIONS.md](./STEPFUNCTIONS_CONSIDERATIONS.md) — Step Functions 検討事項
-- [SCHEDULER_COMPARISON.md](./SCHEDULER_COMPARISON.md) — スケジューラ比較
+- [SCHEDULER_COMPARISON.md](../internals/SCHEDULER_COMPARISON.md) — スケジューラ比較

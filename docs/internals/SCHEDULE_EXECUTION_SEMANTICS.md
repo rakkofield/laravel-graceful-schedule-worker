@@ -1004,7 +1004,7 @@ $redis->zadd('schedule:next_due', $nextDue->timestamp, $eventId);
 Laravel Graceful Schedule Worker は At-least-once セマンティックを提供します。
 重複実行の可能性があるため、全てのスケジュールジョブは冪等に設計してください。
 
-詳細は [冪等性ガイド](IDEMPOTENCY.md) を参照してください。
+詳細は [冪等性ガイド](../guide/IDEMPOTENCY_GUIDE.md) を参照してください。
 ```
 
 **オプション B**: 実装で強制
