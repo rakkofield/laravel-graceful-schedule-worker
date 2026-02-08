@@ -220,7 +220,31 @@ Migration requires minimal changes — your existing `schedule()` body can be co
 
 ## Demo
 
-A ready-to-run sample application is in the `demo/` directory.
+A ready-to-run sample application is in the `demo/` directory. It demonstrates:
+
+- **Gradual migration** — `schedule()` (native) and `gracefulSchedule()` (clock-aware) coexisting
+- **Grace period & recovery** — `withGracePeriod(30)` vs `enableRecovery()`
+- **Clock-aware filters** — `between('08:00', '22:00')`
+- **Step Functions dispatch** — `dispatchVia('stepfunctions')` via moto (local AWS mock)
+
+### With Docker (recommended)
+
+Docker Compose starts moto (AWS Step Functions mock) automatically, so all features including Step Functions dispatch work out of the box.
+
+```shell
+cd demo
+docker compose up --build
+```
+
+Send `SIGTERM` to verify graceful shutdown:
+
+```shell
+docker compose kill -s SIGTERM php
+```
+
+### Without Docker
+
+Local execution supports local dispatch only. Step Functions dispatch requires moto.
 
 ```shell
 cd demo
@@ -230,11 +254,12 @@ php artisan key:generate
 php artisan schedule:graceful-work
 ```
 
-Or with Docker:
+### After changing library source
+
+Reflect the latest library code into the demo:
 
 ```shell
-cd demo
-docker compose up
+composer demo:update
 ```
 
 ## License
