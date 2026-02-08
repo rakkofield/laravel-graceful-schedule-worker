@@ -127,12 +127,21 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         DateTimeInterface $dueAt
     ): void {
         if ($result instanceof StartedDispatchResultInterface) {
+            $this->logger->info('[GracefulScheduleWorker] Event dispatched', [
+                'event' => $event->mutexName(),
+                'dispatcher_type' => $result->getDispatcherType(),
+                'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
+            ]);
             $this->tracker->markExecuted($event, $dueAt);
             return;
         }
 
         if ($result instanceof AlreadyRunningDispatchResultInterface) {
-            // Treat existing execution as success and mark as executed
+            $this->logger->info('[GracefulScheduleWorker] Event already running, skipped new execution', [
+                'event' => $event->mutexName(),
+                'dispatcher_type' => $result->getDispatcherType(),
+                'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
+            ]);
             $this->tracker->markExecuted($event, $dueAt);
             return;
         }

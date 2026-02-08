@@ -35,7 +35,7 @@
 | Console/UsesClockAwareScheduleTest | `UCS` | 10 |
 | Dispatcher/LocalDispatcherTest | `LD` | 31 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
-| Dispatcher/TrackingDispatcherTest | `TD` | 13 |
+| Dispatcher/TrackingDispatcherTest | `TD` | 15 |
 | Dispatcher/StepFunctionsDispatcherTest | `SFD` | 14 |
 | Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 11 |
 | Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 8 |

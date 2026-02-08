@@ -346,6 +346,46 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
+     * @testdox TD.14 Info log is output on Started result
+     */
+    public function testLogsInfoOnStartedResult(): void
+    {
+        $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
+        $dispatcher = $this->createDispatcher($startedResult);
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+
+        $infoLogs = $this->logger->getLogsByLevel('info');
+        $this->assertCount(1, $infoLogs);
+        $this->assertStringContainsString('Event dispatched', $infoLogs[0]['message']);
+        $this->assertSame($event->mutexName(), $infoLogs[0]['context']['event']);
+        $this->assertSame('fake', $infoLogs[0]['context']['dispatcher_type']);
+        $this->assertSame('2024-01-15T10:00:00+00:00', $infoLogs[0]['context']['dueAt']);
+    }
+
+    /**
+     * @testdox TD.15 Info log is output on AlreadyRunning result
+     */
+    public function testLogsInfoOnAlreadyRunningResult(): void
+    {
+        $alreadyRunningResult = FakeAlreadyRunningDispatchResult::create('test-mutex', 'echo test', 'fake');
+        $dispatcher = $this->createDispatcher($alreadyRunningResult);
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+
+        $infoLogs = $this->logger->getLogsByLevel('info');
+        $this->assertCount(1, $infoLogs);
+        $this->assertStringContainsString('Event already running, skipped new execution', $infoLogs[0]['message']);
+        $this->assertSame($event->mutexName(), $infoLogs[0]['context']['event']);
+        $this->assertSame('fake', $infoLogs[0]['context']['dispatcher_type']);
+        $this->assertSame('2024-01-15T10:00:00+00:00', $infoLogs[0]['context']['dueAt']);
+    }
+
+    /**
      * @testdox TD.13 LogicException from handleResult is not caught and is rethrown
      */
     public function testLogicExceptionFromHandleResultIsRethrown(): void
