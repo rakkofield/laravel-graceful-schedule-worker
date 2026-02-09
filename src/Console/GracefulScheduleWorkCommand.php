@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Foundation\Application;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 
@@ -34,13 +33,13 @@ class GracefulScheduleWorkCommand extends Command
      *
      * @param ScheduleOrchestratorInterface $orchestrator
      * @param Schedule $schedule
-     * @param ExceptionHandler $handler
+     * @param ExceptionReporterInterface $reporter
      * @return int
      */
     public function handle(
         ScheduleOrchestratorInterface $orchestrator,
         Schedule $schedule,
-        ExceptionHandler $handler
+        ExceptionReporterInterface $reporter
     ) {
         $this->info('Running scheduled tasks.');
 
@@ -58,26 +57,12 @@ class GracefulScheduleWorkCommand extends Command
                 }
             );
         } catch (\Throwable $e) {
-            $this->reportException($handler, $e);
+            $reporter->report($e);
 
             return 1;
         }
 
         return 0;
-    }
-
-    /**
-     * @param ExceptionHandler $handler
-     * @param \Throwable $e
-     * @return void
-     */
-    private function reportException(ExceptionHandler $handler, \Throwable $e): void
-    {
-        try {
-            $handler->report($e);
-        } catch (\Throwable $reportError) {
-            // report() itself may throw (e.g. TypeError on Laravel 6 when passing \Error)
-        }
     }
 
     private function listenForSignal(): void

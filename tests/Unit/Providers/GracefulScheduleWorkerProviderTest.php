@@ -7,12 +7,17 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Providers;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporter;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporterInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\SpyExceptionHandler;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
@@ -28,7 +33,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 class GracefulScheduleWorkerProviderTest extends TestCase
 {
     /**
-     * @var Container
+     * @var FakeApplication
      */
     private $app;
 
@@ -41,7 +46,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     {
         parent::setUp();
 
-        $this->app = new Container();
+        $this->app = new FakeApplication();
         Container::setInstance($this->app);
 
         $this->app->singleton('config', function () {
@@ -386,8 +391,8 @@ class GracefulScheduleWorkerProviderTest extends TestCase
      */
     public function testReturnsNullTrackerWhenConfigNotBound(): void
     {
-        // Build a new Container to remove the config binding
-        $app = new Container();
+        // Build a new FakeApplication to remove the config binding
+        $app = new FakeApplication();
         Container::setInstance($app);
 
         $app->bind(EventMutex::class, function () {
@@ -444,5 +449,24 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $this->expectExceptionMessage('ExecutionTracker requires a cache driver that implements LockProvider');
 
         $this->app->make(ExecutionTrackerInterface::class);
+    }
+
+    /**
+     * @testdox GP.16 Registers ExceptionReporterInterface as ExceptionReporter
+     */
+    public function testRegistersExceptionReporterInterface(): void
+    {
+        $this->app->setVersion('7.0.0');
+        $this->app->singleton(ExceptionHandler::class, function () {
+            return new SpyExceptionHandler();
+        });
+
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound(ExceptionReporterInterface::class));
+        $this->assertTrue($this->app->isShared(ExceptionReporterInterface::class));
+
+        $reporter = $this->app->make(ExceptionReporterInterface::class);
+        $this->assertInstanceOf(ExceptionReporter::class, $reporter);
     }
 }

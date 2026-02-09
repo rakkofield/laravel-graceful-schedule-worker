@@ -31,7 +31,9 @@
 | Scheduling/ClockAwareEventTest | `CE` | 19 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
-| Console/GracefulScheduleWorkCommandTest | `GC` | 1 |
+| Console/ExceptionReporterTest | `ER` | 3 |
+| Console/LegacyExceptionReporterTest | `LER` | 3 |
+| Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
 | Console/UsesClockAwareScheduleTest | `UCS` | 10 |
 | Dispatcher/LocalDispatcherTest | `LD` | 31 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
@@ -46,7 +48,7 @@
 | Dispatcher/StepFunctions/AwsSfnClientAdapterTest | `SCA` | 3 |
 | Dispatcher/StepFunctions/ExecutionNameGeneratorTest | `ENG` | 9 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
-| Providers/GracefulScheduleWorkerProviderTest | `GP` | 15 |
+| Providers/GracefulScheduleWorkerProviderTest | `GP` | 16 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 22 |
 | Tracker/CacheExecutionTrackerTest | `CT` | 15 |
 | Tracker/NullExecutionTrackerTest | `NT` | 4 |

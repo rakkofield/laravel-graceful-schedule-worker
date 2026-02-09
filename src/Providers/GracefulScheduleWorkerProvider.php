@@ -8,12 +8,16 @@ use Aws\Sfn\SfnClient;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\ServiceProvider;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\Sleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporter;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporterInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\GracefulScheduleWorkCommand;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\LegacyExceptionReporter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
@@ -123,6 +127,31 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
 
             return new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, new Sleeper(100000));
         });
+
+        // Register ExceptionReporterInterface
+        // Laravel 6: ExceptionHandler::report(Exception), Laravel 7+: report(Throwable)
+        $this->app->singleton(ExceptionReporterInterface::class, function (Container $app) {
+            /** @var ExceptionHandler $handler */
+            $handler = $app->make(ExceptionHandler::class);
+
+            if ($this->isLegacyExceptionHandler()) {
+                return new LegacyExceptionReporter($handler);
+            }
+            return new ExceptionReporter($handler);
+        });
+    }
+
+    /**
+     * Detect whether the current Laravel version uses legacy ExceptionHandler (Laravel 6).
+     *
+     * Laravel 6: ExceptionHandler::report(Exception $e)
+     * Laravel 7+: ExceptionHandler::report(Throwable $e)
+     *
+     * @return bool
+     */
+    protected function isLegacyExceptionHandler(): bool
+    {
+        return version_compare($this->app->version(), '7.0.0', '<');
     }
 
     /**

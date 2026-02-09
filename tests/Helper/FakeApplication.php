@@ -15,6 +15,9 @@ use Illuminate\Contracts\Foundation\Application;
 class FakeApplication extends Container implements Application
 {
     /** @var string */
+    private $version = '0.0.0-fake';
+
+    /** @var string */
     private $basePath = '/fake/base/path';
 
     /** @var string */
@@ -33,7 +36,7 @@ class FakeApplication extends Container implements Application
      */
     public function version()
     {
-        return '0.0.0-fake';
+        return $this->version;
     }
 
     /**
@@ -388,5 +391,16 @@ class FakeApplication extends Container implements Application
     public function setIsDownForMaintenance(bool $isDownForMaintenance): void
     {
         $this->isDownForMaintenance = $isDownForMaintenance;
+    }
+
+    /**
+     * Set the application version for testing.
+     *
+     * @param string $version
+     * @return void
+     */
+    public function setVersion(string $version): void
+    {
+        $this->version = $version;
     }
 }
