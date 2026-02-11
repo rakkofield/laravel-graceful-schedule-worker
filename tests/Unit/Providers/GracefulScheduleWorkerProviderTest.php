@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporter;
@@ -123,6 +124,10 @@ class GracefulScheduleWorkerProviderTest extends TestCase
 
         $this->app->bind(SchedulingMutex::class, function () {
             return new FakeSchedulingMutex();
+        });
+
+        $this->app->singleton('log', function () {
+            return new NullLogger();
         });
 
         $this->provider = new TestableGracefulScheduleWorkerProvider($this->app);
@@ -485,5 +490,49 @@ class GracefulScheduleWorkerProviderTest extends TestCase
 
         $reporter = $this->app->make(ExceptionReporterInterface::class);
         $this->assertInstanceOf(LegacyExceptionReporter::class, $reporter);
+    }
+
+    /**
+     * @testdox GP.18 Tracker lockTtl handles string value from config without TypeError
+     */
+    public function testTrackerLockTtlHandlesStringFromConfig(): void
+    {
+        // Setup cache mock with LockProvider
+        $lockProvider = new FakeLockProvider();
+        $cacheStore = new FakeCacheStore($lockProvider);
+        $this->app->singleton('cache', function () use ($cacheStore) {
+            return new class ($cacheStore) {
+                /** @var FakeCacheStore */
+                private $store;
+
+                /**
+                 * @param FakeCacheStore $store
+                 */
+                public function __construct(FakeCacheStore $store)
+                {
+                    $this->store = $store;
+                }
+
+                /**
+                 * @param string|null $name
+                 * @return FakeCacheStore
+                 */
+                public function store($name = null)
+                {
+                    return $this->store;
+                }
+            };
+        });
+
+        // Enable tracker and set lock_ttl as string (as env() would return)
+        $this->app->make('config')->set('graceful-scheduler.tracker.enabled', true);
+        $this->app->make('config')->set('graceful-scheduler.tracker.lock_ttl', '3600');
+
+        $this->provider->register();
+
+        // Bug: TypeError thrown because string '3600' is passed to int parameter with strict_types=1
+        // Fix: (int) cast in Provider before passing to CacheExecutionTracker constructor
+        $tracker = $this->app->make(ExecutionTrackerInterface::class);
+        $this->assertInstanceOf(CacheExecutionTracker::class, $tracker);
     }
 }

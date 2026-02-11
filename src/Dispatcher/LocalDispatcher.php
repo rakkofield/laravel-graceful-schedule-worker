@@ -89,7 +89,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     $fullCommand = $event->buildProcessCommand();
                 } else {
                     $fullCommand = $event->buildCommand();
-                    // Strip trailing & from command that does not include schedule:finish
+                    // Strip trailing & from the built command (buildCommand for non-ClockAwareEvent includes &)
                     $fullCommand = preg_replace('/\s+&\s*$/', '', $fullCommand) ?? $fullCommand;
                 }
                 $process = Process::fromShellCommandline($fullCommand, $this->basePath);

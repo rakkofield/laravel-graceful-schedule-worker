@@ -169,17 +169,17 @@ class CacheExecutionTrackerTest extends TestCase
             $logMessages[] = ['message' => $message, 'context' => $context];
         });
 
-        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 14:05:00'));
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 14:35:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $logger);
         $event = $this->createClockAwareEvent('php artisan test:task', $clock);
         $event->cron('0 * * * *'); // every hour at :00
-        $event->withGracePeriod(120); // 2 hours
+        $event->withGracePeriod(30); // 30 minutes
 
-        // Recorded execution at 10:00 (grace period exceeded at 14:05)
+        // Recorded execution at 10:00
         $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
 
-        // Check at 14:05
-        $now = new DateTimeImmutable('2024-01-15 14:05:00');
+        // Check at 14:35 → missedDue=14:00, deadline=14:00+30min=14:30, now(14:35)>deadline
+        $now = new DateTimeImmutable('2024-01-15 14:35:00');
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
         $this->assertNull($result);
@@ -345,5 +345,50 @@ class CacheExecutionTrackerTest extends TestCase
         // ClockAwareEvent with null gracePeriod skips the grace period check
         $this->assertNotNull($result);
         $this->assertSame('14', $result->format('H'));
+    }
+
+    /**
+     * @testdox CT.16 Grace period deadline is calculated from missedDue, not lastExecutedDue
+     */
+    public function testGracePeriodDeadlineUsedMissedDueNotLastExecutedDue(): void
+    {
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 03:15:00'));
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event->cron('0 3 * * *'); // daily at 03:00
+        $event->withGracePeriod(30); // 30 minutes
+
+        // Recorded execution at yesterday 03:00
+        $tracker->markExecuted($event, new DateTimeImmutable('2024-01-14 03:00:00'));
+
+        // Check at today 03:15 (missedDue = today 03:00, within 30min grace period from missedDue)
+        $now = new DateTimeImmutable('2024-01-15 03:15:00');
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
+
+        // Correct: deadline = missedDue(2024-01-15 03:00) + 30min = 03:30 → now(03:15) < deadline → recoverable
+        // Bug:     deadline = lastExecutedDue(2024-01-14 03:00) + 30min = yesterday 03:30 → now > deadline → null
+        $this->assertNotNull($result);
+        $this->assertSame('2024-01-15', $result->format('Y-m-d'));
+        $this->assertSame('03', $result->format('H'));
+        $this->assertSame('00', $result->format('i'));
+    }
+
+    /**
+     * @testdox CT.17 dateIntervalToSeconds handles days from DateInterval constructor
+     */
+    public function testDateIntervalToSecondsHandlesDaysFromConstructor(): void
+    {
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+
+        $reflection = new \ReflectionMethod($tracker, 'dateIntervalToSeconds');
+        $reflection->setAccessible(true);
+
+        // new DateInterval('P1D') sets $d = 1 but $days = false
+        $interval = new \DateInterval('P1D');
+        $result = $reflection->invoke($tracker, $interval);
+
+        // Should be 86400 seconds (1 day)
+        // Bug: falls back to 0 instead of $interval->d, returning 0
+        $this->assertSame(86400, $result);
     }
 }

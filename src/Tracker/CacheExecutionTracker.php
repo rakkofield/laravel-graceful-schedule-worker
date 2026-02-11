@@ -114,7 +114,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         if ($event instanceof ClockAwareEvent) {
             $gracePeriod = $event->getGracePeriod();
             if ($gracePeriod !== null) {
-                $deadline = $lastExecutedDue->add($gracePeriod);
+                $deadline = $missedDue->add($gracePeriod);
                 if ($now->getTimestamp() > $deadline->getTimestamp()) {
                     $this->logger->warning('[GracefulScheduleWorker] Skipping missed event: grace period exceeded', [
                         'event' => $event->mutexName(),
@@ -215,7 +215,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
      */
     private function dateIntervalToSeconds(DateInterval $interval): int
     {
-        $days = $interval->days !== false ? $interval->days : 0;
+        $days = $interval->days !== false ? $interval->days : $interval->d;
         return ($days * 86400)
             + ($interval->h * 3600)
             + ($interval->i * 60)

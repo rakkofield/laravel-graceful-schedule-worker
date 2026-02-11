@@ -125,7 +125,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 }
 
                 $this->recoverMissedEvent($event, $app, $missedDue);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $this->logger->warning(
                     '[GracefulScheduleWorker] Failed to check/recover missed event',
                     [

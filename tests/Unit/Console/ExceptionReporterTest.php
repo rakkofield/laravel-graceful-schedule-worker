@@ -65,4 +65,24 @@ class ExceptionReporterTest extends TestCase
         $this->assertSame('report failed', $warningLogs[0]['context']['error']);
         $this->assertSame('original error', $warningLogs[0]['context']['original']);
     }
+
+    /**
+     * @testdox ER.4 Log context includes original exception object when handler throws
+     */
+    public function testLogContextIncludesOriginalExceptionWhenHandlerThrows(): void
+    {
+        $handler = new SpyExceptionHandler();
+        $handler->willThrowOnReport(new \RuntimeException('report failed'));
+        $logger = new SpyLogger();
+        $reporter = new ExceptionReporter($handler, $logger);
+
+        $originalException = new \RuntimeException('original error');
+        $reporter->report($originalException);
+
+        $warningLogs = $logger->getLogsByLevel('warning');
+        $this->assertCount(1, $warningLogs);
+        // Bug: 'original_exception' key is missing from log context
+        $this->assertArrayHasKey('original_exception', $warningLogs[0]['context']);
+        $this->assertSame($originalException, $warningLogs[0]['context']['original_exception']);
+    }
 }

@@ -15,6 +15,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunction
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
 
 /**
  * Event dispatcher using Step Functions.
@@ -42,6 +43,12 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         string $stateMachineArn,
         ExecutionNameGeneratorInterface $nameGenerator
     ) {
+        if ($stateMachineArn === '') {
+            throw new \InvalidArgumentException(
+                'stateMachineArn cannot be empty.'
+                . ' Please set graceful-scheduler.stepfunctions.state_machine_arn in your config.'
+            );
+        }
         $this->client = $client;
         $this->stateMachineArn = $stateMachineArn;
         $this->nameGenerator = $nameGenerator;
@@ -87,9 +94,8 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 (string) $command,
                 new DateTimeImmutable()
             );
-        } catch (\Exception $e) {
-            // Handle StepFunctionsException and other Exceptions
-            // Note: \Error is not caught and will be rethrown (fatal errors propagate to the caller)
+        } catch (StepFunctionsException $e) {
+            // Handle Step Functions API errors (not ExecutionAlreadyExists)
             return FailedStepFunctionsDispatchResult::failed(
                 $executionName,
                 $mutexName,

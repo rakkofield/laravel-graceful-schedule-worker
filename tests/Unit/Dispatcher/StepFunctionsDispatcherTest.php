@@ -272,19 +272,51 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.14 Returns FailedStepFunctionsDispatchResult on json_encode failure
+     * @testdox SFD.14 RuntimeException propagates on json_encode failure
      */
-    public function testReturnsFailedResultOnJsonEncodeFailure(): void
+    public function testRuntimeExceptionPropagatesOnJsonEncodeFailure(): void
     {
         $dispatcher = $this->createDispatcher();
         // Force json_encode failure with invalid UTF-8 string
         $event = $this->createEvent("\xFF\xFE");
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to encode input JSON');
 
-        $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
-        $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
-        $this->assertNotNull($result->getException());
-        $this->assertStringContainsString('Failed to encode input JSON', $result->getError());
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+    }
+
+    /**
+     * @testdox SFD.15 Constructor throws InvalidArgumentException for empty stateMachineArn
+     */
+    public function testConstructorThrowsForEmptyStateMachineArn(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('stateMachineArn cannot be empty');
+
+        new StepFunctionsDispatcher(
+            $this->client,
+            '',
+            new ExecutionNameGenerator()
+        );
+    }
+
+    /**
+     * @testdox SFD.16 Non-StepFunctionsException propagates instead of being caught
+     */
+    public function testNonStepFunctionsExceptionPropagates(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+
+        // Throw a plain RuntimeException (not StepFunctionsException)
+        $this->client->willThrowCustomException(new \RuntimeException('Database connection lost'));
+
+        // Bug: all Exceptions are caught and converted to FailedResult
+        // Fix: only StepFunctionsException should be caught; others propagate
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Database connection lost');
+
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
     }
 }

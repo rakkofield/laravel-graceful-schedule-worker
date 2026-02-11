@@ -30,6 +30,7 @@ class ExceptionReporter implements ExceptionReporterInterface
             $this->logger->warning('[GracefulScheduleWorker] ExceptionReporter failed', [
                 'error' => $reportError->getMessage(),
                 'original' => $e->getMessage(),
+                'original_exception' => $e,
                 'exception' => $reportError,
             ]);
         }

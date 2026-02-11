@@ -10,7 +10,6 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\ServiceProvider;
-use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\Sleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
@@ -52,9 +51,8 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
         // @phpstan-ignore function.alreadyNarrowedType (tests may use Container)
         $basePath = method_exists($this->app, 'basePath') ? $this->app->basePath() : null;
         $this->app->singleton(LocalDispatcher::class, function (Container $app) use ($basePath) {
-            // Get logger (from Laravel's log service, fallback to NullLogger)
             /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+            $logger = $app->make('log');
 
             return new LocalDispatcher($basePath, $logger, new Sleeper(10000));
         });
@@ -83,16 +81,22 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
                 'local' => $localDispatcher,
             ];
 
-            // Add StepFunctionsDispatcher if available
-            if ($app->bound(StepFunctionsDispatcher::class)) {
-                /** @var StepFunctionsDispatcher $stepFunctionsDispatcher */
-                $stepFunctionsDispatcher = $app->make(StepFunctionsDispatcher::class);
-                $dispatchers['stepfunctions'] = $stepFunctionsDispatcher;
+            // Add StepFunctionsDispatcher if available and ARN is configured
+            if ($app->bound(StepFunctionsDispatcher::class) && $app->bound('config')) {
+                /** @var ConfigRepository $sfConfig */
+                $sfConfig = $app->make('config');
+                /** @var string|null $sfArn */
+                $sfArn = $sfConfig->get('graceful-scheduler.stepfunctions.state_machine_arn', '');
+                $sfArn = (string) $sfArn;
+                if ($sfArn !== '') {
+                    /** @var StepFunctionsDispatcher $stepFunctionsDispatcher */
+                    $stepFunctionsDispatcher = $app->make(StepFunctionsDispatcher::class);
+                    $dispatchers['stepfunctions'] = $stepFunctionsDispatcher;
+                }
             }
 
-            // Get logger (from Laravel's log service, fallback to NullLogger)
             /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+            $logger = $app->make('log');
 
             return new CompositeDispatcher($dispatchers, $defaultType, $logger);
         });
@@ -105,9 +109,8 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ExecutionTrackerInterface $tracker */
             $tracker = $app->make(ExecutionTrackerInterface::class);
 
-            // Get logger (from Laravel's log service, fallback to NullLogger)
             /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+            $logger = $app->make('log');
 
             return new TrackingDispatcher($compositeDispatcher, $tracker, $logger);
         });
@@ -121,9 +124,8 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ExecutionTrackerInterface $tracker */
             $tracker = $app->make(ExecutionTrackerInterface::class);
 
-            // Get logger (from Laravel's log service, fallback to NullLogger)
             /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+            $logger = $app->make('log');
 
             return new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, new Sleeper(100000));
         });
@@ -134,7 +136,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ExceptionHandler $handler */
             $handler = $app->make(ExceptionHandler::class);
             /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+            $logger = $app->make('log');
 
             if ($this->isLegacyExceptionHandler()) {
                 return new LegacyExceptionReporter($handler, $logger);
@@ -261,12 +263,12 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
                 );
             }
 
-            /** @var int $lockTtl */
+            /** @var int|string $lockTtl */
             $lockTtl = $config->get('graceful-scheduler.tracker.lock_ttl', 3600);
+            $lockTtl = (int) $lockTtl;
 
-            // Get logger (from Laravel's log service, fallback to NullLogger)
             /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
+            $logger = $app->make('log');
 
             return new CacheExecutionTracker($cache, $store, $logger, $lockTtl);
         });

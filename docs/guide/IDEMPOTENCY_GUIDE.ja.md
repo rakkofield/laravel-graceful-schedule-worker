@@ -163,6 +163,15 @@ class InvoiceGenerationJob
 4. **トランザクションで包む**: 複数の操作を原子的に実行
 5. **ログで追跡**: 重複実行を検出できるようにログを記録
 
+## ロック TTL と猶予期間
+
+`withGracePeriod()` を使用する際は、`SCHEDULE_TRACKER_LOCK_TTL`（デフォルト: 3600 秒）と猶予期間の関係に注意してください:
+
+- **`gracePeriod ≤ lockTtl`**: ロックが猶予期間全体をカバーします。重複リカバリのリスクはありません。
+- **`gracePeriod > lockTtl`**: ロック期限切れ後に、理論上重複リカバリが発生する小さなウィンドウがあります（`markExecuted` の失敗とワーカーの再起動が同時に起きた場合のみ）。
+
+**推奨**: ロック/猶予期間の設定に関わらず、リカバリ対象のタスクは冪等に設計してください。これによりエッジケースのリスクを完全に排除できます。
+
 ## 詳細情報
 
 - [SCHEDULE_EXECUTION_SEMANTICS.md](../internals/SCHEDULE_EXECUTION_SEMANTICS.md) - 実行保証の理論的背景と詳細

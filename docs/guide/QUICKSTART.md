@@ -116,6 +116,8 @@ Use this command instead of `schedule:work`. When SIGTERM/SIGINT is received, it
 
 When the scheduler restarts due to ECS task termination or deployment, tasks that were scheduled during the gap may not execute. The recovery feature detects these "missed executions" and automatically re-executes them.
 
+> **Note:** Recovery targets only the most recent missed execution. For example, if an hourly task missed 3 hours of executions, only the most recent one (e.g., 5 minutes ago) is recovered. Earlier missed executions (1 hour ago, 2 hours ago) are not recovered. This is by design — full backfill is out of scope.
+
 ### Redis Setup
 
 Recovery requires recording execution history. Prepare an environment with Redis or Memcached available.
@@ -150,6 +152,8 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
         ->runInBackground();
 }
 ```
+
+> **Important:** Recovery-targeted tasks must be idempotent. See [Lock TTL and Grace Period](./IDEMPOTENCY_GUIDE.md#lock-ttl-and-grace-period) for details on the relationship between lock TTL and grace period settings.
 
 ### Verifying Idempotency
 

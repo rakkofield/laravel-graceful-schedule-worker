@@ -42,7 +42,6 @@ return [
     'tracker' => [
         'enabled' => env('SCHEDULE_TRACKER_ENABLED', false),
         'store' => env('SCHEDULE_TRACKER_STORE'), // redis, dynamodb, etc.
-        'prefix' => env('SCHEDULE_TRACKER_PREFIX', 'schedule:executed:'),
         'lock_ttl' => env('SCHEDULE_TRACKER_LOCK_TTL', 3600),      // Lock TTL in seconds
     ],
 ];

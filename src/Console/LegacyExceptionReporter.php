@@ -23,6 +23,7 @@ class LegacyExceptionReporter implements ExceptionReporterInterface
 
     public function report(\Throwable $e): void
     {
+        $original = $e;
         try {
             if (!$e instanceof \Exception) {
                 $e = new \ErrorException(
@@ -40,6 +41,7 @@ class LegacyExceptionReporter implements ExceptionReporterInterface
             $this->logger->warning('[GracefulScheduleWorker] ExceptionReporter failed', [
                 'error' => $reportError->getMessage(),
                 'original' => $e->getMessage(),
+                'original_exception' => $original,
                 'exception' => $reportError,
             ]);
         }

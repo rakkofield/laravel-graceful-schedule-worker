@@ -37,7 +37,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
      * @param \Throwable|null $exception
      * @param DateTimeImmutable $dispatchedAt
      */
-    private function __construct(
+    public function __construct(
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,

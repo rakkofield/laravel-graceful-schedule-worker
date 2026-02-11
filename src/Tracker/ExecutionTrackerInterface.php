@@ -54,6 +54,9 @@ interface ExecutionTrackerInterface
     /**
      * Release the lock for the specified due time.
      *
+     * Note: Locks are designed to auto-expire via TTL, so calling this method
+     * is not required in normal operation. Use it only when early release is needed.
+     *
      * @param Event $event Target event
      * @param DateTimeInterface $dueAt Scheduled due time
      */

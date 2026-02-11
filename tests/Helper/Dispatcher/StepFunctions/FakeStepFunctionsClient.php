@@ -17,7 +17,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     /** @var array<string, true> */
     private $existingExecutions = [];
 
-    /** @var StepFunctionsException|null */
+    /** @var \Exception|null */
     private $nextError = null;
 
     /**
@@ -77,6 +77,17 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     public function willThrowError(string $message): void
     {
         $this->nextError = new StepFunctionsException($message);
+    }
+
+    /**
+     * Configure the next startExecution to throw a custom exception
+     *
+     * @param \Exception $exception
+     * @return void
+     */
+    public function willThrowCustomException(\Exception $exception): void
+    {
+        $this->nextError = $exception;
     }
 
     /**

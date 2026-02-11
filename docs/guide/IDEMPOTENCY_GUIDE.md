@@ -163,6 +163,15 @@ class InvoiceGenerationJob
 4. **Wrap in transactions**: Execute multiple operations atomically
 5. **Track with logs**: Record logs to detect duplicate executions
 
+## Lock TTL and Grace Period
+
+When using `withGracePeriod()`, be aware of the relationship between `SCHEDULE_TRACKER_LOCK_TTL` (default: 3600 seconds) and the grace period duration:
+
+- **`gracePeriod ≤ lockTtl`**: The lock covers the entire grace period window. No risk of duplicate recovery.
+- **`gracePeriod > lockTtl`**: There is a small window after lock expiry where duplicate recovery could theoretically occur (requires both a `markExecuted` failure and a worker restart within that window).
+
+**Recommendation**: Design recovery-targeted tasks to be idempotent regardless of lock/grace period settings. This eliminates any edge-case risk.
+
 ## Further Reading
 
 - [SCHEDULE_EXECUTION_SEMANTICS.md](../internals/SCHEDULE_EXECUTION_SEMANTICS.md) - Theoretical background and details of execution guarantees

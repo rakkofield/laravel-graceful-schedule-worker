@@ -11,6 +11,7 @@ use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
@@ -113,6 +114,10 @@ class ProviderWiringIntegrationTest extends TestCase
 
         $this->app->bind(SchedulingMutex::class, function () {
             return new FakeSchedulingMutex();
+        });
+
+        $this->app->singleton('log', function () {
+            return new NullLogger();
         });
 
         $this->provider = new TestableGracefulScheduleWorkerProvider($this->app);
