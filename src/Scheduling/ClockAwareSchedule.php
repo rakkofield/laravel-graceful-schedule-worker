@@ -20,18 +20,23 @@ class ClockAwareSchedule extends Schedule
     /** @var FreezableClock Freezable clock wrapper shared across all ClockAwareEvents */
     private $eventClock;
 
+    /** @var string */
+    protected $defaultDispatcherType;
+
     /** @var bool When true, exec() generates the parent's Event */
     private $nativeEventMode = false;
 
     /**
      * @param ClockInterface $clock
      * @param \DateTimeZone|string|null $timezone
+     * @param string $defaultDispatcherType
      */
-    public function __construct(ClockInterface $clock, $timezone = null)
+    public function __construct(ClockInterface $clock, $timezone = null, string $defaultDispatcherType = 'local')
     {
         parent::__construct($timezone);
         $this->clock = $clock;
         $this->eventClock = new FreezableClock($clock);
+        $this->defaultDispatcherType = $defaultDispatcherType;
     }
 
     /**
@@ -92,7 +97,13 @@ class ClockAwareSchedule extends Schedule
             $command .= ' ' . $this->compileParameters($parameters);
         }
 
-        $event = new ClockAwareEvent($this->eventMutex, $command, $this->eventClock, $this->timezone);
+        $event = new ClockAwareEvent(
+            $this->eventMutex,
+            $command,
+            $this->eventClock,
+            $this->timezone,
+            $this->defaultDispatcherType
+        );
 
         $this->events[] = $event;
 

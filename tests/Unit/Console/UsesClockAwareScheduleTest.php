@@ -201,4 +201,29 @@ class UsesClockAwareScheduleTest extends TestCase
 
         $this->assertCount(0, $schedule->events());
     }
+
+    /**
+     * @testdox UCS.11 config dispatch type is passed to ClockAwareSchedule events
+     */
+    public function testConfigDispatchTypeIsPassedToClockAwareScheduleEvents(): void
+    {
+        // Register a config repository with graceful-scheduler.dispatch = 'stepfunctions'
+        $this->container->singleton('config', function () {
+            return new \Illuminate\Config\Repository([
+                'graceful-scheduler' => ['dispatch' => 'stepfunctions'],
+            ]);
+        });
+
+        $kernel = new FakeKernelWithGradualMigration();
+        $kernel->defineConsoleSchedule();
+
+        // Resolve the singleton to trigger schedule registration
+        $this->container->make(Schedule::class);
+
+        // gracefulSchedule() events should have 'stepfunctions' as default dispatcherType
+        $this->assertCount(1, $kernel->gracefulScheduleEvents);
+        $event = $kernel->gracefulScheduleEvents[0];
+        $this->assertInstanceOf(ClockAwareEvent::class, $event);
+        $this->assertSame('stepfunctions', $event->getDispatcherType());
+    }
 }

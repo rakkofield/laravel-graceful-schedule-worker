@@ -25,22 +25,28 @@ class SkippedDispatchResult implements SkippedDispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
+    /** @var string */
+    private $dispatcherType;
+
     /**
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param string $reason Skip reason
      * @param DateTimeImmutable $dispatchedAt
+     * @param string $dispatcherType
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
         string $reason,
-        DateTimeImmutable $dispatchedAt
+        DateTimeImmutable $dispatchedAt,
+        string $dispatcherType
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->reason = $reason;
         $this->dispatchedAt = $dispatchedAt;
+        $this->dispatcherType = $dispatcherType;
     }
 
     /**
@@ -60,16 +66,11 @@ class SkippedDispatchResult implements SkippedDispatchResultInterface
     }
 
     /**
-     * Get the dispatcher type.
-     *
-     * SkippedDispatchResult is exclusive to TrackingDispatcher,
-     * so it always returns 'tracking'.
-     *
-     * @return string
+     * {@inheritdoc}
      */
     public function getDispatcherType(): string
     {
-        return 'tracking';
+        return $this->dispatcherType;
     }
 
     /**

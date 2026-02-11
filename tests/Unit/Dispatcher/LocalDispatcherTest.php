@@ -14,6 +14,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -586,5 +588,54 @@ class LocalDispatcherTest extends TestCase
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
         $this->assertFalse($result->isRunning());
         $this->assertSame(0, $result->getExitCode());
+    }
+
+    /**
+     * @testdox LD.30 withoutOverlapping returns SkippedDispatchResult when mutex already exists
+     */
+    public function testWithoutOverlappingReturnsSkippedWhenMutexAlreadyExists(): void
+    {
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
+        $event = $this->createEvent('echo test');
+        $event->withoutOverlapping();
+
+        // First call claims the mutex
+        $this->mutex->create($event);
+
+        // Second call should fail because mutex already exists
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
+        $this->assertInstanceOf(SkippedDispatchResult::class, $result);
+        $this->assertSame('withoutOverlapping', $result->getReason());
+        $this->assertSame('local', $result->getDispatcherType());
+    }
+
+    /**
+     * @testdox LD.31 withoutOverlapping calls mutex.create before dispatch
+     */
+    public function testWithoutOverlappingCallsMutexCreateBeforeDispatch(): void
+    {
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
+        $event = $this->createEvent('echo test');
+        $event->withoutOverlapping();
+
+        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        $this->assertSame(1, $this->mutex->getCreateCount($event->mutexName()));
+    }
+
+    /**
+     * @testdox LD.32 withoutOverlapping proceeds normally when mutex.create succeeds
+     */
+    public function testWithoutOverlappingProceedsNormallyWhenMutexCreateSucceeds(): void
+    {
+        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
+        $event = $this->createEvent('echo test');
+        $event->withoutOverlapping();
+
+        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+
+        $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
     }
 }

@@ -12,6 +12,7 @@ use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedLocalDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Symfony\Component\Process\Process;
@@ -81,6 +82,17 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $identifier = $event->mutexName();
 
         try {
+            // Handle withoutOverlapping: atomically try to claim the mutex
+            if ($event->withoutOverlapping && !$event->mutex->create($event)) {
+                return new SkippedDispatchResult(
+                    $identifier,
+                    (string) $event->command,
+                    'withoutOverlapping',
+                    new DateTimeImmutable(),
+                    'local'
+                );
+            }
+
             $event->callBeforeCallbacks($container);
 
             if ($event->runInBackground) {

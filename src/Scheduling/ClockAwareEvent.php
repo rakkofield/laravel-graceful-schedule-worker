@@ -30,20 +30,27 @@ class ClockAwareEvent extends Event
     protected $recoverable = false;
 
     /**
-     * @var string|null
+     * @var string
      */
-    protected $dispatcherType = null;
+    protected $dispatcherType;
 
     /**
      * @param EventMutex $mutex
      * @param string $command
      * @param ClockInterface $clock
      * @param \DateTimeZone|string|null $timezone
+     * @param string $defaultDispatcherType
      */
-    public function __construct(EventMutex $mutex, $command, ClockInterface $clock, $timezone = null)
-    {
+    public function __construct(
+        EventMutex $mutex,
+        $command,
+        ClockInterface $clock,
+        $timezone = null,
+        string $defaultDispatcherType = 'local'
+    ) {
         parent::__construct($mutex, $command, $timezone);
         $this->clock = $clock;
+        $this->dispatcherType = $defaultDispatcherType;
     }
 
     /**
@@ -90,11 +97,11 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Get the specified dispatcher type.
+     * Get the dispatcher type.
      *
-     * @return string|null Dispatcher type (null if not specified)
+     * @return string Dispatcher type
      */
-    public function getDispatcherType()
+    public function getDispatcherType(): string
     {
         return $this->dispatcherType;
     }

@@ -9,12 +9,15 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeAlreadyRunningDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeFailedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeSkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeExecutionTracker;
@@ -277,9 +280,9 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.10 SkippedDispatchResult dispatcherType returns 'tracking'
+     * @testdox TD.10 SkippedDispatchResult dispatcherType returns 'local' for plain Event
      */
-    public function testSkippedDispatchResultReturnsTrackingType(): void
+    public function testSkippedDispatchResultReturnsLocalTypeForPlainEvent(): void
     {
         $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
         $dispatcher = $this->createDispatcher($startedResult);
@@ -291,7 +294,7 @@ class TrackingDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
 
-        $this->assertSame('tracking', $result->getDispatcherType());
+        $this->assertSame('local', $result->getDispatcherType());
     }
 
     /**
@@ -404,5 +407,59 @@ class TrackingDispatcherTest extends TestCase
         $this->expectExceptionMessage('Programming error');
 
         $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+    }
+
+    /**
+     * @testdox TD.16 handleResult handles SkippedDispatchResult from inner dispatcher
+     */
+    public function testHandleResultHandlesSkippedDispatchResultFromInnerDispatcher(): void
+    {
+        $skippedResult = FakeSkippedDispatchResult::create('test-mutex', 'echo test', 'withoutOverlapping', 'local');
+        $this->innerDispatcher = new FakeDispatcher($skippedResult);
+        $dispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $this->tracker,
+            $this->logger
+        );
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+
+        // SkippedDispatchResult is returned from inner dispatcher
+        $this->assertSame($skippedResult, $result);
+
+        // releaseLock is called
+        $locks = $this->tracker->getLocks();
+        $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
+        $this->assertArrayNotHasKey($key, $locks);
+
+        // Info log is output
+        $infoLogs = $this->logger->getLogsByLevel('info');
+        $this->assertCount(1, $infoLogs);
+        $this->assertStringContainsString('Event skipped by inner dispatcher', $infoLogs[0]['message']);
+        $this->assertSame($event->mutexName(), $infoLogs[0]['context']['event']);
+        $this->assertSame('local', $infoLogs[0]['context']['dispatcher_type']);
+        $this->assertSame('withoutOverlapping', $infoLogs[0]['context']['reason']);
+    }
+
+    /**
+     * @testdox TD.17 SkippedDispatchResult uses ClockAwareEvent dispatcherType
+     */
+    public function testSkippedDispatchResultUsesClockAwareEventDispatcherType(): void
+    {
+        $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
+        $dispatcher = $this->createDispatcher($startedResult);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'echo test', $clock, null, 'stepfunctions');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        // Set lock acquisition to fail
+        $this->tracker->setLockResult($event->mutexName(), $dueAt, false);
+
+        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+
+        $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
+        $this->assertSame('stepfunctions', $result->getDispatcherType());
     }
 }

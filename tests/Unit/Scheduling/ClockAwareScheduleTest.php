@@ -259,4 +259,32 @@ class ClockAwareScheduleTest extends TestCase
         $this->assertNotInstanceOf(ClockAwareEvent::class, $events[0]);
         $this->assertInstanceOf(ClockAwareEvent::class, $events[1]);
     }
+
+    /**
+     * @testdox CS.14 exec passes defaultDispatcherType to ClockAwareEvent
+     */
+    public function testExecPassesDefaultDispatcherTypeToClockAwareEvent(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, null, 'stepfunctions');
+
+        $event = $schedule->exec('echo test');
+
+        $this->assertInstanceOf(ClockAwareEvent::class, $event);
+        $this->assertSame('stepfunctions', $event->getDispatcherType());
+    }
+
+    /**
+     * @testdox CS.15 default dispatcherType is 'local' when not specified
+     */
+    public function testDefaultDispatcherTypeIsLocalWhenNotSpecified(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->exec('echo test');
+
+        $this->assertInstanceOf(ClockAwareEvent::class, $event);
+        $this->assertSame('local', $event->getDispatcherType());
+    }
 }

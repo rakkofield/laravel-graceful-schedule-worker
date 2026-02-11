@@ -47,7 +47,11 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
-            $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone());
+            $defaultDispatcherType = $app->bound('config')
+                ? (string) $app->make('config')->get('graceful-scheduler.dispatch', 'local')
+                : 'local';
+
+            $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone(), $defaultDispatcherType);
             $schedule->useCache($this->scheduleCache());
 
             // Events from schedule() are standard Laravel Events (no behavior change)

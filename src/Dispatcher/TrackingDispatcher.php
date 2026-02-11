@@ -13,7 +13,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispa
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 /**
@@ -64,11 +66,16 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
                 'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
             ]);
 
+            $dispatcherType = $event instanceof ClockAwareEvent
+                ? $event->getDispatcherType()
+                : 'local';
+
             return new SkippedDispatchResult(
                 $event->mutexName(),
                 (string) $event->command,
                 'lock_not_acquired',
-                new DateTimeImmutable()
+                new DateTimeImmutable(),
+                $dispatcherType
             );
         }
 
@@ -112,8 +119,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     /**
      * Process the dispatch result.
      *
-     * Note: SkippedDispatchResultInterface is only created on acquireLock failure
-     * and is never returned from the inner dispatcher, so no handling is needed here.
+     * Handles SkippedDispatchResultInterface from the inner dispatcher (e.g., withoutOverlapping).
      * When adding new DispatchResultInterface subtypes, this method must also be updated.
      *
      * @param DispatchResultInterface $result
@@ -143,6 +149,17 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
                 'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
             ]);
             $this->tracker->markExecuted($event, $dueAt);
+            return;
+        }
+
+        if ($result instanceof SkippedDispatchResultInterface) {
+            $this->logger->info('[GracefulScheduleWorker] Event skipped by inner dispatcher', [
+                'event' => $event->mutexName(),
+                'dispatcher_type' => $result->getDispatcherType(),
+                'reason' => $result->getReason(),
+                'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
+            ]);
+            $this->tracker->releaseLock($event, $dueAt);
             return;
         }
 

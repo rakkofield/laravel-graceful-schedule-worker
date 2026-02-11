@@ -79,7 +79,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
      */
     private function resolveDispatcherType(Event $event): string
     {
-        if ($event instanceof ClockAwareEvent && $event->getDispatcherType() !== null) {
+        if ($event instanceof ClockAwareEvent) {
             return $event->getDispatcherType();
         }
         return $this->defaultType;

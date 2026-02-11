@@ -9,12 +9,23 @@ use PHPUnit\Framework\TestCase;
 
 class SkippedDispatchResultTest extends TestCase
 {
+    private function createSkippedResult(string $dispatcherType = 'local'): SkippedDispatchResult
+    {
+        return new SkippedDispatchResult(
+            'test-mutex',
+            'echo test',
+            'lock_not_acquired',
+            new DateTimeImmutable(),
+            $dispatcherType
+        );
+    }
+
     /**
      * @testdox SD.1 getEventIdentifier returns constructor value
      */
     public function testGetEventIdentifier(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
+        $result = $this->createSkippedResult();
 
         $this->assertSame('test-mutex', $result->getEventIdentifier());
     }
@@ -24,7 +35,7 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testGetEventCommand(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
+        $result = $this->createSkippedResult();
 
         $this->assertSame('echo test', $result->getEventCommand());
     }
@@ -34,19 +45,19 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testGetReason(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
+        $result = $this->createSkippedResult();
 
         $this->assertSame('lock_not_acquired', $result->getReason());
     }
 
     /**
-     * @testdox SD.4 getDispatcherType returns 'tracking'
+     * @testdox SD.4 getDispatcherType returns constructor value
      */
     public function testGetDispatcherType(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
+        $result = $this->createSkippedResult();
 
-        $this->assertSame('tracking', $result->getDispatcherType());
+        $this->assertSame('local', $result->getDispatcherType());
     }
 
     /**
@@ -55,7 +66,13 @@ class SkippedDispatchResultTest extends TestCase
     public function testGetDispatchedAtWithExplicitValue(): void
     {
         $dispatchedAt = new DateTimeImmutable('2024-01-15 10:00:00');
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', $dispatchedAt);
+        $result = new SkippedDispatchResult(
+            'test-mutex',
+            'echo test',
+            'lock_not_acquired',
+            $dispatchedAt,
+            'local'
+        );
 
         $this->assertSame($dispatchedAt, $result->getDispatchedAt());
     }
@@ -66,7 +83,7 @@ class SkippedDispatchResultTest extends TestCase
     public function testGetDispatchedAtWithDefaultValue(): void
     {
         $before = new DateTimeImmutable();
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
+        $result = $this->createSkippedResult();
         $after = new DateTimeImmutable();
 
         $dispatchedAt = $result->getDispatchedAt();
@@ -80,7 +97,7 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testImplementsSkippedDispatchResultInterface(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
+        $result = $this->createSkippedResult();
 
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
     }
@@ -90,8 +107,18 @@ class SkippedDispatchResultTest extends TestCase
      */
     public function testImplementsDispatchResultInterface(): void
     {
-        $result = new SkippedDispatchResult('test-mutex', 'echo test', 'lock_not_acquired', new DateTimeImmutable());
+        $result = $this->createSkippedResult();
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
+    }
+
+    /**
+     * @testdox SD.9 getDispatcherType returns constructor value
+     */
+    public function testGetDispatcherTypeReturnsConstructorValue(): void
+    {
+        $result = $this->createSkippedResult('stepfunctions');
+
+        $this->assertSame('stepfunctions', $result->getDispatcherType());
     }
 }

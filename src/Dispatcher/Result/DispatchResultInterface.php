@@ -34,7 +34,7 @@ interface DispatchResultInterface
     /**
      * Get the dispatcher type.
      *
-     * @return string Dispatcher type ('local' | 'stepfunctions' | 'tracking')
+     * @return string Dispatcher type ('local' | 'stepfunctions')
      */
     public function getDispatcherType(): string;
 

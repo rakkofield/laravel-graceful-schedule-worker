@@ -162,14 +162,14 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.6 getDispatcherType returns null by default
+     * @testdox CE.6 getDispatcherType returns 'local' by default
      */
-    public function testGetDispatcherTypeReturnsNullByDefault(): void
+    public function testGetDispatcherTypeReturnsLocalByDefault(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
 
-        $this->assertNull($event->getDispatcherType());
+        $this->assertSame('local', $event->getDispatcherType());
     }
 
     /**
@@ -290,5 +290,27 @@ class ClockAwareEventTest extends TestCase
 
         $container = new Container();
         $this->assertFalse($event->filtersPass($container));
+    }
+
+    /**
+     * @testdox CE.20 getDispatcherType returns default value from constructor
+     */
+    public function testGetDispatcherTypeReturnsDefaultValueFromConstructor(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+
+        $this->assertSame('local', $event->getDispatcherType());
+    }
+
+    /**
+     * @testdox CE.21 getDispatcherType returns custom default from constructor
+     */
+    public function testGetDispatcherTypeReturnsCustomDefaultFromConstructor(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, null, 'stepfunctions');
+
+        $this->assertSame('stepfunctions', $event->getDispatcherType());
     }
 }
