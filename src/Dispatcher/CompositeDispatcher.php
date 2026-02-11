@@ -93,7 +93,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
         foreach ($this->dispatchers as $type => $dispatcher) {
             try {
                 $dispatcher->cleanup();
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Ensure one dispatcher's failure does not affect others
                 $this->logger->warning('[GracefulScheduleWorker] Failed to cleanup dispatcher', [
                     'dispatcher' => $type,
@@ -112,7 +112,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
         foreach ($this->dispatchers as $type => $dispatcher) {
             try {
                 $dispatcher->stopAll();
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Ensure one dispatcher's failure does not affect others
                 $this->logger->warning('[GracefulScheduleWorker] Failed to stop dispatcher', [
                     'dispatcher' => $type,

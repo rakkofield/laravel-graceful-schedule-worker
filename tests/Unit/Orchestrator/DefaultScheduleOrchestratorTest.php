@@ -649,6 +649,47 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
+     * @testdox DO.25 checkMissedExecutions continues when one event throws
+     */
+    public function testCheckMissedExecutionsContinuesWhenOneEventThrows(): void
+    {
+        $tracker = new FakeExecutionTracker();
+
+        // Event 1: getMissedDueIfRecoverable throws
+        $event1 = $this->createClockAwareEvent('echo event1');
+        $event1->cron('0 * * * *');
+        $event1->enableRecovery();
+        $tracker->setRecoverableException($event1->mutexName(), new \RuntimeException('cron parse error'));
+
+        // Event 2: normal recovery
+        $event2 = $this->createClockAwareEvent('echo event2');
+        $event2->cron('0 * * * *');
+        $event2->enableRecovery();
+        $missedDue = new DateTimeImmutable('2024-01-15 11:00:00');
+        $tracker->setRecoverableResult($event2->mutexName(), $missedDue);
+
+        $this->schedule->setDueEvents([]);
+        $this->schedule->addEvent($event1);
+        $this->schedule->addEvent($event2);
+
+        $result = FakeStartedDispatchResult::create($event2->mutexName(), 'echo event2', 'fake');
+        $this->dispatcher->setResult($result);
+
+        $spyLogger = new SpyLogger();
+        $orchestrator = $this->createOrchestrator($tracker, $spyLogger);
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
+
+        // Event 2 was dispatched despite event 1 throwing
+        $this->assertSame(1, $this->dispatcher->getDispatchCount());
+
+        // Warning log for event 1
+        $warningLogs = $spyLogger->getLogsByLevel('warning');
+        $this->assertCount(1, $warningLogs);
+        $this->assertStringContainsString('Failed to check/recover missed event', $warningLogs[0]['message']);
+        $this->assertSame('cron parse error', $warningLogs[0]['context']['error']);
+    }
+
+    /**
      * @testdox DO.24 filtersPass exception logs warning with details
      */
     public function testFiltersPassExceptionLogsWarning(): void

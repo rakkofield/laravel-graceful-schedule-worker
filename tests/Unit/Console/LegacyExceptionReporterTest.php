@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 /**
  * @group requires-php74-handler
@@ -17,7 +19,7 @@ class LegacyExceptionReporterTest extends TestCase
     public function testDelegatesExceptionAsIsToHandler(): void
     {
         $handler = new SpyExceptionHandler();
-        $reporter = new LegacyExceptionReporter($handler);
+        $reporter = new LegacyExceptionReporter($handler, new NullLogger());
 
         $exception = new \RuntimeException('test error');
         $reporter->report($exception);
@@ -32,7 +34,7 @@ class LegacyExceptionReporterTest extends TestCase
     public function testWrapsErrorInErrorExceptionForHandler(): void
     {
         $handler = new SpyExceptionHandler();
-        $reporter = new LegacyExceptionReporter($handler);
+        $reporter = new LegacyExceptionReporter($handler, new NullLogger());
 
         $error = new \TypeError('unexpected type');
         $reporter->report($error);
@@ -49,17 +51,23 @@ class LegacyExceptionReporterTest extends TestCase
     }
 
     /**
-     * @testdox LER.3 Swallows exception thrown by handler report after wrapping
+     * @testdox LER.3 Logs warning when handler report throws after wrapping
      */
-    public function testSwallowsExceptionThrownByHandlerReportAfterWrapping(): void
+    public function testLogsWarningWhenHandlerReportThrowsAfterWrapping(): void
     {
         $handler = new SpyExceptionHandler();
         $handler->willThrowOnReport(new \RuntimeException('report failed'));
-        $reporter = new LegacyExceptionReporter($handler);
+        $logger = new SpyLogger();
+        $reporter = new LegacyExceptionReporter($handler, $logger);
 
         $reporter->report(new \TypeError('original error'));
 
-        // Should not throw - the test passes if we reach here
-        $this->assertTrue(true);
+        // Should not throw
+        $warningLogs = $logger->getLogsByLevel('warning');
+        $this->assertCount(1, $warningLogs);
+        $this->assertStringContainsString('ExceptionReporter failed', $warningLogs[0]['message']);
+        $this->assertSame('report failed', $warningLogs[0]['context']['error']);
+        // LegacyExceptionReporter wraps the error, so original message contains the wrapped version
+        $this->assertStringContainsString('original error', $warningLogs[0]['context']['original']);
     }
 }

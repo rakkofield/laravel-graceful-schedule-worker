@@ -379,6 +379,64 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
+     * @testdox CD.14 cleanup isolates \Error from one dispatcher
+     */
+    public function testCleanupIsolatesErrorFromOneDispatcher(): void
+    {
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
+
+        $throwingDispatcher = new ThrowingFakeDispatcher($localResult);
+        $throwingDispatcher->willThrowOnCleanup(new \Error('Fatal cleanup error'));
+        $normalDispatcher = new FakeDispatcher($sfnResult);
+
+        $dispatcher = new CompositeDispatcher(
+            [
+                'local' => $throwingDispatcher,
+                'stepfunctions' => $normalDispatcher,
+            ],
+            'local',
+            $this->logger
+        );
+
+        // No error is thrown
+        $dispatcher->cleanup();
+
+        // Both cleanup methods were called
+        $this->assertEquals(1, $throwingDispatcher->getCleanupCallCount());
+        $this->assertEquals(1, $normalDispatcher->getCleanupCallCount());
+    }
+
+    /**
+     * @testdox CD.15 stopAll isolates \Error from one dispatcher
+     */
+    public function testStopAllIsolatesErrorFromOneDispatcher(): void
+    {
+        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
+        $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
+
+        $throwingDispatcher = new ThrowingFakeDispatcher($localResult);
+        $throwingDispatcher->willThrowOnStopAll(new \Error('Fatal stopAll error'));
+        $normalDispatcher = new FakeDispatcher($sfnResult);
+
+        $dispatcher = new CompositeDispatcher(
+            [
+                'local' => $throwingDispatcher,
+                'stepfunctions' => $normalDispatcher,
+            ],
+            'local',
+            $this->logger
+        );
+
+        // No error is thrown
+        $dispatcher->stopAll();
+
+        // Both stopAll methods were called
+        $this->assertEquals(1, $throwingDispatcher->getStopAllCallCount());
+        $this->assertEquals(1, $normalDispatcher->getStopAllCallCount());
+    }
+
+    /**
      * @testdox CD.13 Logs warning when stopAll throws an exception
      */
     public function testStopAllLogsWarningWhenChildThrows(): void

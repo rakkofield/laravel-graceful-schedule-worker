@@ -17,10 +17,10 @@ class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
     /** @var DispatchResultInterface */
     private $resultToReturn;
 
-    /** @var \Exception|null */
+    /** @var \Throwable|null */
     private $cleanupException;
 
-    /** @var \Exception|null */
+    /** @var \Throwable|null */
     private $stopAllException;
 
     /** @var int */
@@ -53,10 +53,10 @@ class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
     /**
      * Configure cleanup to throw an exception.
      *
-     * @param \Exception $exception
+     * @param \Throwable $exception
      * @return void
      */
-    public function willThrowOnCleanup(\Exception $exception): void
+    public function willThrowOnCleanup(\Throwable $exception): void
     {
         $this->cleanupException = $exception;
     }
@@ -64,10 +64,10 @@ class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
     /**
      * Configure stopAll to throw an exception.
      *
-     * @param \Exception $exception
+     * @param \Throwable $exception
      * @return void
      */
-    public function willThrowOnStopAll(\Exception $exception): void
+    public function willThrowOnStopAll(\Throwable $exception): void
     {
         $this->stopAllException = $exception;
     }

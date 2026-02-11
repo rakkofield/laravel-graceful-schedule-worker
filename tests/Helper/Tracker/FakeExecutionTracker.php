@@ -33,6 +33,11 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     private $lockResults = [];
 
     /**
+     * @var array<string, \Exception>
+     */
+    private $recoverableExceptions = [];
+
+    /**
      * {@inheritdoc}
      */
     public function markExecuted(Event $event, DateTimeInterface $dueAt): void
@@ -45,6 +50,9 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
      */
     public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface
     {
+        if (isset($this->recoverableExceptions[$event->mutexName()])) {
+            throw $this->recoverableExceptions[$event->mutexName()];
+        }
         return $this->recoverableResults[$event->mutexName()] ?? null;
     }
 
@@ -133,6 +141,17 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
+     * Test helper: set exception for getMissedDueIfRecoverable
+     *
+     * @param string $mutexName
+     * @param \Exception $exception
+     */
+    public function setRecoverableException(string $mutexName, \Exception $exception): void
+    {
+        $this->recoverableExceptions[$mutexName] = $exception;
+    }
+
+    /**
      * Test helper: reset
      */
     public function reset(): void
@@ -140,6 +159,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
         $this->executed = [];
         $this->locks = [];
         $this->recoverableResults = [];
+        $this->recoverableExceptions = [];
         $this->lockResults = [];
     }
 }

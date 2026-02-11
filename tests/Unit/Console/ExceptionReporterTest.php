@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
+use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 /**
  * @group requires-php74-handler
@@ -17,7 +19,7 @@ class ExceptionReporterTest extends TestCase
     public function testDelegatesExceptionToHandler(): void
     {
         $handler = new SpyExceptionHandler();
-        $reporter = new ExceptionReporter($handler);
+        $reporter = new ExceptionReporter($handler, new NullLogger());
 
         $exception = new \RuntimeException('test error');
         $reporter->report($exception);
@@ -32,7 +34,7 @@ class ExceptionReporterTest extends TestCase
     public function testDelegatesErrorToHandler(): void
     {
         $handler = new SpyExceptionHandler();
-        $reporter = new ExceptionReporter($handler);
+        $reporter = new ExceptionReporter($handler, new NullLogger());
 
         $error = new \TypeError('unexpected type');
         $reporter->report($error);
@@ -42,17 +44,22 @@ class ExceptionReporterTest extends TestCase
     }
 
     /**
-     * @testdox ER.3 Swallows exception thrown by handler report
+     * @testdox ER.3 Logs warning when handler report throws
      */
-    public function testSwallowsExceptionThrownByHandlerReport(): void
+    public function testLogsWarningWhenHandlerReportThrows(): void
     {
         $handler = new SpyExceptionHandler();
         $handler->willThrowOnReport(new \RuntimeException('report failed'));
-        $reporter = new ExceptionReporter($handler);
+        $logger = new SpyLogger();
+        $reporter = new ExceptionReporter($handler, $logger);
 
         $reporter->report(new \RuntimeException('original error'));
 
-        // Should not throw - the test passes if we reach here
-        $this->assertTrue(true);
+        // Should not throw
+        $warningLogs = $logger->getLogsByLevel('warning');
+        $this->assertCount(1, $warningLogs);
+        $this->assertStringContainsString('ExceptionReporter failed', $warningLogs[0]['message']);
+        $this->assertSame('report failed', $warningLogs[0]['context']['error']);
+        $this->assertSame('original error', $warningLogs[0]['context']['original']);
     }
 }

@@ -114,16 +114,27 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     private function checkMissedExecutions(Schedule $schedule, Application $app, DateTimeInterface $now): void
     {
         foreach ($schedule->events() as $event) {
-            if (!$this->isRecoverableEvent($event)) {
-                continue;
-            }
+            try {
+                if (!$this->isRecoverableEvent($event)) {
+                    continue;
+                }
 
-            $missedDue = $this->tracker->getMissedDueIfRecoverable($event, $now);
-            if ($missedDue === null) {
-                continue;
-            }
+                $missedDue = $this->tracker->getMissedDueIfRecoverable($event, $now);
+                if ($missedDue === null) {
+                    continue;
+                }
 
-            $this->recoverMissedEvent($event, $app, $missedDue);
+                $this->recoverMissedEvent($event, $app, $missedDue);
+            } catch (\Exception $e) {
+                $this->logger->warning(
+                    '[GracefulScheduleWorker] Failed to check/recover missed event',
+                    [
+                        'event' => $event->mutexName(),
+                        'error' => $e->getMessage(),
+                        'exception' => $e,
+                    ]
+                );
+            }
         }
     }
 
@@ -157,6 +168,8 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         // Since the clock is not frozen during recovery, time-based filters such as
         // between()/unlessBetween() would be evaluated at the current time.
         // Evaluating with the current time against a past dueAt would produce incorrect results.
+        // Return value is intentionally not checked here.
+        // TrackingDispatcher handles result logging (failures are logged as warnings).
         $this->dispatcher->dispatchEvent($event, $app, $missedDue);
     }
 
@@ -199,6 +212,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                     );
                     continue;
                 }
+                // dispatchEvent errors propagate intentionally.
+                // TrackingDispatcher handles result-based failures (logging, tracking).
+                // Infrastructure failures (e.g. cache connection) stop the worker,
+                // as continuing in a partially functional state could cause missed tracking.
                 $this->dispatcher->dispatchEvent($event, $app, $now);
             }
         };

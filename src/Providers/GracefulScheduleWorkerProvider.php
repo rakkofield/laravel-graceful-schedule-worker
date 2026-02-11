@@ -133,11 +133,13 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
         $this->app->singleton(ExceptionReporterInterface::class, function (Container $app) {
             /** @var ExceptionHandler $handler */
             $handler = $app->make(ExceptionHandler::class);
+            /** @var \Psr\Log\LoggerInterface $logger */
+            $logger = $app->bound('log') ? $app->make('log') : new NullLogger();
 
             if ($this->isLegacyExceptionHandler()) {
-                return new LegacyExceptionReporter($handler);
+                return new LegacyExceptionReporter($handler, $logger);
             }
-            return new ExceptionReporter($handler);
+            return new ExceptionReporter($handler, $logger);
         });
     }
 

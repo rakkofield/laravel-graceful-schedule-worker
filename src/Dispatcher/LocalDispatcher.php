@@ -109,6 +109,8 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             try {
                 $event->callAfterCallbacksWithExitCode($container, (int) $process->getExitCode());
             } catch (\Exception $e) {
+                // afterCallback failures don't affect the dispatch result.
+                // \Error is not caught here; it propagates to the command-level handler.
                 $this->logger->warning('[GracefulScheduleWorker] afterCallback failed', [
                     'event' => $identifier,
                     'exitCode' => $process->getExitCode(),
@@ -119,6 +121,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
 
             return new StartedLocalDispatchResult($process, $identifier, $fullCommand, new DateTimeImmutable());
         } catch (\Exception $e) {
+            // Note: \Error is not caught (fatal errors propagate to the caller)
             $error = get_class($e) . ': ' . $e->getMessage();
 
             return new FailedLocalDispatchResult($identifier, $event->command, $error, $e, new DateTimeImmutable());
