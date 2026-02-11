@@ -454,6 +454,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
 
     /**
      * @testdox GP.16 Registers ExceptionReporterInterface as ExceptionReporter for Laravel 7+
+     * @group requires-php74-handler
      */
     public function testRegistersExceptionReporterInterface(): void
     {
@@ -473,6 +474,7 @@ class GracefulScheduleWorkerProviderTest extends TestCase
 
     /**
      * @testdox GP.17 Registers LegacyExceptionReporter for Laravel 6
+     * @group requires-php74-handler
      */
     public function testRegistersLegacyExceptionReporterForLaravel6(): void
     {

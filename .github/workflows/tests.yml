@@ -22,6 +22,15 @@ jobs:
               --health-interval 5s
               --health-timeout 5s
               --health-retries 10
+          redis:
+            image: redis:7-alpine
+            ports:
+              - 6379:6379
+            options: >-
+              --health-cmd "redis-cli ping"
+              --health-interval 5s
+              --health-timeout 5s
+              --health-retries 10
 
         strategy:
             fail-fast: false
@@ -33,6 +42,11 @@ jobs:
                 exclude:
                     - php: 7.2
                       phpunit: 9.6
+                include:
+                    - php: 7.2
+                      phpunit-exclude-group: '--exclude-group requires-php74-handler'
+                    - php: 7.3
+                      phpunit-exclude-group: '--exclude-group requires-php74-handler'
         name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - PHPUnit ${{ matrix.phpunit }} - ${{ matrix.stability }}
         steps:
             - name: Checkout code
@@ -42,7 +56,7 @@ jobs:
               uses: shivammathur/setup-php@v2
               with:
                   php-version: ${{ matrix.php }}
-                  extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, gd, igbinary, msgpack, lzf, zstd, lz4, gmp, :php-psr
+                  extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, gd, igbinary, msgpack, lzf, zstd, lz4, gmp, redis, :php-psr
                   ini-values: error_reporting=E_ALL
                   tools: composer:v2
                   coverage: none
@@ -58,16 +72,11 @@ jobs:
                   key: ${{ runner.os }}-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.phpunit }}-${{ matrix.stability }}-composer-${{ hashFiles('**/composer.lock') }}
                   restore-keys: ${{ runner.os }}-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.phpunit }}-${{ matrix.stability }}-composer-
 
-            - name: Set skeleton laravel
-              working-directory: skeleton
-              run: composer require laravel/framework:^${{ matrix.laravel }} --no-interaction --no-update
-
-            - name: Install dependencies for skeleton
-              working-directory: skeleton
-              run: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
+            - name: Set laravel/framework version constraint
+              run: composer require --dev laravel/framework:^${{ matrix.laravel }} --no-interaction --no-update
 
             - name: Install dependencies for test
-              run: composer install --prefer-dist --no-interaction
+              run: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
 
             - name: Execute tests
-              run: vendor/bin/phpunit
+              run: vendor/bin/phpunit ${{ matrix.phpunit-exclude-group }}

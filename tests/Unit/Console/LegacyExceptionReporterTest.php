@@ -6,6 +6,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @group requires-php74-handler
+ */
 class LegacyExceptionReporterTest extends TestCase
 {
     /**

@@ -18,6 +18,7 @@
         "phpunit/phpunit": "^8.5.40 || ^9.6.21",
         "illuminate/container": "^6.0 || ^7.0",
         "illuminate/redis": "^6.0 || ^7.0",
+        "laravel/framework": "^6.18.7 || ^7.6.0",
         "aws/aws-sdk-php": "^3.20.1",
         "ext-redis": "*"
     },
@@ -44,7 +45,19 @@
             "ignore": [
                 "PKSA-dxyf-6n16-t87m",
                 "PKSA-n3s6-289w-qtqb",
-                "PKSA-stsw-jsf7-f6vs"
+                "PKSA-stsw-jsf7-f6vs",
+                "PKSA-8qx3-n5y5-vvnd",
+                "PKSA-w7xr-vk7n-rstm",
+                "PKSA-dpt9-7cmv-dk65",
+                "PKSA-7ywf-hktb-jkn9",
+                "PKSA-ckwp-rt7t-c46m",
+                "PKSA-4npr-btr6-zhny",
+                "PKSA-njrm-6dtg-m2pc",
+                "PKSA-vhvj-tvg4-96jj",
+                "PKSA-nrj3-r2wg-yt8b",
+                "PKSA-985r-hryy-555b",
+                "PKSA-rqc2-tcc6-nc79",
+                "PKSA-fndg-qryc-dyc9"
             ]
         }
     },

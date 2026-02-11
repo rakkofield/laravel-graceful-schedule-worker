@@ -6,6 +6,8 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Providers;
 
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\TestConsoleKernel;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\TestExceptionHandler;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
@@ -13,9 +15,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunction
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 
 /**
- * ServiceProvider boot() test using the skeleton Application
- *
- * @group skeleton
+ * ServiceProvider boot() test using Foundation Application
  */
 class ProviderBootIntegrationTest extends TestCase
 {
@@ -32,11 +32,18 @@ class ProviderBootIntegrationTest extends TestCase
         // Save the existing Container instance
         $this->previousContainer = Container::getInstance();
 
-        // Load the skeleton autoloader (to make Application class etc. available)
-        require_once __DIR__ . '/../../../skeleton/vendor/autoload.php';
-
-        // Create and bootstrap the skeleton Application
-        $this->app = require __DIR__ . '/../../../skeleton/bootstrap/app.php';
+        // Create Application with test fixture as basePath
+        $this->app = new \Illuminate\Foundation\Application(
+            __DIR__ . '/../../fixture'
+        );
+        $this->app->singleton(
+            \Illuminate\Contracts\Console\Kernel::class,
+            TestConsoleKernel::class
+        );
+        $this->app->singleton(
+            \Illuminate\Contracts\Debug\ExceptionHandler::class,
+            TestExceptionHandler::class
+        );
         $kernel = $this->app->make(\Illuminate\Contracts\Console\Kernel::class);
         $kernel->bootstrap();
     }

@@ -7,14 +7,14 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\TestConsoleKernel;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\TestExceptionHandler;
 
 /**
  * schedule:run and ClockAwareSchedule compatibility test
  *
- * Bootstraps the skeleton Application and verifies that schedule:run
+ * Creates a Foundation Application and verifies that schedule:run
  * works correctly through ClockAwareSchedule.
- *
- * @group skeleton
  */
 class ScheduleRunCompatibilityIntegrationTest extends TestCase
 {
@@ -31,11 +31,18 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
         // Save the existing Container instance
         $this->previousContainer = Container::getInstance();
 
-        // Load the skeleton autoloader (to make Application class etc. available)
-        require_once __DIR__ . '/../../../skeleton/vendor/autoload.php';
-
-        // Create and bootstrap the skeleton Application
-        $this->app = require __DIR__ . '/../../../skeleton/bootstrap/app.php';
+        // Create Application with test fixture as basePath
+        $this->app = new \Illuminate\Foundation\Application(
+            __DIR__ . '/../../fixture'
+        );
+        $this->app->singleton(
+            \Illuminate\Contracts\Console\Kernel::class,
+            TestConsoleKernel::class
+        );
+        $this->app->singleton(
+            \Illuminate\Contracts\Debug\ExceptionHandler::class,
+            TestExceptionHandler::class
+        );
         $kernel = $this->app->make(\Illuminate\Contracts\Console\Kernel::class);
         $kernel->bootstrap();
     }
