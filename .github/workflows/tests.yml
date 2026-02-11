@@ -17,6 +17,7 @@ jobs:
               - 5001:5000
             env:
               MOTO_PORT: 5000
+              MOTO_ACCOUNT_ID: "000000000000"
             options: >-
               --health-cmd "curl -f http://localhost:5000/moto-api/ || exit 1"
               --health-interval 5s

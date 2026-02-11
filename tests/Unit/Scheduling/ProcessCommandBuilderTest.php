@@ -42,10 +42,8 @@ class ProcessCommandBuilderTest extends TestCase
         $output = ProcessUtils::escapeArgument('/tmp/test.log');
 
         $this->assertStringContainsString('schedule:finish', $command);
-        $this->assertRegExp(
-            '/schedule:finish\s.*>>\s*' . preg_quote($output, '/') . '\s+2>&1/',
-            $command
-        );
+        $afterFinish = substr($command, (int) strpos($command, 'schedule:finish'));
+        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $afterFinish);
     }
 
     /**
@@ -60,7 +58,7 @@ class ProcessCommandBuilderTest extends TestCase
 
         $command = $this->builder->buildCommand($event);
 
-        $this->assertNotRegExp('/\)\s*>\s*\/dev\/null/', $command);
+        $this->assertStringNotContainsString('/dev/null', $command);
     }
 
     /**
@@ -74,7 +72,7 @@ class ProcessCommandBuilderTest extends TestCase
 
         $command = $this->builder->buildCommand($event);
 
-        $this->assertNotRegExp('/\s+&\s*$/', $command);
+        $this->assertStringEndsWith(')', $command);
     }
 
     /**
@@ -91,7 +89,7 @@ class ProcessCommandBuilderTest extends TestCase
 
         $this->assertStringContainsString('schedule:finish', $command);
         $this->assertStringContainsString($devNull, $command);
-        $this->assertNotRegExp('/\s+&\s*$/', $command);
+        $this->assertStringEndsWith(')', $command);
     }
 
     /**

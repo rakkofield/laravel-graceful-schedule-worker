@@ -347,6 +347,122 @@ class FakeApplication extends Container implements Application
         // No-op for fake
     }
 
+    // Laravel 6 compatibility methods
+    // These methods exist in Laravel 6's Application contract but were removed in Laravel 7.
+    // Having extra public methods does not cause errors in Laravel 7 environments.
+
+    /**
+     * Get the path to the environment file directory.
+     *
+     * @return string
+     */
+    public function environmentPath()
+    {
+        return $this->basePath;
+    }
+
+    /**
+     * Determine if the application configuration is cached.
+     *
+     * @return bool
+     */
+    public function configurationIsCached()
+    {
+        return false;
+    }
+
+    /**
+     * Detect the application's current environment.
+     *
+     * @param \Closure $callback
+     * @return string
+     */
+    public function detectEnvironment(\Closure $callback)
+    {
+        return $this->environment;
+    }
+
+    /**
+     * Get the environment file the application is using.
+     *
+     * @return string
+     */
+    public function environmentFile()
+    {
+        return '.env';
+    }
+
+    /**
+     * Get the fully qualified path to the environment file.
+     *
+     * @return string
+     */
+    public function environmentFilePath()
+    {
+        return $this->basePath . '/.env';
+    }
+
+    /**
+     * Get the path to the configuration cache file.
+     *
+     * @return string
+     */
+    public function getCachedConfigPath()
+    {
+        return $this->basePath('bootstrap/cache/config.php');
+    }
+
+    /**
+     * Get the path to the cached services.php file.
+     *
+     * @return string
+     */
+    public function getCachedServicesPath()
+    {
+        return $this->basePath('bootstrap/cache/services.php');
+    }
+
+    /**
+     * Get the path to the cached packages.php file.
+     *
+     * @return string
+     */
+    public function getCachedPackagesPath()
+    {
+        return $this->basePath('bootstrap/cache/packages.php');
+    }
+
+    /**
+     * Get the path to the routes cache file.
+     *
+     * @return string
+     */
+    public function getCachedRoutesPath()
+    {
+        return $this->basePath('bootstrap/cache/routes.php');
+    }
+
+    /**
+     * Set the environment file to be loaded during bootstrapping.
+     *
+     * @param string $file
+     * @return $this
+     */
+    public function loadEnvironmentFrom($file)
+    {
+        return $this;
+    }
+
+    /**
+     * Determine if the application routes are cached.
+     *
+     * @return bool
+     */
+    public function routesAreCached()
+    {
+        return false;
+    }
+
     // Test helper methods
 
     /**

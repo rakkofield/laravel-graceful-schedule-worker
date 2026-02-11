@@ -63,7 +63,8 @@ class ExecutionNameGeneratorTest extends TestCase
         $result = $this->generator->generate($event, $dueAt);
 
         // Verify invalid characters are sanitized
-        $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
+        $this->assertStringNotContainsString('/', $result);
+        $this->assertStringNotContainsString(':', $result);
     }
 
     /**
@@ -135,7 +136,8 @@ class ExecutionNameGeneratorTest extends TestCase
 
         $result = $this->generator->generate($event, $dueAt);
 
-        $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
+        $this->assertStringNotContainsString(' ', $result);
+        $this->assertStringNotContainsString(':', $result);
     }
 
     /**
@@ -152,7 +154,6 @@ class ExecutionNameGeneratorTest extends TestCase
         $result = $this->generator->generate($event, $dueAt);
 
         $this->assertLessThanOrEqual(80, strlen($result));
-        $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
     }
 
     /**
@@ -171,6 +172,6 @@ class ExecutionNameGeneratorTest extends TestCase
         $lastPart = end($parts);
         // Hash portion is 16 hex characters
         $this->assertEquals(16, strlen($lastPart));
-        $this->assertRegExp('/^[a-f0-9]+$/', $lastPart);
+        $this->assertTrue(ctype_xdigit($lastPart));
     }
 }

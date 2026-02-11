@@ -210,7 +210,7 @@ class ClockAwareEventTest extends TestCase
 
         $command = $event->buildProcessCommand();
 
-        $this->assertNotRegExp('/\s+&\s*$/', $command);
+        $this->assertStringEndsWith(')', $command);
     }
 
     /**
