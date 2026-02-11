@@ -43,11 +43,6 @@ jobs:
                 exclude:
                     - php: 7.2
                       phpunit: 9.6
-                include:
-                    - php: 7.2
-                      phpunit-exclude-group: '--exclude-group requires-php74-handler'
-                    - php: 7.3
-                      phpunit-exclude-group: '--exclude-group requires-php74-handler'
         name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - PHPUnit ${{ matrix.phpunit }} - ${{ matrix.stability }}
         steps:
             - name: Checkout code
@@ -88,4 +83,4 @@ jobs:
               run: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
 
             - name: Execute tests
-              run: vendor/bin/phpunit ${{ matrix.phpunit-exclude-group }}
+              run: vendor/bin/phpunit
