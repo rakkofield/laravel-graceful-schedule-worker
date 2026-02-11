@@ -309,27 +309,26 @@ class LocalDispatcherTest extends TestCase
      */
     public function testStopAllStopsAllRunningProcesses(): void
     {
-        $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.1);
 
-        // Dispatch multiple processes (background)
-        $event1 = $this->createEvent('sleep 10');
-        $event1->runInBackground = true;
-        $result1 = $dispatcher->dispatchEvent($event1, $this->app, $this->dueAt);
+        $proc1 = new StubProcess(true);
+        $proc1->setTerminateOnSignal(true);
+        $proc2 = new StubProcess(true);
+        $proc2->setTerminateOnSignal(true);
 
-        $event2 = $this->createEvent('sleep 10');
-        $event2->runInBackground = true;
-        $result2 = $dispatcher->dispatchEvent($event2, $this->app, $this->dueAt);
+        $dispatcher->addRunningProcess($this->createStubResult($proc1, 'event1'));
+        $dispatcher->addRunningProcess($this->createStubResult($proc2, 'event2'));
 
         // Verify both are running
-        $this->assertTrue($result1->isRunning());
-        $this->assertTrue($result2->isRunning());
+        $this->assertTrue($proc1->isRunning());
+        $this->assertTrue($proc2->isRunning());
 
         // Call stopAll
         $dispatcher->stopAll();
 
         // Verify both are stopped
-        $this->assertFalse($result1->isRunning());
-        $this->assertFalse($result2->isRunning());
+        $this->assertFalse($proc1->isRunning());
+        $this->assertFalse($proc2->isRunning());
     }
 
     /**
