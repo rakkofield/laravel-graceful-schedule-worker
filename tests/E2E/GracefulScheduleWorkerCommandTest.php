@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\E2E;
 
-use Illuminate\Console\Application;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\PhpExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
@@ -40,7 +40,7 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
         while (time() - $startTime < self::MAX_WAIT_SECONDS) {
             $stdout .= $process->getIncrementalOutput();
 
-            if (str_contains($stdout, $expectedOutput)) {
+            if (strpos($stdout, $expectedOutput) !== false) {
                 return $stdout;
             }
 
@@ -60,8 +60,8 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
      */
     public function testGracefulShutdownStopsGracefullyOnSigterm(): void
     {
-        $command = Application::formatCommandString('schedule:graceful-work');
-        $process = Process::fromShellCommandline($command, self::SKELETON_PATH);
+        $phpBinary = (new PhpExecutableFinder())->find(false);
+        $process = new Process([$phpBinary, 'artisan', 'schedule:graceful-work'], self::SKELETON_PATH);
 
         $process->start();
 
