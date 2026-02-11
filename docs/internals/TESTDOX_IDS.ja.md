@@ -72,6 +72,7 @@
 | テストファイル | Prefix | テスト数 |
 |---|---|---|
 | GracefulScheduleWorkerCommandTest | `E2E` | 1 |
+| BackgroundCommandOutputTest | `E2E` | 1 |
 
 ## TI プレフィックスの番号範囲
 

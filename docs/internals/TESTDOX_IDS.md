@@ -73,6 +73,7 @@
 | Test File | Prefix | Test Count |
 |---|---|---|
 | GracefulScheduleWorkerCommandTest | `E2E` | 1 |
+| BackgroundCommandOutputTest | `E2E` | 1 |
 
 ## TI Prefix Number Ranges
 

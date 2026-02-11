@@ -5,3 +5,5 @@
 /coverage/
 tools/vendor/
 .claude.local.md
+tests/tmp/*
+!tests/tmp/.gitkeep
