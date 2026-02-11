@@ -430,14 +430,8 @@ class LocalDispatcherTest extends TestCase
     {
         $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
 
-        // Process that throws on signal() (anonymous class extending StubProcess)
-        $throwingProc = new class (true) extends StubProcess {
-            public function signal(int $signal): void
-            {
-                parent::signal($signal);
-                throw new \RuntimeException('Signal failed');
-            }
-        };
+        $throwingProc = new StubProcess(true);
+        $throwingProc->willThrowOnSignal(new \RuntimeException('Signal failed'));
 
         $normalProc = new StubProcess(true);
         $normalProc->setTerminateOnSignal(true);

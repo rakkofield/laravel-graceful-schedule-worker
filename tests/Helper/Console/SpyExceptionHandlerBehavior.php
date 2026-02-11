@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
-use Illuminate\Contracts\Debug\ExceptionHandler;
-use Symfony\Component\Console\Output\OutputInterface;
-
-class SpyExceptionHandler implements ExceptionHandler
+/**
+ * Common logic for SpyExceptionHandler (version-specific classes use this trait).
+ */
+trait SpyExceptionHandlerBehavior
 {
     /** @var \Throwable[] */
     private $reported = [];
@@ -43,46 +43,15 @@ class SpyExceptionHandler implements ExceptionHandler
     }
 
     /**
-     * {@inheritdoc}
+     * @param \Throwable $e
+     * @return void
      */
-    public function report(\Throwable $e)
+    protected function doReport($e): void
     {
         $this->reported[] = $e;
 
         if ($this->throwOnReport !== null) {
             throw $this->throwOnReport;
         }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function shouldReport(\Throwable $e)
-    {
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @param \Symfony\Component\HttpFoundation\Request $request
-     * @param \Throwable $e
-     * @return \Symfony\Component\HttpFoundation\Response
-     */
-    public function render($request, \Throwable $e)
-    {
-        throw $e;
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @param OutputInterface $output
-     * @param \Throwable $e
-     * @return void
-     */
-    public function renderForConsole($output, \Throwable $e)
-    {
-        throw $e;
     }
 }
