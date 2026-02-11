@@ -8,11 +8,14 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
-/**
- * @group requires-php74-handler
- */
 class LegacyExceptionReporterTest extends TestCase
 {
+    public static function setUpBeforeClass(): void
+    {
+        if (version_compare(\Illuminate\Foundation\Application::VERSION, '7.0.0', '>=')) {
+            self::markTestSkipped('LegacyExceptionReporter is used only on Laravel 6.');
+        }
+    }
     /**
      * @testdox LER.1 Delegates Exception as-is to handler
      */
