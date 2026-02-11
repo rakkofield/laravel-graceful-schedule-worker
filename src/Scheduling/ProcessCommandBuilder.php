@@ -36,7 +36,7 @@ class ProcessCommandBuilder extends CommandBuilder
         return $this->ensureCorrectUser(
             $event,
             '(' . $event->command . $redirect . $output . ' 2>&1 ; '
-            . $finished . ' "$?"' . $redirect . $output . ' 2>&1)'
+            . $finished . ' "$?" >> ' . $output . ' 2>&1)'
         );
     }
 }

@@ -93,6 +93,28 @@ class ProcessCommandBuilderTest extends TestCase
     }
 
     /**
+     * @testdox PCB.6 Unix: schedule:finish always uses append redirect even when sendOutputTo is used
+     */
+    public function testScheduleFinishUsesAppendRedirectWithSendOutputTo(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+        $event->sendOutputTo('/tmp/test.log');
+
+        $command = $this->builder->buildCommand($event);
+        $output = ProcessUtils::escapeArgument('/tmp/test.log');
+
+        // Main command should use > (overwrite)
+        $beforeFinish = substr($command, 0, (int) strpos($command, 'schedule:finish'));
+        $this->assertStringContainsString('> ' . $output, $beforeFinish);
+
+        // schedule:finish should always use >> (append) to avoid overwriting main command output
+        $afterFinish = substr($command, (int) strpos($command, 'schedule:finish'));
+        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $afterFinish);
+    }
+
+    /**
      * @testdox PCB.5 Unix: wraps with sudo -u when user is set
      */
     public function testWrapsWithSudoWhenUserIsSet(): void

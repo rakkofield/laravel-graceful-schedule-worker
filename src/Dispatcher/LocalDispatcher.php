@@ -93,6 +93,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     $fullCommand = preg_replace('/\s+&\s*$/', '', $fullCommand) ?? $fullCommand;
                 }
                 $process = Process::fromShellCommandline($fullCommand, $this->basePath);
+                $process->setTimeout(null);
                 $process->start();
 
                 $result = new StartedLocalDispatchResult($process, $identifier, $fullCommand, new DateTimeImmutable());
