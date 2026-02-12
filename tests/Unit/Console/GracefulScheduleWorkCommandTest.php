@@ -17,6 +17,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\StubThrowingOrchestrator;
@@ -58,16 +59,6 @@ class GracefulScheduleWorkCommandTest extends TestCase
     }
 
     /**
-     * @return Application&\PHPUnit\Framework\MockObject\MockObject
-     */
-    private function createMockApplication(): Application
-    {
-        /** @var Application&\PHPUnit\Framework\MockObject\MockObject $app */
-        $app = $this->createMock(Application::class);
-        return $app;
-    }
-
-    /**
      * @testdox GC.1 Outputs running message when started
      */
     public function testOutputsRunningMessageWhenStarted(): void
@@ -80,13 +71,13 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $logger = new NullLogger();
         $orchestrator = new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, new NullSleeper());
 
-        $mockApp = $this->createMockApplication();
-        $this->container->instance(Application::class, $mockApp);
+        $app = new FakeApplication();
+        $this->container->instance(Application::class, $app);
         $this->container->instance(ScheduleOrchestratorInterface::class, $orchestrator);
         $this->container->instance(Schedule::class, $schedule);
 
         $command = new GracefulScheduleWorkCommand();
-        $command->setLaravel($mockApp);
+        $command->setLaravel($app);
 
         // The command runs indefinitely, so we verify it can be instantiated and has correct signature
         $this->assertSame('schedule:graceful-work', $command->getName());
@@ -103,10 +94,10 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
         $schedule = new ClockAwareSchedule($clock);
 
-        $mockApp = $this->createMockApplication();
+        $app = new FakeApplication();
 
         $command = new GracefulScheduleWorkCommand();
-        $command->setLaravel($mockApp);
+        $command->setLaravel($app);
         $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
 
         $exitCode = $command->handle($orchestrator, $schedule, $reporter);
@@ -127,10 +118,10 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
         $schedule = new ClockAwareSchedule($clock);
 
-        $mockApp = $this->createMockApplication();
+        $app = new FakeApplication();
 
         $command = new GracefulScheduleWorkCommand();
-        $command->setLaravel($mockApp);
+        $command->setLaravel($app);
         $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
 
         $exitCode = $command->handle($orchestrator, $schedule, $reporter);
@@ -151,10 +142,10 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
         $schedule = new ClockAwareSchedule($clock);
 
-        $mockApp = $this->createMockApplication();
+        $app = new FakeApplication();
 
         $command = new GracefulScheduleWorkCommand();
-        $command->setLaravel($mockApp);
+        $command->setLaravel($app);
         $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
 
         $exitCode = $command->handle($orchestrator, $schedule, $reporter);
@@ -179,10 +170,10 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
         $schedule = new ClockAwareSchedule($clock);
 
-        $mockApp = $this->createMockApplication();
+        $app = new FakeApplication();
 
         $command = new GracefulScheduleWorkCommand();
-        $command->setLaravel($mockApp);
+        $command->setLaravel($app);
         $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
 
         // Simulate shutdown to stop the loop immediately
