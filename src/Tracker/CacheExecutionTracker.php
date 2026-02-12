@@ -215,7 +215,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
      */
     private function dateIntervalToSeconds(DateInterval $interval): int
     {
-        $days = $interval->days !== false ? $interval->days : $interval->d;
+        $days = ($interval->days !== false && $interval->days !== 0) ? $interval->days : $interval->d;
         return ($days * 86400)
             + ($interval->h * 3600)
             + ($interval->i * 60)

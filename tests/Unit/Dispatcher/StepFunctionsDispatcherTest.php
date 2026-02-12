@@ -312,8 +312,7 @@ class StepFunctionsDispatcherTest extends TestCase
         // Throw a plain RuntimeException (not StepFunctionsException)
         $this->client->willThrowCustomException(new \RuntimeException('Database connection lost'));
 
-        // Bug: all Exceptions are caught and converted to FailedResult
-        // Fix: only StepFunctionsException should be caught; others propagate
+        // Only StepFunctionsException is caught; other exceptions propagate
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Database connection lost');
 

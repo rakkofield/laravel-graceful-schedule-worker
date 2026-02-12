@@ -201,7 +201,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                         ]);
                         continue;
                     }
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     $this->logger->warning(
                         '[GracefulScheduleWorker] filtersPass threw exception, skipping event',
                         [
