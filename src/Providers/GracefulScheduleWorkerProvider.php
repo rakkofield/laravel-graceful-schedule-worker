@@ -65,15 +65,6 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
 
         // Register CompositeDispatcher (used internally)
         $this->app->singleton(CompositeDispatcher::class, function (Container $app) {
-            // Get config from Container (default: 'local')
-            $defaultType = 'local';
-            if ($app->bound('config')) {
-                /** @var ConfigRepository $config */
-                $config = $app->make('config');
-                /** @var string $defaultType */
-                $defaultType = $config->get('graceful-scheduler.dispatch', 'local');
-            }
-
             /** @var LocalDispatcher $localDispatcher */
             $localDispatcher = $app->make(LocalDispatcher::class);
 
@@ -98,7 +89,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var \Psr\Log\LoggerInterface $logger */
             $logger = $app->make('log');
 
-            return new CompositeDispatcher($dispatchers, $defaultType, $logger);
+            return new CompositeDispatcher($dispatchers, $logger);
         });
 
         // Register TrackingDispatcher as ScheduleDispatcherInterface

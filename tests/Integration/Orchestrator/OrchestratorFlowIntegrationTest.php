@@ -191,7 +191,6 @@ class OrchestratorFlowIntegrationTest extends TestCase
 
         $composite = new CompositeDispatcher(
             ['local' => $localDispatcher, 'stepfunctions' => $sfnDispatcher],
-            'local',
             $this->logger
         );
         $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger);
@@ -298,7 +297,6 @@ class OrchestratorFlowIntegrationTest extends TestCase
 
         $composite = new CompositeDispatcher(
             ['local' => $localDispatcher, 'stepfunctions' => $sfnDispatcher],
-            'local',
             $this->logger
         );
         $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger);

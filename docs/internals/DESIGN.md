@@ -907,7 +907,7 @@ $this->app->singleton(CompositeDispatcher::class, function ($app) {
             'local' => $app->make(LocalDispatcher::class),
             'stepfunctions' => $app->make(StepFunctionsDispatcher::class),
         ],
-        config('graceful-scheduler.dispatch', 'local')
+        $app->make('log')
     );
 });
 

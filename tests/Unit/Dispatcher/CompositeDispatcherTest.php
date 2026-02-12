@@ -85,7 +85,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -101,9 +100,9 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.2 Uses default when no event setting is specified
+     * @testdox CD.2 Plain Event always uses local dispatcher
      */
-    public function testUsesDefaultWhenNoEventSetting(): void
+    public function testPlainEventAlwaysUsesLocalDispatcher(): void
     {
         $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
         $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
@@ -116,7 +115,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -132,9 +130,9 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.3 Uses default when dispatcherType is null
+     * @testdox CD.3 ClockAwareEvent uses its own dispatcherType
      */
-    public function testUsesDefaultWhenDispatcherTypeIsNull(): void
+    public function testClockAwareEventUsesOwnDispatcherType(): void
     {
         $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
         $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
@@ -147,7 +145,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -172,7 +169,6 @@ class CompositeDispatcherTest extends TestCase
 
         $dispatcher = new CompositeDispatcher(
             ['local' => $localDispatcher],
-            'local',
             $this->logger
         );
 
@@ -185,16 +181,15 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.5 Receives default type via constructor
+     * @testdox CD.5 Constructor takes dispatchers and logger only
      */
-    public function testReceivesDefaultTypeViaConstructor(): void
+    public function testConstructorTakesDispatchersAndLoggerOnly(): void
     {
         $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
         $localDispatcher = new FakeDispatcher($localResult);
 
         $dispatcher = new CompositeDispatcher(
             ['local' => $localDispatcher],
-            'local',
             $this->logger
         );
 
@@ -213,27 +208,7 @@ class CompositeDispatcherTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Dispatchers array cannot be empty');
 
-        new CompositeDispatcher([], 'local', $this->logger);
-    }
-
-    /**
-     * @testdox CD.7 Throws exception when default type is not found in dispatchers
-     */
-    public function testThrowsWhenDefaultTypeNotInDispatchers(): void
-    {
-        $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
-        $localDispatcher = new FakeDispatcher($localResult);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage(
-            "Default dispatcher type 'nonexistent' not found in dispatchers. Available types: local"
-        );
-
-        new CompositeDispatcher(
-            ['local' => $localDispatcher],
-            'nonexistent',
-            $this->logger
-        );
+        new CompositeDispatcher([], $this->logger);
     }
 
     /**
@@ -252,7 +227,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -278,7 +252,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $localDispatcher,
                 'stepfunctions' => $sfnDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -305,7 +278,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $throwingDispatcher,
                 'stepfunctions' => $normalDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -334,7 +306,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $throwingDispatcher,
                 'stepfunctions' => $normalDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -364,7 +335,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $throwingDispatcher,
                 'stepfunctions' => $normalDispatcher,
             ],
-            'local',
             $logger
         );
 
@@ -395,7 +365,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $throwingDispatcher,
                 'stepfunctions' => $normalDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -424,7 +393,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $throwingDispatcher,
                 'stepfunctions' => $normalDispatcher,
             ],
-            'local',
             $this->logger
         );
 
@@ -454,7 +422,6 @@ class CompositeDispatcherTest extends TestCase
                 'local' => $throwingDispatcher,
                 'stepfunctions' => $normalDispatcher,
             ],
-            'local',
             $logger
         );
 

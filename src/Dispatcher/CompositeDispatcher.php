@@ -19,33 +19,21 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /** @var array<string, ScheduleDispatcherInterface> */
     private $dispatchers;
 
-    /** @var string Injected via DI (config is only accessed in ServiceProvider) */
-    private $defaultType;
-
     /** @var LoggerInterface */
     private $logger;
 
     /**
      * @param array<string, ScheduleDispatcherInterface> $dispatchers
-     * @param string $defaultType
      * @param LoggerInterface $logger Logger
-     * @throws \InvalidArgumentException If dispatchers is empty or defaultType does not exist
+     * @throws \InvalidArgumentException If dispatchers is empty
      */
-    public function __construct(array $dispatchers, string $defaultType, LoggerInterface $logger)
+    public function __construct(array $dispatchers, LoggerInterface $logger)
     {
         if (empty($dispatchers)) {
             throw new \InvalidArgumentException('Dispatchers array cannot be empty');
         }
 
-        if (!isset($dispatchers[$defaultType])) {
-            $availableTypes = implode(', ', array_keys($dispatchers));
-            throw new \InvalidArgumentException(
-                "Default dispatcher type '{$defaultType}' not found in dispatchers. Available types: {$availableTypes}"
-            );
-        }
-
         $this->dispatchers = $dispatchers;
-        $this->defaultType = $defaultType;
         $this->logger = $logger;
     }
 
@@ -74,6 +62,9 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /**
      * Resolve the dispatcher type to use from the event.
      *
+     * ClockAwareEvent carries its own dispatcherType (set via dispatchVia() or
+     * inherited from the schedule's default). Plain Events always use 'local'.
+     *
      * @param Event $event
      * @return string
      */
@@ -82,7 +73,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
         if ($event instanceof ClockAwareEvent) {
             return $event->getDispatcherType();
         }
-        return $this->defaultType;
+        return 'local';
     }
 
     /**
