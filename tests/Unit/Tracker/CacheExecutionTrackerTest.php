@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use DateTimeImmutable;
-use Illuminate\Console\Scheduling\Event;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -48,21 +47,13 @@ class CacheExecutionTrackerTest extends TestCase
 
     /**
      * @param string $command
-     * @return Event
-     */
-    private function createEvent(string $command): Event
-    {
-        return new Event($this->mutex, $command);
-    }
-
-    /**
-     * @param string $command
-     * @param ClockInterface $clock
+     * @param ClockInterface|null $clock
      * @return ClockAwareEvent
      */
-    private function createClockAwareEvent(string $command, ClockInterface $clock): ClockAwareEvent
+    private function createEvent(string $command, ClockInterface $clock = null): ClockAwareEvent
     {
-        return new ClockAwareEvent($this->mutex, $command, $clock);
+        $defaultClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        return new ClockAwareEvent($this->mutex, $command, $clock ?? $defaultClock);
     }
 
     /**
@@ -171,7 +162,7 @@ class CacheExecutionTrackerTest extends TestCase
 
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 14:35:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $logger);
-        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event = $this->createEvent('php artisan test:task', $clock);
         $event->cron('0 * * * *'); // every hour at :00
         $event->withGracePeriod(30); // 30 minutes
 
@@ -194,7 +185,7 @@ class CacheExecutionTrackerTest extends TestCase
     {
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 11:30:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
-        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event = $this->createEvent('php artisan test:task', $clock);
         $event->cron('0 * * * *'); // every hour at :00
         $event->withGracePeriod(120); // 2 hours
 
@@ -286,13 +277,13 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox CT.13 markExecuted uses grace period for TTL calculation with ClockAwareEvent
+     * @testdox CT.13 markExecuted uses grace period for TTL calculation
      */
     public function testMarkExecutedUsesGracePeriodForTtl(): void
     {
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 10:00:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
-        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event = $this->createEvent('php artisan test:task', $clock);
         $event->withGracePeriod(120); // 2 hours = 7200 seconds
 
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -304,27 +295,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox CT.14 getMissedDueIfRecoverable works with non-ClockAwareEvent (no grace period check)
-     */
-    public function testGetMissedDueIfRecoverableWorksWithNonClockAwareEvent(): void
-    {
-        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
-        $event = $this->createEvent('php artisan test:task');
-        $event->cron('0 * * * *'); // every hour at :00
-
-        // Recorded execution at 10:00
-        $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
-
-        // Check at 14:05 (plain Event has no grace period check)
-        $now = new DateTimeImmutable('2024-01-15 14:05:00');
-        $result = $tracker->getMissedDueIfRecoverable($event, $now);
-
-        // Plain Event has no grace period check, so missedDue is returned
-        $this->assertNotNull($result);
-    }
-
-    /**
-     * @testdox CT.15 getMissedDueIfRecoverable returns missedDue when ClockAwareEvent has no gracePeriod set
+     * @testdox CT.14 getMissedDueIfRecoverable returns missedDue when no gracePeriod set
      */
     public function testGetMissedDueIfRecoverableReturnsMissedDueWhenNoGracePeriod(): void
     {
@@ -332,7 +303,7 @@ class CacheExecutionTrackerTest extends TestCase
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
 
         // Create ClockAwareEvent without calling withGracePeriod()
-        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event = $this->createEvent('php artisan test:task', $clock);
         $event->cron('0 * * * *'); // every hour at :00
 
         // Recorded execution at 10:00
@@ -348,13 +319,13 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox CT.16 Grace period deadline is calculated from missedDue, not lastExecutedDue
+     * @testdox CT.15 Grace period deadline is calculated from missedDue, not lastExecutedDue
      */
     public function testGracePeriodDeadlineUsedMissedDueNotLastExecutedDue(): void
     {
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 03:15:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
-        $event = $this->createClockAwareEvent('php artisan test:task', $clock);
+        $event = $this->createEvent('php artisan test:task', $clock);
         $event->cron('0 3 * * *'); // daily at 03:00
         $event->withGracePeriod(30); // 30 minutes
 
@@ -374,7 +345,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox CT.17 dateIntervalToSeconds handles days from DateInterval constructor
+     * @testdox CT.16 dateIntervalToSeconds handles days from DateInterval constructor
      */
     public function testDateIntervalToSecondsHandlesDaysFromConstructor(): void
     {

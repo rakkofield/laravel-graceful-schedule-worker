@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
 use DateTimeImmutable;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -69,12 +68,12 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->eventMutex = new FakeEventMutex();
         $this->schedulingMutex = new FakeSchedulingMutex();
 
-        $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
-        $this->dispatcher = new FakeDispatcher($defaultResult);
-        $this->schedule = new SpySchedule($this->eventMutex, $this->schedulingMutex);
-        $this->app = new FakeApplication();
         // Fix time to 12:00:00 (seconds at 0)
         $this->clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
+        $this->dispatcher = new FakeDispatcher($defaultResult);
+        $this->schedule = new SpySchedule($this->eventMutex, $this->schedulingMutex, $this->clock);
+        $this->app = new FakeApplication();
         $this->logger = new NullLogger();
         $this->sleeper = new NullSleeper();
     }
@@ -87,18 +86,9 @@ class DefaultScheduleOrchestratorTest extends TestCase
 
     /**
      * @param string $command
-     * @return Event
-     */
-    private function createEvent(string $command): Event
-    {
-        return new Event($this->eventMutex, $command);
-    }
-
-    /**
-     * @param string $command
      * @return ClockAwareEvent
      */
-    private function createClockAwareEvent(string $command): ClockAwareEvent
+    private function createEvent(string $command): ClockAwareEvent
     {
         return new ClockAwareEvent($this->eventMutex, $command, $this->clock);
     }
@@ -344,7 +334,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $tracker = new FakeExecutionTracker();
 
         // Create a recoverable event that is not due
-        $event = $this->createClockAwareEvent('echo test');
+        $event = $this->createEvent('echo test');
         $event->cron('0 * * * *'); // Every hour at minute 0
         $event->enableRecovery();  // Enable recovery
 
@@ -379,7 +369,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $tracker = new FakeExecutionTracker();
 
         // Create a recoverable event
-        $event = $this->createClockAwareEvent('echo test');
+        $event = $this->createEvent('echo test');
         $event->cron('0 * * * *'); // Every hour at minute 0
         $event->enableRecovery();
 
@@ -407,7 +397,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $tracker = new FakeExecutionTracker();
 
         // Non-recoverable event
-        $event = $this->createClockAwareEvent('echo test');
+        $event = $this->createEvent('echo test');
         $event->cron('0 * * * *'); // Every hour at minute 0
         // Do not call enableRecovery()
 
@@ -436,7 +426,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $tracker = new FakeExecutionTracker();
 
         // Set up an event eligible for recovery
-        $event = $this->createClockAwareEvent('echo test');
+        $event = $this->createEvent('echo test');
         $event->cron('0 * * * *');
         $event->enableRecovery();
 
@@ -576,7 +566,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
     {
         $tracker = new FakeExecutionTracker();
 
-        $event = $this->createClockAwareEvent('echo test');
+        $event = $this->createEvent('echo test');
         $event->cron('0 * * * *');
         $event->enableRecovery();
         // Set when(false) -> filtersPass returns false
@@ -635,7 +625,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
      */
     public function testFiltersPassWithClosureCondition(): void
     {
-        $event = $this->createClockAwareEvent('echo test');
+        $event = $this->createEvent('echo test');
         $event->everyMinute();
         $event->when(function () {
             return false;
@@ -656,13 +646,13 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $tracker = new FakeExecutionTracker();
 
         // Event 1: getMissedDueIfRecoverable throws
-        $event1 = $this->createClockAwareEvent('echo event1');
+        $event1 = $this->createEvent('echo event1');
         $event1->cron('0 * * * *');
         $event1->enableRecovery();
         $tracker->setRecoverableException($event1->mutexName(), new \RuntimeException('cron parse error'));
 
         // Event 2: normal recovery
-        $event2 = $this->createClockAwareEvent('echo event2');
+        $event2 = $this->createEvent('echo event2');
         $event2->cron('0 * * * *');
         $event2->enableRecovery();
         $missedDue = new DateTimeImmutable('2024-01-15 11:00:00');
@@ -687,6 +677,20 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->assertCount(1, $warningLogs);
         $this->assertStringContainsString('Failed to check/recover missed event', $warningLogs[0]['message']);
         $this->assertSame('cron parse error', $warningLogs[0]['context']['error']);
+    }
+
+    /**
+     * @testdox DO.26 evaluateAt is always called during dispatch
+     */
+    public function testEvaluateAtIsAlwaysCalledDuringDispatch(): void
+    {
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        $orchestrator = $this->createOrchestrator();
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
+
+        $this->assertSame(1, $this->schedule->getEvaluateAtCallCount());
     }
 
     /**

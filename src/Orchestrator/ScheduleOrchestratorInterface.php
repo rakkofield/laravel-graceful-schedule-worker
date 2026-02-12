@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 interface ScheduleOrchestratorInterface
 {
     /**
      * Orchestrate and execute scheduled tasks.
      *
-     * @param Schedule $schedule Laravel schedule object
+     * @param ClockAwareSchedule $schedule Schedule object
      * @param Application $app Laravel application instance
      * @param callable $shouldContinue Function to determine whether to continue execution
      * @return bool Whether execution was successful
      */
-    public function run(Schedule $schedule, Application $app, callable $shouldContinue): bool;
+    public function run(ClockAwareSchedule $schedule, Application $app, callable $shouldContinue): bool;
 }

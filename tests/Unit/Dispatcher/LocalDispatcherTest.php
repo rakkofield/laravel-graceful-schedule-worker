@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
@@ -57,14 +56,16 @@ class LocalDispatcherTest extends TestCase
         parent::tearDown();
     }
 
-    private function createEvent(string $command): Event
+    private function createEvent(string $command): ClockAwareEvent
     {
-        return new Event($this->mutex, $command);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        return new ClockAwareEvent($this->mutex, $command, $clock);
     }
 
     private function createSpyEvent(string $command): SpyCallbackEvent
     {
-        return new SpyCallbackEvent($this->mutex, $command);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        return new SpyCallbackEvent($this->mutex, $command, $clock);
     }
 
     /**

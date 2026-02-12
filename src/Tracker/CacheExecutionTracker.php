@@ -9,7 +9,6 @@ use Cron\FieldFactory;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository;
@@ -75,7 +74,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function markExecuted(Event $event, DateTimeInterface $dueAt): void
+    public function markExecuted(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {
         $key = $this->getLastExecutedKey($event);
         $ttl = $this->calculateTtl($event);
@@ -85,7 +84,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface
+    public function getMissedDueIfRecoverable(ClockAwareEvent $event, DateTimeInterface $now): ?DateTimeInterface
     {
         $lastExecutedDue = $this->getLastExecutedDue($event);
         if ($lastExecutedDue === null) {
@@ -110,19 +109,17 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
             return null; // No missed execution
         }
 
-        // Grace period check (only for ClockAwareEvent)
-        if ($event instanceof ClockAwareEvent) {
-            $gracePeriod = $event->getGracePeriod();
-            if ($gracePeriod !== null) {
-                $deadline = $missedDue->add($gracePeriod);
-                if ($now->getTimestamp() > $deadline->getTimestamp()) {
-                    $this->logger->warning('[GracefulScheduleWorker] Skipping missed event: grace period exceeded', [
-                        'event' => $event->mutexName(),
-                        'missedDue' => $missedDue->format('Y-m-d H:i:s'),
-                        'deadline' => $deadline->format('Y-m-d H:i:s'),
-                    ]);
-                    return null; // Grace period exceeded
-                }
+        // Grace period check
+        $gracePeriod = $event->getGracePeriod();
+        if ($gracePeriod !== null) {
+            $deadline = $missedDue->add($gracePeriod);
+            if ($now->getTimestamp() > $deadline->getTimestamp()) {
+                $this->logger->warning('[GracefulScheduleWorker] Skipping missed event: grace period exceeded', [
+                    'event' => $event->mutexName(),
+                    'missedDue' => $missedDue->format('Y-m-d H:i:s'),
+                    'deadline' => $deadline->format('Y-m-d H:i:s'),
+                ]);
+                return null; // Grace period exceeded
             }
         }
 
@@ -132,7 +129,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool
+    public function acquireLock(ClockAwareEvent $event, DateTimeInterface $dueAt): bool
     {
         $key = $this->getLockKey($event, $dueAt);
         $lock = $this->lockProvider->lock($key, $this->lockTtl);
@@ -148,7 +145,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function releaseLock(Event $event, DateTimeInterface $dueAt): void
+    public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {
         $key = $this->getLockKey($event, $dueAt);
 
@@ -161,10 +158,10 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     /**
      * Get the last executed due time.
      *
-     * @param Event $event Target event
+     * @param ClockAwareEvent $event Target event
      * @return DateTimeImmutable|null Last executed due time (null if never executed)
      */
-    private function getLastExecutedDue(Event $event): ?DateTimeImmutable
+    private function getLastExecutedDue(ClockAwareEvent $event): ?DateTimeImmutable
     {
         $key = $this->getLastExecutedKey($event);
         $timestamp = $this->cache->get($key);
@@ -177,32 +174,32 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @return string
      */
-    private function getLastExecutedKey(Event $event): string
+    private function getLastExecutedKey(ClockAwareEvent $event): string
     {
         return self::PREFIX . 'last:' . $event->mutexName();
     }
 
     /**
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
      * @return string
      */
-    private function getLockKey(Event $event, DateTimeInterface $dueAt): string
+    private function getLockKey(ClockAwareEvent $event, DateTimeInterface $dueAt): string
     {
         return self::PREFIX . 'lock:' . $event->mutexName() . ':' . $dueAt->getTimestamp();
     }
 
     /**
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @return int
      */
-    private function calculateTtl(Event $event): int
+    private function calculateTtl(ClockAwareEvent $event): int
     {
-        if ($event instanceof ClockAwareEvent && $event->getGracePeriod() !== null) {
-            $gracePeriod = $event->getGracePeriod();
+        $gracePeriod = $event->getGracePeriod();
+        if ($gracePeriod !== null) {
             $seconds = $this->dateIntervalToSeconds($gracePeriod);
             return $seconds * 2;
         }

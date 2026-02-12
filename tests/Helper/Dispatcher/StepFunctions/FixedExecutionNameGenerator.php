@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
  * Fixed Execution Name Generator for testing
@@ -29,7 +29,7 @@ class FixedExecutionNameGenerator implements ExecutionNameGeneratorInterface
     /**
      * {@inheritdoc}
      */
-    public function generate(Event $event, DateTimeInterface $dueAt): string
+    public function generate(ClockAwareEvent $event, DateTimeInterface $dueAt): string
     {
         return $this->fixedName;
     }

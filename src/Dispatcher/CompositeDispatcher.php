@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
@@ -40,14 +39,17 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /**
      * Dispatch a single event.
      *
-     * @param Event $event The schedule event to execute
+     * @param ClockAwareEvent $event The schedule event to execute
      * @param Container $container Laravel container instance
      * @param DateTimeInterface $dueAt Scheduled due time
      * @return DispatchResultInterface Dispatch result
      */
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
-        $type = $this->resolveDispatcherType($event);
+    public function dispatchEvent(
+        ClockAwareEvent $event,
+        Container $container,
+        DateTimeInterface $dueAt
+    ): DispatchResultInterface {
+        $type = $event->getDispatcherType();
 
         if (!isset($this->dispatchers[$type])) {
             $availableTypes = implode(', ', array_keys($this->dispatchers));
@@ -57,23 +59,6 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
         }
 
         return $this->dispatchers[$type]->dispatchEvent($event, $container, $dueAt);
-    }
-
-    /**
-     * Resolve the dispatcher type to use from the event.
-     *
-     * ClockAwareEvent carries its own dispatcherType (set via dispatchVia() or
-     * inherited from the schedule's default). Plain Events always use 'local'.
-     *
-     * @param Event $event
-     * @return string
-     */
-    private function resolveDispatcherType(Event $event): string
-    {
-        if ($event instanceof ClockAwareEvent) {
-            return $event->getDispatcherType();
-        }
-        return 'local';
     }
 
     /**

@@ -6,10 +6,10 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use Aws\Sfn\SfnClient;
 use DateTimeImmutable;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
@@ -18,6 +18,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClient
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FixedExecutionNameGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
 /**
@@ -108,9 +109,10 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         }
     }
 
-    private function createEvent(string $command): Event
+    private function createEvent(string $command): ClockAwareEvent
     {
-        return new Event($this->mutex, $command);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        return new ClockAwareEvent($this->mutex, $command, $clock);
     }
 
     private function createDispatcher(

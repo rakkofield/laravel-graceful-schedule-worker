@@ -7,7 +7,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 use DateTimeImmutable;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\Scheduling\EventMutex;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
@@ -63,10 +62,10 @@ class GracefulScheduleWorkCommandTest extends TestCase
      */
     public function testOutputsRunningMessageWhenStarted(): void
     {
-        $schedule = new Schedule();
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
         $fakeResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $dispatcher = new FakeDispatcher($fakeResult);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $tracker = new NullExecutionTracker();
         $logger = new NullLogger();
         $orchestrator = new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, new NullSleeper());
@@ -74,7 +73,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $app = new FakeApplication();
         $this->container->instance(Application::class, $app);
         $this->container->instance(ScheduleOrchestratorInterface::class, $orchestrator);
-        $this->container->instance(Schedule::class, $schedule);
+        $this->container->instance(ClockAwareSchedule::class, $schedule);
 
         $command = new GracefulScheduleWorkCommand();
         $command->setLaravel($app);

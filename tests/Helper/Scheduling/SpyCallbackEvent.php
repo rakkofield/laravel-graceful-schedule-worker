@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Contracts\Container\Container;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 /**
  * Spy class to verify callback methods are called.
  */
-class SpyCallbackEvent extends Event
+class SpyCallbackEvent extends ClockAwareEvent
 {
     /**
      * @var bool
@@ -46,10 +46,11 @@ class SpyCallbackEvent extends Event
     /**
      * @param EventMutex $mutex
      * @param string $command
+     * @param ClockInterface $clock
      */
-    public function __construct(EventMutex $mutex, string $command)
+    public function __construct(EventMutex $mutex, string $command, ClockInterface $clock)
     {
-        parent::__construct($mutex, $command);
+        parent::__construct($mutex, $command, $clock);
     }
 
     /**

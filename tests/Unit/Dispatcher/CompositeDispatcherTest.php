@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
@@ -54,11 +53,6 @@ class CompositeDispatcherTest extends TestCase
         parent::tearDown();
     }
 
-    private function createEvent(string $command): Event
-    {
-        return new Event($this->mutex, $command);
-    }
-
     private function createClockAwareEvent(string $command, ?string $dispatcherType = null): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
@@ -100,9 +94,9 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.2 Plain Event always uses local dispatcher
+     * @testdox CD.2 Default dispatcher type uses local dispatcher
      */
-    public function testPlainEventAlwaysUsesLocalDispatcher(): void
+    public function testDefaultDispatcherTypeUsesLocalDispatcher(): void
     {
         $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
         $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
@@ -118,7 +112,7 @@ class CompositeDispatcherTest extends TestCase
             $this->logger
         );
 
-        $event = $this->createEvent('echo test');
+        $event = $this->createClockAwareEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
@@ -193,7 +187,7 @@ class CompositeDispatcherTest extends TestCase
             $this->logger
         );
 
-        $event = $this->createEvent('echo test');
+        $event = $this->createClockAwareEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 

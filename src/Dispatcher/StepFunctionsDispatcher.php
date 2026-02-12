@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
@@ -16,6 +15,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlr
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
  * Event dispatcher using Step Functions.
@@ -57,8 +57,11 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /**
      * {@inheritdoc}
      */
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
+    public function dispatchEvent(
+        ClockAwareEvent $event,
+        Container $container,
+        DateTimeInterface $dueAt
+    ): DispatchResultInterface {
         $mutexName = $event->mutexName();
         $command = $event->command;
         $executionName = $this->nameGenerator->generate($event, $dueAt);

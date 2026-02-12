@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use DateTimeImmutable;
 use Illuminate\Cache\Repository;
-use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
@@ -68,21 +67,13 @@ class CacheExecutionTrackerRedisTest extends TestCase
 
     /**
      * @param string $command
-     * @return Event
-     */
-    private function createEvent(string $command): Event
-    {
-        return new Event($this->mutex, $command);
-    }
-
-    /**
-     * @param string $command
-     * @param ClockInterface $clock
+     * @param ClockInterface|null $clock
      * @return ClockAwareEvent
      */
-    private function createClockAwareEvent(string $command, ClockInterface $clock): ClockAwareEvent
+    private function createEvent(string $command, ClockInterface $clock = null): ClockAwareEvent
     {
-        return new ClockAwareEvent($this->mutex, $command, $clock);
+        $defaultClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        return new ClockAwareEvent($this->mutex, $command, $clock ?? $defaultClock);
     }
 
     /**
@@ -155,7 +146,7 @@ class CacheExecutionTrackerRedisTest extends TestCase
     {
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 11:05:00'));
         $tracker = $this->createTracker();
-        $event = $this->createClockAwareEvent('php artisan test:redis-missed', $clock);
+        $event = $this->createEvent('php artisan test:redis-missed', $clock);
         $event->cron('0 * * * *'); // every hour at :00
 
         // Recorded execution at 10:00

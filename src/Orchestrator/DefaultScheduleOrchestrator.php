@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
@@ -69,7 +67,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     /**
      * {@inheritdoc}
      */
-    public function run(Schedule $schedule, Application $app, callable $shouldContinue): bool
+    public function run(ClockAwareSchedule $schedule, Application $app, callable $shouldContinue): bool
     {
         $lastExecutionStartedAt = null;
 
@@ -106,13 +104,14 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     /**
      * Recover missed task executions.
      *
-     * @param Schedule $schedule
+     * @param ClockAwareSchedule $schedule
      * @param Application $app
      * @param DateTimeInterface $now
      * @return void
      */
-    private function checkMissedExecutions(Schedule $schedule, Application $app, DateTimeInterface $now): void
+    private function checkMissedExecutions(ClockAwareSchedule $schedule, Application $app, DateTimeInterface $now): void
     {
+        /** @var ClockAwareEvent $event */
         foreach ($schedule->events() as $event) {
             try {
                 if (!$this->isRecoverableEvent($event)) {
@@ -141,23 +140,23 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     /**
      * Check whether the event is recoverable.
      *
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @return bool
      */
-    private function isRecoverableEvent(Event $event): bool
+    private function isRecoverableEvent(ClockAwareEvent $event): bool
     {
-        return $event instanceof ClockAwareEvent && $event->isRecoverable();
+        return $event->isRecoverable();
     }
 
     /**
      * Recover a missed event execution.
      *
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @param Application $app
      * @param DateTimeInterface $missedDue
      * @return void
      */
-    private function recoverMissedEvent(Event $event, Application $app, DateTimeInterface $missedDue): void
+    private function recoverMissedEvent(ClockAwareEvent $event, Application $app, DateTimeInterface $missedDue): void
     {
         $this->logger->info('[GracefulScheduleWorker] Recovering missed event', [
             'event' => $event->mutexName(),
@@ -176,22 +175,21 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     /**
      * Evaluate due events and dispatch them.
      *
-     * For ClockAwareSchedule, freezes the time via evaluateAt() to ensure
+     * Freezes the time via evaluateAt() to ensure
      * dueEvents() and filtersPass() are evaluated at the same time.
-     * For regular Schedule, evaluates without freezing.
      *
-     * @param Schedule $schedule
+     * @param ClockAwareSchedule $schedule
      * @param Application $app
      * @param \DateTimeImmutable $now
      * @return void
      */
     private function evaluateAndDispatch(
-        Schedule $schedule,
+        ClockAwareSchedule $schedule,
         Application $app,
         \DateTimeImmutable $now
     ): void {
         $doEvaluate = function () use ($schedule, $app, $now) {
-            /** @var array<Event> $events */
+            /** @var array<ClockAwareEvent> $events */
             $events = $schedule->dueEvents($app);
             foreach ($events as $event) {
                 try {
@@ -220,10 +218,6 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
             }
         };
 
-        if ($schedule instanceof ClockAwareSchedule) {
-            $schedule->evaluateAt($now, $doEvaluate);
-        } else {
-            $doEvaluate();
-        }
+        $schedule->evaluateAt($now, $doEvaluate);
     }
 }

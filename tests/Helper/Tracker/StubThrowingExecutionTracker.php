@@ -6,7 +6,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use DateTimeInterface;
 use Exception;
-use Illuminate\Console\Scheduling\Event;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
  * ExecutionTrackerInterface Stub that throws an exception on markExecuted()
@@ -27,7 +27,7 @@ class StubThrowingExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function markExecuted(Event $event, DateTimeInterface $dueAt): void
+    public function markExecuted(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {
         throw $this->exception;
     }
@@ -35,7 +35,7 @@ class StubThrowingExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface
+    public function getMissedDueIfRecoverable(ClockAwareEvent $event, DateTimeInterface $now): ?DateTimeInterface
     {
         return null;
     }
@@ -43,7 +43,7 @@ class StubThrowingExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool
+    public function acquireLock(ClockAwareEvent $event, DateTimeInterface $dueAt): bool
     {
         return true;
     }
@@ -51,7 +51,7 @@ class StubThrowingExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function releaseLock(Event $event, DateTimeInterface $dueAt): void
+    public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {
     }
 }

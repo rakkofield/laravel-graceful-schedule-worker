@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispatchResultInterface;
@@ -55,8 +54,11 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     /**
      * {@inheritdoc}
      */
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
+    public function dispatchEvent(
+        ClockAwareEvent $event,
+        Container $container,
+        DateTimeInterface $dueAt
+    ): DispatchResultInterface {
         // 1. Acquire lock (cache connection failure propagates as exception and stops the worker)
         $lockAcquired = $this->tracker->acquireLock($event, $dueAt);
 
@@ -66,16 +68,12 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
                 'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
             ]);
 
-            $dispatcherType = $event instanceof ClockAwareEvent
-                ? $event->getDispatcherType()
-                : 'local';
-
             return new SkippedDispatchResult(
                 $event->mutexName(),
                 (string) $event->command,
                 'lock_not_acquired',
                 new DateTimeImmutable(),
-                $dispatcherType
+                $event->getDispatcherType()
             );
         }
 
@@ -123,13 +121,13 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
      * When adding new DispatchResultInterface subtypes, this method must also be updated.
      *
      * @param DispatchResultInterface $result
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
      * @return void
      */
     private function handleResult(
         DispatchResultInterface $result,
-        Event $event,
+        ClockAwareEvent $event,
         DateTimeInterface $dueAt
     ): void {
         if ($result instanceof StartedDispatchResultInterface) {
@@ -181,12 +179,12 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     /**
      * Handle dispatch failure.
      *
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @param FailedDispatchResultInterface $result
      * @return void
      */
     private function handleDispatchFailure(
-        Event $event,
+        ClockAwareEvent $event,
         FailedDispatchResultInterface $result
     ): void {
         $context = [

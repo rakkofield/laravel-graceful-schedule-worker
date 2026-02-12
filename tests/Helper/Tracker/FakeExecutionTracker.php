@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
  * Fake implementation of ExecutionTrackerInterface
@@ -40,7 +40,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function markExecuted(Event $event, DateTimeInterface $dueAt): void
+    public function markExecuted(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {
         $this->executed[$event->mutexName()] = $dueAt;
     }
@@ -48,7 +48,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface
+    public function getMissedDueIfRecoverable(ClockAwareEvent $event, DateTimeInterface $now): ?DateTimeInterface
     {
         if (isset($this->recoverableExceptions[$event->mutexName()])) {
             throw $this->recoverableExceptions[$event->mutexName()];
@@ -59,7 +59,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool
+    public function acquireLock(ClockAwareEvent $event, DateTimeInterface $dueAt): bool
     {
         $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
 
@@ -79,7 +79,7 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     /**
      * {@inheritdoc}
      */
-    public function releaseLock(Event $event, DateTimeInterface $dueAt): void
+    public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {
         $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
         unset($this->locks[$key]);

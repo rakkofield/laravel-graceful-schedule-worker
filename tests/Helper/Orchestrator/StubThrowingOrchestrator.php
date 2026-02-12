@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class StubThrowingOrchestrator implements ScheduleOrchestratorInterface
 {
@@ -23,7 +23,7 @@ class StubThrowingOrchestrator implements ScheduleOrchestratorInterface
     /**
      * {@inheritdoc}
      */
-    public function run(Schedule $schedule, Application $app, callable $shouldContinue): bool
+    public function run(ClockAwareSchedule $schedule, Application $app, callable $shouldContinue): bool
     {
         throw $this->throwable;
     }

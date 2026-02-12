@@ -70,7 +70,8 @@ class OrchestratorFlowIntegrationTest extends TestCase
 
         $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->innerDispatcher = new FakeDispatcher($defaultResult);
-        $this->schedule = new SpySchedule($this->eventMutex, $schedulingMutex);
+        $defaultClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $this->schedule = new SpySchedule($this->eventMutex, $schedulingMutex, $defaultClock);
         $this->app = new FakeApplication();
     }
 

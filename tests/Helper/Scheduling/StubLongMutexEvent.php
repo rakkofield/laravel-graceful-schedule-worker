@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 /**
  * Event Stub that allows setting mutexName() to an arbitrary value
  */
-class StubLongMutexEvent extends Event
+class StubLongMutexEvent extends ClockAwareEvent
 {
     /** @var string */
     private $customMutexName;
@@ -19,10 +19,11 @@ class StubLongMutexEvent extends Event
      * @param EventMutex $mutex
      * @param string $command
      * @param string $mutexName
+     * @param ClockInterface $clock
      */
-    public function __construct(EventMutex $mutex, string $command, string $mutexName)
+    public function __construct(EventMutex $mutex, string $command, string $mutexName, ClockInterface $clock)
     {
-        parent::__construct($mutex, $command);
+        parent::__construct($mutex, $command, $clock);
         $this->customMutexName = $mutexName;
     }
 

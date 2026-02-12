@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeImmutable;
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
@@ -67,18 +66,20 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      *
      * Respects the Event's runInBackground setting and selects the appropriate execution path.
      * - beforeCallbacks are executed synchronously in the parent process
-     * - runInBackground = true: strips & from buildCommand() and runs async via Process::start()
+     * - runInBackground = true: uses buildProcessCommand() and runs async via Process::start()
      *   (includes schedule:finish, afterCallbacks are executed by the child process)
-     *   Uses buildProcessCommand() for ClockAwareEvent
      * - runInBackground = false: runs synchronously via buildCommand() and calls afterCallbacks directly
      *
-     * @param Event $event The schedule event to execute
+     * @param ClockAwareEvent $event The schedule event to execute
      * @param Container $container Laravel container instance
      * @param DateTimeInterface $dueAt Scheduled due time (unused in LocalDispatcher)
      * @return DispatchResultInterface Dispatch result
      */
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
+    public function dispatchEvent(
+        ClockAwareEvent $event,
+        Container $container,
+        DateTimeInterface $dueAt
+    ): DispatchResultInterface {
         $identifier = $event->mutexName();
 
         try {
@@ -97,13 +98,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
 
             if ($event->runInBackground) {
                 // Background: generate command including schedule:finish, strip &, and run async
-                if ($event instanceof ClockAwareEvent) {
-                    $fullCommand = $event->buildProcessCommand();
-                } else {
-                    $fullCommand = $event->buildCommand();
-                    // Strip trailing & from the built command (buildCommand for non-ClockAwareEvent includes &)
-                    $fullCommand = preg_replace('/\s+&\s*$/', '', $fullCommand) ?? $fullCommand;
-                }
+                $fullCommand = $event->buildProcessCommand();
                 $process = Process::fromShellCommandline($fullCommand, $this->basePath);
                 $process->setTimeout(null);
                 $process->start();

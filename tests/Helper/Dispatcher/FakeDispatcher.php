@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 class FakeDispatcher implements ScheduleDispatcherInterface
 {
     /** @var DispatchResultInterface */
     private $resultToReturn;
 
-    /** @var array<array{event: Event, container: Container, dueAt: DateTimeInterface}> */
+    /** @var array<array{event: ClockAwareEvent, container: Container, dueAt: DateTimeInterface}> */
     private $dispatched = [];
 
     /** @var int */
@@ -34,13 +34,16 @@ class FakeDispatcher implements ScheduleDispatcherInterface
     /**
      * Dispatch an event.
      *
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @param Container $container
      * @param DateTimeInterface $dueAt
      * @return DispatchResultInterface
      */
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
+    public function dispatchEvent(
+        ClockAwareEvent $event,
+        Container $container,
+        DateTimeInterface $dueAt
+    ): DispatchResultInterface {
         $this->dispatched[] = ['event' => $event, 'container' => $container, 'dueAt' => $dueAt];
         return $this->resultToReturn;
     }
@@ -48,7 +51,7 @@ class FakeDispatcher implements ScheduleDispatcherInterface
     /**
      * Get dispatched events.
      *
-     * @return array<array{event: Event, container: Container, dueAt: DateTimeInterface}>
+     * @return array<array{event: ClockAwareEvent, container: Container, dueAt: DateTimeInterface}>
      */
     public function getDispatched(): array
     {

@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use DateTimeImmutable;
-use Illuminate\Console\Scheduling\Event;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\StubLongMutexEvent;
 
@@ -30,11 +31,12 @@ class ExecutionNameGeneratorTest extends TestCase
 
     /**
      * @param string $command
-     * @return Event
+     * @return ClockAwareEvent
      */
-    private function createEvent(string $command): Event
+    private function createEvent(string $command): ClockAwareEvent
     {
-        return new Event($this->mutex, $command);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        return new ClockAwareEvent($this->mutex, $command, $clock);
     }
 
     /**
@@ -148,7 +150,12 @@ class ExecutionNameGeneratorTest extends TestCase
         // Standard Event::mutexName() is always fixed-length (sha1) so never exceeds 80 chars.
         // Use StubLongMutexEvent with a long mutexName to verify the truncation path.
         $longMutex = str_repeat('abcdefghij', 10); // 100 characters
-        $event = new StubLongMutexEvent($this->mutex, 'test', $longMutex);
+        $event = new StubLongMutexEvent(
+            $this->mutex,
+            'test',
+            $longMutex,
+            new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'))
+        );
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
         $result = $this->generator->generate($event, $dueAt);
@@ -162,7 +169,12 @@ class ExecutionNameGeneratorTest extends TestCase
     public function testTruncatedNameContainsHashSuffix(): void
     {
         $longMutex = str_repeat('abcdefghij', 10); // 100 characters
-        $event = new StubLongMutexEvent($this->mutex, 'test', $longMutex);
+        $event = new StubLongMutexEvent(
+            $this->mutex,
+            'test',
+            $longMutex,
+            new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'))
+        );
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
         $result = $this->generator->generate($event, $dueAt);

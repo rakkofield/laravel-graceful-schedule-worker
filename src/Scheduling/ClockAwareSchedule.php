@@ -6,7 +6,6 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateTimeImmutable;
 use Illuminate\Console\Application;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
@@ -23,9 +22,6 @@ class ClockAwareSchedule extends Schedule
     /** @var string */
     protected $defaultDispatcherType;
 
-    /** @var bool When true, exec() generates the parent's Event */
-    private $nativeEventMode = false;
-
     /**
      * @param ClockInterface $clock
      * @param \DateTimeZone|string|null $timezone
@@ -40,31 +36,11 @@ class ClockAwareSchedule extends Schedule
     }
 
     /**
-     * Execute a callback in native events mode.
-     *
-     * command()/exec() calls within the callback will generate the parent's Event.
-     * Since the standard Laravel Event is used instead of ClockAwareEvent,
-     * the clock behavior is unaffected.
-     *
-     * @param callable $callback
-     * @return void
-     */
-    public function withNativeEvents(callable $callback)
-    {
-        $this->nativeEventMode = true;
-        try {
-            $callback();
-        } finally {
-            $this->nativeEventMode = false;
-        }
-    }
-
-    /**
      * Add a new Artisan command event to the schedule.
      *
      * @param string $command
      * @param array<string, mixed> $parameters
-     * @return ClockAwareEvent|Event
+     * @return ClockAwareEvent
      */
     public function command($command, array $parameters = [])
     {
@@ -85,14 +61,10 @@ class ClockAwareSchedule extends Schedule
      *
      * @param string $command
      * @param array<string, mixed> $parameters
-     * @return ClockAwareEvent|Event
+     * @return ClockAwareEvent
      */
     public function exec($command, array $parameters = [])
     {
-        if ($this->nativeEventMode) {
-            return parent::exec($command, $parameters);
-        }
-
         if (count($parameters)) {
             $command .= ' ' . $this->compileParameters($parameters);
         }

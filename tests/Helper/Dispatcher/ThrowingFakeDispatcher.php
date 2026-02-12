@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
  * FakeDispatcher for testing that throws exceptions on cleanup()/stopAll()
@@ -40,13 +40,16 @@ class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
     /**
      * Dispatch an event.
      *
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @param Container $container
      * @param DateTimeInterface $dueAt
      * @return DispatchResultInterface
      */
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
+    public function dispatchEvent(
+        ClockAwareEvent $event,
+        Container $container,
+        DateTimeInterface $dueAt
+    ): DispatchResultInterface {
         return $this->resultToReturn;
     }
 
