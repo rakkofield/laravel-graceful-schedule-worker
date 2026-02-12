@@ -60,48 +60,47 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
     }
 
     /**
-     * @testdox TI.11 schedule:run resolves Schedule::class as ClockAwareSchedule
+     * @testdox TI.11 schedule:run resolves Schedule::class as plain Schedule (not ClockAwareSchedule)
      */
-    public function testScheduleRunResolvesClockAwareSchedule(): void
+    public function testScheduleRunResolvesPlainSchedule(): void
     {
         $schedule = $this->app->make(Schedule::class);
-        $this->assertInstanceOf(ClockAwareSchedule::class, $schedule);
+        $this->assertInstanceOf(Schedule::class, $schedule);
+        $this->assertNotInstanceOf(ClockAwareSchedule::class, $schedule);
     }
 
     /**
-     * @testdox TI.12 schedule() events are native Event and gracefulSchedule() events are ClockAwareEvent
+     * @testdox TI.12 Schedule::class contains only native events (1 event from schedule())
      */
-    public function testEventsAreClockAwareEventInstances(): void
+    public function testScheduleClassContainsOnlyNativeEvents(): void
     {
-        /** @var ClockAwareSchedule $schedule */
+        /** @var Schedule $schedule */
         $schedule = $this->app->make(Schedule::class);
         $events = $schedule->events();
 
-        $this->assertCount(2, $events);
-        // schedule() events (registered first) are native Event
+        $this->assertCount(1, $events);
         $this->assertNotInstanceOf(ClockAwareEvent::class, $events[0]);
-        // gracefulSchedule() events are ClockAwareEvent
-        $this->assertInstanceOf(ClockAwareEvent::class, $events[1]);
     }
 
     /**
-     * @testdox TI.13 dueEvents() returns both native and ClockAwareEvent events as due
+     * @testdox TI.13 dueEvents() on Schedule::class returns native events only
      */
-    public function testDueEventsReturnsEveryMinuteEventAsDue(): void
+    public function testDueEventsReturnsNativeEventsOnly(): void
     {
-        /** @var ClockAwareSchedule $schedule */
+        /** @var Schedule $schedule */
         $schedule = $this->app->make(Schedule::class);
         $dueEvents = $schedule->dueEvents($this->app)->all();
 
-        $this->assertCount(2, $dueEvents);
+        $this->assertCount(1, $dueEvents);
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $dueEvents[0]);
     }
 
     /**
-     * @testdox TI.14 filtersPass() returns true on both native and ClockAwareEvent
+     * @testdox TI.14 filtersPass() returns true on native events from Schedule::class
      */
-    public function testFiltersPassOnDueClockAwareEvent(): void
+    public function testFiltersPassOnNativeEvents(): void
     {
-        /** @var ClockAwareSchedule $schedule */
+        /** @var Schedule $schedule */
         $schedule = $this->app->make(Schedule::class);
         $dueEvents = $schedule->dueEvents($this->app)->all();
 
@@ -126,5 +125,27 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
             'No scheduled commands are ready to run',
             $output
         );
+    }
+
+    /**
+     * @testdox TI.21 ClockAwareSchedule::class resolves to ClockAwareSchedule instance
+     */
+    public function testClockAwareScheduleClassResolvesToClockAwareSchedule(): void
+    {
+        $schedule = $this->app->make(ClockAwareSchedule::class);
+        $this->assertInstanceOf(ClockAwareSchedule::class, $schedule);
+    }
+
+    /**
+     * @testdox TI.22 ClockAwareSchedule::class contains only ClockAwareEvent events
+     */
+    public function testClockAwareScheduleClassContainsOnlyClockAwareEvents(): void
+    {
+        /** @var ClockAwareSchedule $schedule */
+        $schedule = $this->app->make(ClockAwareSchedule::class);
+        $events = $schedule->events();
+
+        $this->assertCount(1, $events);
+        $this->assertInstanceOf(ClockAwareEvent::class, $events[0]);
     }
 }

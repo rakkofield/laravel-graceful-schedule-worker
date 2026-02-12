@@ -10,10 +10,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 /**
  * Fake Kernel for testing the UsesClockAwareSchedule trait
  *
- * Provides stub implementations of ConsoleKernel's $this->app,
- * scheduleTimezone(), and scheduleCache().
+ * Extends StubConsoleKernel so that parent::defineConsoleSchedule() works.
  */
-class FakeKernelWithTrait
+class FakeKernelWithTrait extends StubConsoleKernel
 {
     use UsesClockAwareSchedule {
         defineConsoleSchedule as public;

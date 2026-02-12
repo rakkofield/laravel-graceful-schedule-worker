@@ -40,6 +40,12 @@ class UsesClockAwareScheduleTest extends TestCase
         $this->container->singleton(ClockInterface::class, function () {
             return new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
         });
+
+        $this->container->singleton('config', function () {
+            return new \Illuminate\Config\Repository([
+                'graceful-scheduler' => ['dispatch' => 'local'],
+            ]);
+        });
     }
 
     protected function tearDown(): void
@@ -49,16 +55,17 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox UCS.1 defineConsoleSchedule registers ClockAwareSchedule as Schedule singleton
+     * @testdox UCS.1 defineConsoleSchedule registers plain Schedule as Schedule::class singleton
      */
-    public function testDefineConsoleScheduleRegistersClockAwareSchedule(): void
+    public function testDefineConsoleScheduleRegistersPlainSchedule(): void
     {
         $kernel = new FakeKernelWithTrait();
         $kernel->defineConsoleSchedule();
 
         $schedule = $this->container->make(Schedule::class);
 
-        $this->assertInstanceOf(ClockAwareSchedule::class, $schedule);
+        $this->assertInstanceOf(Schedule::class, $schedule);
+        $this->assertNotInstanceOf(ClockAwareSchedule::class, $schedule);
     }
 
     /**
@@ -69,7 +76,7 @@ class UsesClockAwareScheduleTest extends TestCase
         $kernel = new FakeKernelWithTrait();
         $kernel->defineConsoleSchedule();
 
-        $schedule = $this->container->make(Schedule::class);
+        $schedule = $this->container->make(ClockAwareSchedule::class);
 
         $this->assertSame($schedule, $kernel->receivedSchedule);
     }
@@ -83,24 +90,27 @@ class UsesClockAwareScheduleTest extends TestCase
         $kernel->defineConsoleSchedule();
 
         /** @var ClockAwareSchedule $schedule */
-        $schedule = $this->container->make(Schedule::class);
+        $schedule = $this->container->make(ClockAwareSchedule::class);
 
         $event = $schedule->exec('echo test');
         $this->assertSame('Asia/Tokyo', $event->timezone);
     }
 
     /**
-     * @testdox UCS.4 Schedule singleton is resolved only once
+     * @testdox UCS.4 Both singletons are resolved only once
      */
-    public function testScheduleSingletonIsResolvedOnlyOnce(): void
+    public function testBothSingletonsAreResolvedOnlyOnce(): void
     {
         $kernel = new FakeKernelWithTrait();
         $kernel->defineConsoleSchedule();
 
         $schedule1 = $this->container->make(Schedule::class);
         $schedule2 = $this->container->make(Schedule::class);
-
         $this->assertSame($schedule1, $schedule2);
+
+        $clockAware1 = $this->container->make(ClockAwareSchedule::class);
+        $clockAware2 = $this->container->make(ClockAwareSchedule::class);
+        $this->assertSame($clockAware1, $clockAware2);
     }
 
     /**
@@ -112,7 +122,7 @@ class UsesClockAwareScheduleTest extends TestCase
         $kernel->defineConsoleSchedule();
 
         /** @var ClockAwareSchedule $schedule */
-        $schedule = $this->container->make(Schedule::class);
+        $schedule = $this->container->make(ClockAwareSchedule::class);
 
         $schedule->exec('echo every-minute')->everyMinute();
         $schedule->exec('echo daily-three')->dailyAt('03:00');
@@ -129,9 +139,9 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox UCS.6 ClockAwareSchedule::class resolves to the same singleton as Schedule::class
+     * @testdox UCS.6 Schedule::class and ClockAwareSchedule::class are separate instances
      */
-    public function testClockAwareScheduleClassResolvesToSameSingleton(): void
+    public function testScheduleAndClockAwareScheduleAreSeparateInstances(): void
     {
         $kernel = new FakeKernelWithTrait();
         $kernel->defineConsoleSchedule();
@@ -139,7 +149,7 @@ class UsesClockAwareScheduleTest extends TestCase
         $viaSchedule = $this->container->make(Schedule::class);
         $viaClockAware = $this->container->make(ClockAwareSchedule::class);
 
-        $this->assertSame($viaSchedule, $viaClockAware);
+        $this->assertNotSame($viaSchedule, $viaClockAware);
     }
 
     /**
@@ -165,27 +175,34 @@ class UsesClockAwareScheduleTest extends TestCase
         $kernel = new FakeKernelWithGradualMigration();
         $kernel->defineConsoleSchedule();
 
-        $this->container->make(Schedule::class);
+        $this->container->make(ClockAwareSchedule::class);
 
         $this->assertCount(1, $kernel->gracefulScheduleEvents);
         $this->assertInstanceOf(ClockAwareEvent::class, $kernel->gracefulScheduleEvents[0]);
     }
 
     /**
-     * @testdox UCS.9 Events from both methods coexist in the same Schedule
+     * @testdox UCS.9 schedule() and gracefulSchedule() events are separated into different Schedule instances
      */
-    public function testBothMethodsEventsCoexistInSameSchedule(): void
+    public function testEventsAreSeparatedIntoDifferentScheduleInstances(): void
     {
         $kernel = new FakeKernelWithGradualMigration();
         $kernel->defineConsoleSchedule();
 
-        /** @var ClockAwareSchedule $schedule */
-        $schedule = $this->container->make(Schedule::class);
-        $events = $schedule->events();
+        /** @var Schedule $nativeSchedule */
+        $nativeSchedule = $this->container->make(Schedule::class);
+        /** @var ClockAwareSchedule $gracefulSchedule */
+        $gracefulSchedule = $this->container->make(ClockAwareSchedule::class);
 
-        $this->assertCount(2, $events);
-        $this->assertNotInstanceOf(ClockAwareEvent::class, $events[0]);
-        $this->assertInstanceOf(ClockAwareEvent::class, $events[1]);
+        // Native schedule contains only native events
+        $nativeEvents = $nativeSchedule->events();
+        $this->assertCount(1, $nativeEvents);
+        $this->assertNotInstanceOf(ClockAwareEvent::class, $nativeEvents[0]);
+
+        // Graceful schedule contains only ClockAwareEvents
+        $gracefulEvents = $gracefulSchedule->events();
+        $this->assertCount(1, $gracefulEvents);
+        $this->assertInstanceOf(ClockAwareEvent::class, $gracefulEvents[0]);
     }
 
     /**
@@ -197,7 +214,7 @@ class UsesClockAwareScheduleTest extends TestCase
         $kernel->defineConsoleSchedule();
 
         /** @var ClockAwareSchedule $schedule */
-        $schedule = $this->container->make(Schedule::class);
+        $schedule = $this->container->make(ClockAwareSchedule::class);
 
         $this->assertCount(0, $schedule->events());
     }
@@ -217,8 +234,8 @@ class UsesClockAwareScheduleTest extends TestCase
         $kernel = new FakeKernelWithGradualMigration();
         $kernel->defineConsoleSchedule();
 
-        // Resolve the singleton to trigger schedule registration
-        $this->container->make(Schedule::class);
+        // Resolve the ClockAwareSchedule singleton to trigger schedule registration
+        $this->container->make(ClockAwareSchedule::class);
 
         // gracefulSchedule() events should have 'stepfunctions' as default dispatcherType
         $this->assertCount(1, $kernel->gracefulScheduleEvents);

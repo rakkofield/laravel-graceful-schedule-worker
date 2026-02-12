@@ -9,12 +9,14 @@ use Illuminate\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 /**
- * Fake Kernel for testing coexistence of schedule() and gracefulSchedule()
+ * Fake Kernel for testing separation of schedule() and gracefulSchedule()
  *
  * Registers native Events via schedule() and ClockAwareEvents via gracefulSchedule()
- * to test gradual migration scenarios.
+ * on separate Schedule instances.
+ *
+ * Extends StubConsoleKernel so that parent::defineConsoleSchedule() works.
  */
-class FakeKernelWithGradualMigration
+class FakeKernelWithGradualMigration extends StubConsoleKernel
 {
     use UsesClockAwareSchedule {
         defineConsoleSchedule as public;

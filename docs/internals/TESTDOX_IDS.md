@@ -61,7 +61,7 @@
 | Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 4 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
 | Orchestrator/OrchestratorMixedEventsIntegrationTest | `TI` | 4 |
-| Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 5 |
+| Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 7 |
 | Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 3 |
 | Dispatcher/TrackingDispatcherRedisIntegrationTest | `TDI` | 6 |
 | Tracker/CacheExecutionTrackerRedisTest | `CTI` | 7 |
@@ -84,4 +84,4 @@ The `TI` prefix is shared across 3 Orchestrator Integration files, with number r
 | OrchestratorFlowIntegrationTest | TI.1 - TI.4, TI.20 |
 | OrchestratorFiltersPassIntegrationTest | TI.5 - TI.10 |
 | OrchestratorMixedEventsIntegrationTest | TI.16 - TI.19 |
-| ScheduleRunCompatibilityIntegrationTest | TI.11 - TI.15 |
+| ScheduleRunCompatibilityIntegrationTest | TI.11 - TI.15, TI.21 - TI.22 |

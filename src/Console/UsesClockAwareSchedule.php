@@ -4,20 +4,18 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
-use Illuminate\Console\Scheduling\Schedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 /**
- * Trait for Kernel that automatically registers ClockAwareSchedule.
+ * Trait for Kernel that registers ClockAwareSchedule as a separate singleton.
  *
- * Overrides defineConsoleSchedule() to register ClockAwareSchedule as
- * the Schedule singleton. Users only need to implement gracefulSchedule()
- * to get fully type-hinted schedule definitions.
+ * Overrides defineConsoleSchedule() to register two separate singletons:
+ * - Schedule::class — plain Schedule populated via schedule() (delegated to parent)
+ * - ClockAwareSchedule::class — ClockAwareSchedule populated via gracefulSchedule()
  *
- * Events remaining in schedule() are registered as standard Laravel Events,
- * while events in gracefulSchedule() are registered as ClockAwareEvents.
- * This enables gradual migration on a per-task basis.
+ * This separation ensures schedule:run only processes native events,
+ * and graceful-schedule:work only processes ClockAwareEvents.
  *
  * Prerequisite: Must be used in a class that extends Illuminate\Foundation\Console\Kernel.
  * (Depends on $this->app, scheduleTimezone(), scheduleCache())
@@ -37,34 +35,30 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
     }
 
     /**
-     * Register ClockAwareSchedule as the Schedule singleton.
+     * Register Schedule::class and ClockAwareSchedule::class as separate singletons.
+     *
+     * parent::defineConsoleSchedule() registers Schedule::class (plain Schedule + schedule()).
+     * This method additionally registers ClockAwareSchedule::class for graceful events only.
      *
      * @return void
      */
     protected function defineConsoleSchedule()
     {
-        $this->app->singleton(Schedule::class, function ($app) {
+        parent::defineConsoleSchedule();
+
+        $this->app->singleton(ClockAwareSchedule::class, function ($app) {
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
-            $defaultDispatcherType = $app->bound('config')
-                ? (string) $app->make('config')->get('graceful-scheduler.dispatch', 'local')
-                : 'local';
-
-            $schedule = new ClockAwareSchedule($clock, $this->scheduleTimezone(), $defaultDispatcherType);
+            $schedule = new ClockAwareSchedule(
+                $clock,
+                $this->scheduleTimezone(),
+                config('graceful-scheduler.dispatch', 'local')
+            );
             $schedule->useCache($this->scheduleCache());
-
-            // Events from schedule() are standard Laravel Events (no behavior change)
-            $schedule->withNativeEvents(function () use ($schedule) {
-                $this->schedule($schedule);
-            });
-
-            // Events from gracefulSchedule() are ClockAwareEvents (new behavior)
             $this->gracefulSchedule($schedule);
 
             return $schedule;
         });
-
-        $this->app->alias(Schedule::class, ClockAwareSchedule::class);
     }
 }

@@ -20,6 +20,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatch
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\StubThrowingOrchestrator;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
@@ -99,7 +100,8 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $exception = new \RuntimeException('Cache connection failed');
         $orchestrator = new StubThrowingOrchestrator($exception);
         $reporter = new FakeExceptionReporter();
-        $schedule = new Schedule();
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
 
         $mockApp = $this->createMockApplication();
 
@@ -122,7 +124,8 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $error = new \TypeError('Unexpected type');
         $orchestrator = new StubThrowingOrchestrator($error);
         $reporter = new FakeExceptionReporter();
-        $schedule = new Schedule();
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
 
         $mockApp = $this->createMockApplication();
 
@@ -145,7 +148,8 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $exception = new \RuntimeException('Original error');
         $orchestrator = new StubThrowingOrchestrator($exception);
         $reporter = new FakeExceptionReporter();
-        $schedule = new Schedule();
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
 
         $mockApp = $this->createMockApplication();
 
@@ -172,7 +176,8 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $orchestrator = new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, $sleeper);
 
         $reporter = new FakeExceptionReporter();
-        $schedule = new Schedule();
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
 
         $mockApp = $this->createMockApplication();
 

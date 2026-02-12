@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use Illuminate\Console\Command;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class GracefulScheduleWorkCommand extends Command
 {
@@ -32,13 +32,13 @@ class GracefulScheduleWorkCommand extends Command
      * Execute the console command.
      *
      * @param ScheduleOrchestratorInterface $orchestrator
-     * @param Schedule $schedule
+     * @param ClockAwareSchedule $schedule
      * @param ExceptionReporterInterface $reporter
      * @return int
      */
     public function handle(
         ScheduleOrchestratorInterface $orchestrator,
-        Schedule $schedule,
+        ClockAwareSchedule $schedule,
         ExceptionReporterInterface $reporter
     ) {
         $this->info('Running scheduled tasks.');
