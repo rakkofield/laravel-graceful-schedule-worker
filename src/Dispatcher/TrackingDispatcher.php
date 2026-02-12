@@ -164,6 +164,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         }
 
         if ($result instanceof FailedDispatchResultInterface) {
+            $this->tracker->releaseLock($event, $dueAt);
             $this->handleDispatchFailure($event, $result);
             return;
         }

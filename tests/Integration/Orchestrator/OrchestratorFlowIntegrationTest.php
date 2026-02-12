@@ -11,6 +11,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeFailedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
@@ -215,6 +216,71 @@ class OrchestratorFlowIntegrationTest extends TestCase
 
         $this->assertSame(1, $localDispatcher->getDispatchCount());
         $this->assertSame(1, $sfnDispatcher->getDispatchCount());
+    }
+
+    /**
+     * @testdox TI.20 Recovery after failed dispatch: second worker run recovers the missed event
+     */
+    public function testRecoveryAfterFailedDispatch(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 11:05:00'));
+        $tracker = $this->createTracker();
+
+        $event = new ClockAwareEvent($this->eventMutex, 'echo recover-after-fail', $clock);
+        $event->cron('0 * * * *');
+        $event->withGracePeriod(120);
+
+        // Last execution recorded at 10:00
+        $tracker->markExecuted($event, new DateTimeImmutable('2024-01-15 10:00:00'));
+
+        $this->schedule->setDueEvents([]);
+        $this->schedule->addEvent($event);
+
+        // First run: recovery detects missed 11:00 but dispatch fails
+        $this->innerDispatcher->setResult(
+            FakeFailedDispatchResult::create($event->mutexName(), 'echo recover-after-fail', 'StepFunctions error')
+        );
+        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $trackingDispatcher,
+            $clock,
+            $tracker,
+            $this->logger,
+            new NullSleeper()
+        );
+
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue(0));
+
+        // Recovery was attempted but failed
+        $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
+        // markExecuted was NOT called (still shows 10:00)
+        $key = 'schedule:tracker:last:' . $event->mutexName();
+        $lastExecuted = new DateTimeImmutable('@' . (int) $this->cache->get($key));
+        $this->assertSame('10', $lastExecuted->format('H'));
+
+        // Second run (simulating worker restart): recovery should succeed
+        $this->innerDispatcher->setResult(
+            FakeStartedDispatchResult::create($event->mutexName(), 'echo recover-after-fail', 'fake')
+        );
+        $this->innerDispatcher->reset();
+        $trackingDispatcher2 = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+        $orchestrator2 = new DefaultScheduleOrchestrator(
+            $trackingDispatcher2,
+            $clock,
+            $tracker,
+            $this->logger,
+            new NullSleeper()
+        );
+
+        $orchestrator2->run($this->schedule, $this->app, $this->createShouldContinue(0));
+
+        // Recovery succeeded on second run
+        $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
+
+        // markExecuted is now recorded with 11:00
+        $lastExecuted2 = new DateTimeImmutable('@' . (int) $this->cache->get($key));
+        $this->assertSame('11', $lastExecuted2->format('H'));
+        $this->assertSame('00', $lastExecuted2->format('i'));
     }
 
     /**

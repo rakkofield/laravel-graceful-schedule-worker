@@ -444,6 +444,33 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
+     * @testdox TD.18 releaseLock is called on Failed result
+     */
+    public function testReleasesLockOnFailedResult(): void
+    {
+        $failedResult = FakeFailedDispatchResult::create(
+            'test-mutex',
+            'echo test',
+            'StepFunctions error',
+            'stepfunctions'
+        );
+        $dispatcher = $this->createDispatcher($failedResult);
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+
+        // Lock should be released since dispatch failed (task was not executed)
+        $locks = $this->tracker->getLocks();
+        $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
+        $this->assertArrayNotHasKey($key, $locks, 'Lock should be released on FailedDispatchResult');
+
+        // markExecuted should NOT be called
+        $executed = $this->tracker->getExecuted();
+        $this->assertArrayNotHasKey($event->mutexName(), $executed);
+    }
+
+    /**
      * @testdox TD.17 SkippedDispatchResult uses ClockAwareEvent dispatcherType
      */
     public function testSkippedDispatchResultUsesClockAwareEventDispatcherType(): void
