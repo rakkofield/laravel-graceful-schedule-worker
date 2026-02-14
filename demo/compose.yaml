@@ -5,6 +5,11 @@ x-php-build: &build
     additional_contexts:
       package: ../
 
+x-php-volumes: &volumes
+  - .:/app/demo
+  - ../src:/app/src
+  - vendor:/app/demo/vendor
+
 services:
   moto:
     image: motoserver/moto:5.1.20
@@ -28,6 +33,7 @@ services:
   php:
     <<: *build
     command: php artisan schedule:graceful-work
+    volumes: *volumes
     depends_on:
       moto:
         condition: service_healthy
@@ -43,6 +49,7 @@ services:
   graceful:
     <<: *build
     command: php artisan schedule:graceful-work
+    volumes: *volumes
     depends_on:
       redis:
         condition: service_healthy
@@ -63,6 +70,7 @@ services:
           sleep $$(( 60 - $$(date +%%S) ));
         done
       "
+    volumes: *volumes
     depends_on:
       redis:
         condition: service_healthy
@@ -70,3 +78,6 @@ services:
       - REDIS_HOST=redis
       - AWS_SUPPRESS_PHP_DEPRECATION_WARNING=true
     profiles: [compare]
+
+volumes:
+  vendor:
