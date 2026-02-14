@@ -33,7 +33,7 @@ echo "==> Resetting demo data..."
 $COMPOSE run --rm graceful php artisan demo:reset
 
 echo "==> Starting both workers (graceful + cron)..."
-$COMPOSE up -d graceful cron
+$COMPOSE up -d --build graceful cron
 
 echo "==> Waiting 3 minutes for normal execution..."
 sleep 180
