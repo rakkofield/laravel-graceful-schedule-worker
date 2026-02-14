@@ -2,11 +2,13 @@
 
 namespace App\Console;
 
+use App\Console\Commands\DemoReport;
+use App\Console\Commands\DemoReset;
+use App\Console\Commands\DemoTick;
 use App\Console\Commands\Hello;
 use App\Console\Commands\LoopHello;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
-use Illuminate\Support\Facades\Log;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\UsesClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
@@ -22,97 +24,45 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Hello::class,
         LoopHello::class,
+        DemoTick::class,
+        DemoReport::class,
+        DemoReset::class,
     ];
 
     /**
      * Define the application's standard command schedule.
      *
-     * Tasks registered here remain as native Laravel Events (not ClockAwareEvent).
-     * This demonstrates the gradual migration pattern — tasks that have not yet
-     * been migrated to gracefulSchedule() continue to work as before.
+     * Tasks registered here run via schedule:run only (singleton separation).
      *
      * @param  Schedule  $schedule
      * @return void
      */
     protected function schedule(Schedule $schedule)
     {
-        // Example: a task that has not yet been migrated to gracefulSchedule().
-        // It runs as a standard Laravel scheduled event (no graceful shutdown support).
-        $schedule->exec('echo "native-task: not yet migrated"')->everyMinute();
+        // cron tick — executed by schedule:run only
+        $schedule->command('demo:tick', ['--worker=cron'])->everyMinute();
     }
 
     /**
      * Define the application's graceful command schedule.
      *
-     * Tasks registered here are ClockAwareEvents with graceful shutdown support.
-     * Migrate tasks from schedule() to this method one at a time.
+     * Tasks registered here run via schedule:graceful-work only (singleton separation).
      *
      * @param  ClockAwareSchedule  $schedule
      * @return void
      */
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
-        // ---------------------------------------------------------------
-        // Example 1: Short task with grace period and lifecycle callbacks
-        // ---------------------------------------------------------------
-        // withGracePeriod(30): Allow up to 30 seconds for the task to finish
-        // after receiving SIGTERM before forcefully terminating.
-        // Note: appendOutputTo(), before(), onSuccess(), onFailure(), after() are
-        // local dispatch only features — they do not work with Step Functions.
-        $schedule->command('hello')->everyMinute()
+        // graceful tick — executed by schedule:graceful-work only
+        $schedule->command('demo:tick', ['--worker=graceful'])->everyMinute()
             ->runInBackground()
-            ->withGracePeriod(30)
-            ->appendOutputTo(storage_path('logs/scheduler.log'))
-            ->before(function () {
-                Log::info('hello start from Scheduler.');
-            })
-            ->onSuccess(function () {
-                Log::info('hello successful.');
-            })
-            ->onFailure(function () {
-                Log::error('hello failed.');
-            })
-            ->after(function () {
-                Log::info('hello finished.');
-            });
+            ->enableRecovery();
 
-        // ---------------------------------------------------------------
-        // Example 2: Long-running task with recovery and time window
-        // ---------------------------------------------------------------
-        // enableRecovery(): If the worker restarts (e.g., deploy), the task
-        // resumes execution in the next cycle instead of waiting for the
-        // next scheduled time. Compare with withGracePeriod() above.
-        // between('08:00', '22:00'): Only run during business hours.
-        // This is a clock-aware filter — it uses the injected Clock, not
-        // the system clock, so it is testable and deterministic.
-        $schedule->command('loop-hello', ['--seconds=70'])->everyMinute()
-            ->runInBackground()
-            ->enableRecovery()
-            ->between('08:00', '22:00')
-            ->appendOutputTo(storage_path('logs/scheduler.log'))
-            ->before(function () {
-                Log::info('loop-hello start from Scheduler.');
-            })
-            ->onSuccess(function () {
-                Log::info('loop-hello successful.');
-            })
-            ->onFailure(function () {
-                Log::error('loop-hello failed.');
-            })
-            ->after(function () {
-                Log::info('loop-hello finished.');
-            });
-
-        // ---------------------------------------------------------------
-        // Example 3: Step Functions dispatch via moto
-        // ---------------------------------------------------------------
-        // dispatchVia('stepfunctions') routes this task through AWS Step Functions
-        // instead of local process execution. In the demo environment, moto
-        // (a local AWS mock) is used as the Step Functions endpoint.
-        // The State Machine is created automatically at container startup
-        // by bin/setup-stepfunctions.php.
-        $schedule->exec('echo "hello from stepfunctions"')->everyMinute()
-            ->dispatchVia('stepfunctions');
+        // Step Functions example — only when moto endpoint is available
+        if (config('graceful-scheduler.stepfunctions.endpoint')) {
+            $schedule->exec('echo "hello from stepfunctions"')->everyMinute()
+                ->dispatchVia('stepfunctions');
+        }
     }
 
     /**
