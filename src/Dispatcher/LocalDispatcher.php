@@ -103,8 +103,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 // Background: generate exec command (no schedule:finish), run async
                 $fullCommand = $event->buildProcessCommand();
                 $finishCommandTemplate = $event->buildFinishCommandTemplate();
-                $process = Process::fromShellCommandline($fullCommand, $this->basePath);
-                $process->setTimeout(null);
+                $process = $this->createProcess($fullCommand);
                 $process->start();
 
                 $result = new StartedLocalDispatchResult(
@@ -120,8 +119,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
 
             // Foreground: run command synchronously without schedule:finish and call afterCallbacks directly
             $fullCommand = $event->buildCommand();
-            $process = Process::fromShellCommandline($fullCommand, $this->basePath);
-            $process->setTimeout(null);
+            $process = $this->createProcess($fullCommand);
             $process->run();
 
             try {
@@ -240,6 +238,18 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
+     * @param string $command Shell command string
+     * @return Process
+     */
+    private function createProcess(string $command): Process
+    {
+        $process = Process::fromShellCommandline($command, $this->basePath);
+        $process->setTimeout(null);
+
+        return $process;
+    }
+
+    /**
      * Run the schedule:finish command for a completed or terminated process.
      *
      * @param StartedLocalDispatchResult $result
@@ -255,8 +265,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $exitCode = $result->getExitCode() ?? self::EXIT_CODE_SIGTERM;
         $command = $template->buildCommand($exitCode);
 
-        $process = Process::fromShellCommandline($command, $this->basePath);
-        $process->setTimeout(null);
+        $process = $this->createProcess($command);
         $process->run();
 
         if (!$process->isSuccessful()) {
