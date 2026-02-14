@@ -66,8 +66,8 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      *
      * Respects the Event's runInBackground setting and selects the appropriate execution path.
      * - beforeCallbacks are executed synchronously in the parent process
-     * - runInBackground = true: uses buildProcessCommand() and runs async via Process::start()
-     *   (includes schedule:finish, afterCallbacks are executed by the child process)
+     * - runInBackground = true: uses buildProcessCommand() with exec, runs async via Process::start()
+     *   (schedule:finish is handled by PHP-side cleanup/stopAll)
      * - runInBackground = false: runs synchronously via buildCommand() and calls afterCallbacks directly
      *
      * @param ClockAwareEvent $event The schedule event to execute
@@ -97,13 +97,20 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $event->callBeforeCallbacks($container);
 
             if ($event->runInBackground) {
-                // Background: generate command including schedule:finish, strip &, and run async
+                // Background: generate exec command (no schedule:finish), run async
                 $fullCommand = $event->buildProcessCommand();
+                $finishCommandTemplate = $event->buildFinishCommandTemplate();
                 $process = Process::fromShellCommandline($fullCommand, $this->basePath);
                 $process->setTimeout(null);
                 $process->start();
 
-                $result = new StartedLocalDispatchResult($process, $identifier, $fullCommand, new DateTimeImmutable());
+                $result = new StartedLocalDispatchResult(
+                    $process,
+                    $identifier,
+                    $fullCommand,
+                    new DateTimeImmutable(),
+                    $finishCommandTemplate
+                );
                 $this->runningProcesses[] = $result;
                 return $result;
             }
@@ -141,14 +148,23 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     public function cleanup(): void
     {
-        $this->runningProcesses = array_values(
-            array_filter(
-                $this->runningProcesses,
-                function (StartedLocalDispatchResult $result) {
-                    return $result->isRunning();
+        $stillRunning = [];
+        foreach ($this->runningProcesses as $result) {
+            if ($result->isRunning()) {
+                $stillRunning[] = $result;
+            } else {
+                try {
+                    $this->runFinishCommand($result);
+                } catch (\Exception $e) {
+                    $this->logger->warning('[GracefulScheduleWorker] Failed to run finish command', [
+                        'event' => $result->getEventIdentifier(),
+                        'error' => $e->getMessage(),
+                        'exception' => $e,
+                    ]);
                 }
-            )
-        );
+            }
+        }
+        $this->runningProcesses = $stillRunning;
     }
 
     /**
@@ -204,6 +220,40 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             }
         }
 
+        // Phase 4: Run finish commands for all processes
+        foreach ($this->runningProcesses as $result) {
+            try {
+                $this->runFinishCommand($result);
+            } catch (\Exception $e) {
+                $this->logger->warning('[GracefulScheduleWorker] Failed to run finish command', [
+                    'event' => $result->getEventIdentifier(),
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+            }
+        }
+
         $this->runningProcesses = [];
+    }
+
+    /**
+     * Run the schedule:finish command for a completed process.
+     *
+     * @param StartedLocalDispatchResult $result
+     * @return void
+     */
+    protected function runFinishCommand(StartedLocalDispatchResult $result): void
+    {
+        $template = $result->getFinishCommandTemplate();
+        if ($template === null) {
+            return;
+        }
+
+        $exitCode = $result->getExitCode() ?? 143;
+        $command = sprintf($template, $exitCode);
+
+        $process = Process::fromShellCommandline($command, $this->basePath);
+        $process->setTimeout(null);
+        $process->run();
     }
 }

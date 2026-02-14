@@ -29,9 +29,30 @@ class ProcessCommandBuilderTest extends TestCase
     }
 
     /**
-     * @testdox PCB.1 Unix: schedule:finish redirects to the same output file as the main command
+     * @testdox PCB.1 Unix: schedule:finish is returned by buildFinishCommand, not buildCommand
      */
-    public function testScheduleFinishRedirectsToSameOutputFile(): void
+    public function testScheduleFinishReturnedByBuildFinishCommand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+        $event->appendOutputTo('/tmp/test.log');
+
+        // schedule:finish is NOT in buildCommand (exec approach)
+        $command = $this->builder->buildCommand($event);
+        $this->assertStringNotContainsString('schedule:finish', $command);
+
+        // schedule:finish IS in buildFinishCommand
+        $finishCommand = $this->builder->buildFinishCommand($event);
+        $output = ProcessUtils::escapeArgument('/tmp/test.log');
+        $this->assertStringContainsString('schedule:finish', $finishCommand);
+        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $finishCommand);
+    }
+
+    /**
+     * @testdox PCB.2 Unix: main command uses exec prefix, output goes to specified file
+     */
+    public function testMainCommandUsesExecPrefix(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -41,33 +62,16 @@ class ProcessCommandBuilderTest extends TestCase
         $command = $this->builder->buildCommand($event);
         $output = ProcessUtils::escapeArgument('/tmp/test.log');
 
-        $this->assertStringContainsString('schedule:finish', $command);
-        $afterFinish = substr($command, (int) strpos($command, 'schedule:finish'));
-        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $afterFinish);
+        // Uses exec prefix
+        $this->assertStringStartsWith('exec ', $command);
+        // Redirects to specified file
+        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $command);
+        // Not /dev/null
+        $this->assertStringNotContainsString(ProcessUtils::escapeArgument('/dev/null'), $command);
     }
 
     /**
-     * @testdox PCB.2 Unix: main command output goes to specified file, not /dev/null
-     */
-    public function testMainCommandOutputGoesToSpecifiedFile(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
-        $event->runInBackground = true;
-        $event->appendOutputTo('/tmp/test.log');
-
-        $command = $this->builder->buildCommand($event);
-        $output = ProcessUtils::escapeArgument('/tmp/test.log');
-
-        // Main command part (before "& CHILD") should redirect to specified file
-        $mainPart = substr($command, 0, (int) strpos($command, '& CHILD'));
-        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $mainPart);
-        // schedule:finish should also redirect to specified file
-        $this->assertStringNotContainsString('> ' . ProcessUtils::escapeArgument('/dev/null'), $mainPart);
-    }
-
-    /**
-     * @testdox PCB.3 Unix: command ends with schedule:finish redirect, no trailing &
+     * @testdox PCB.3 Unix: command ends with 2>&1, no trailing &
      */
     public function testNoTrailingAmpersand(): void
     {
@@ -89,38 +93,21 @@ class ProcessCommandBuilderTest extends TestCase
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
         $event->runInBackground = true;
 
+        // buildCommand should NOT contain schedule:finish
         $command = $this->builder->buildCommand($event);
-        $devNull = ProcessUtils::escapeArgument('/dev/null');
-
-        $this->assertStringContainsString('schedule:finish', $command);
-        $this->assertStringContainsString($devNull, $command);
+        $this->assertStringNotContainsString('schedule:finish', $command);
         $this->assertStringEndsWith('2>&1', $command);
+
+        // buildFinishCommand should contain schedule:finish
+        $finishCommand = $this->builder->buildFinishCommand($event);
+        $devNull = ProcessUtils::escapeArgument('/dev/null');
+        $this->assertStringContainsString('schedule:finish', $finishCommand);
+        $this->assertStringContainsString($devNull, $finishCommand);
+        $this->assertStringEndsWith('2>&1', $finishCommand);
     }
 
     /**
-     * @testdox PCB.6 Unix: schedule:finish always uses append redirect even when sendOutputTo is used
-     */
-    public function testScheduleFinishUsesAppendRedirectWithSendOutputTo(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
-        $event->runInBackground = true;
-        $event->sendOutputTo('/tmp/test.log');
-
-        $command = $this->builder->buildCommand($event);
-        $output = ProcessUtils::escapeArgument('/tmp/test.log');
-
-        // Main command should use > (overwrite)
-        $beforeFinish = substr($command, 0, (int) strpos($command, 'schedule:finish'));
-        $this->assertStringContainsString('> ' . $output, $beforeFinish);
-
-        // schedule:finish should always use >> (append) to avoid overwriting main command output
-        $afterFinish = substr($command, (int) strpos($command, 'schedule:finish'));
-        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $afterFinish);
-    }
-
-    /**
-     * @testdox PCB.5 Unix: wraps only main command with sudo -u when user is set
+     * @testdox PCB.5 Unix: wraps with exec sudo -u when user is set
      */
     public function testWrapsWithSudoWhenUserIsSet(): void
     {
@@ -131,19 +118,36 @@ class ProcessCommandBuilderTest extends TestCase
 
         $command = $this->builder->buildCommand($event);
 
-        // sudo wraps only the main command part (before & CHILD)
-        $mainPart = substr($command, 0, (int) strpos($command, '& CHILD'));
-        $this->assertStringContainsString('sudo -u www-data', $mainPart);
-
-        // trap/wait/finish portion should NOT be wrapped in sudo
-        $trapPart = substr($command, (int) strpos($command, '& CHILD'));
-        $this->assertStringNotContainsString('sudo', $trapPart);
+        // Overall format: exec sudo -u www-data -- sh -c 'exec ...'
+        $this->assertStringStartsWith('exec sudo -u www-data', $command);
+        $this->assertStringContainsString("sh -c 'exec ", $command);
     }
 
     /**
-     * @testdox PCB.7 Unix: uses trap pattern for SIGTERM forwarding
+     * @testdox PCB.6 Unix: buildFinishCommand always uses append redirect even when sendOutputTo is used
      */
-    public function testUsesTrapPatternForSigtermForwarding(): void
+    public function testBuildFinishCommandUsesAppendRedirectWithSendOutputTo(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+        $event->sendOutputTo('/tmp/test.log');
+
+        // Main command should use > (overwrite)
+        $command = $this->builder->buildCommand($event);
+        $output = ProcessUtils::escapeArgument('/tmp/test.log');
+        $this->assertStringContainsString('> ' . $output, $command);
+        $this->assertStringNotContainsString('>> ' . $output, $command);
+
+        // buildFinishCommand should always use >> (append) to avoid overwriting main command output
+        $finishCommand = $this->builder->buildFinishCommand($event);
+        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $finishCommand);
+    }
+
+    /**
+     * @testdox PCB.7 Unix: uses exec prefix instead of trap pattern
+     */
+    public function testUsesExecPrefixInsteadOfTrapPattern(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -152,10 +156,71 @@ class ProcessCommandBuilderTest extends TestCase
 
         $command = $this->builder->buildCommand($event);
 
-        $this->assertStringContainsString('& CHILD=$!', $command);
-        $this->assertStringContainsString("trap '", $command);
-        $this->assertStringContainsString("' TERM", $command);
-        $this->assertStringContainsString('kill $CHILD', $command);
-        $this->assertStringContainsString('wait $CHILD', $command);
+        // Uses exec prefix
+        $this->assertStringContainsString('exec', $command);
+        // Does NOT use trap pattern
+        $this->assertStringNotContainsString('trap', $command);
+        $this->assertStringNotContainsString('& CHILD', $command);
+    }
+
+    /**
+     * @testdox PCB.8 Unix: buildFinishCommand returns correct schedule:finish command template
+     */
+    public function testBuildFinishCommandReturnsCorrectTemplate(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+
+        $finishCommand = $this->builder->buildFinishCommand($event);
+
+        // Contains schedule:finish
+        $this->assertStringContainsString('schedule:finish', $finishCommand);
+        // Contains mutex name
+        $this->assertStringContainsString($event->mutexName(), $finishCommand);
+        // Contains %d placeholder for exit code
+        $this->assertStringContainsString('%d', $finishCommand);
+    }
+
+    /**
+     * @testdox PCB.9 Unix: buildFinishCommand output redirect is always append
+     */
+    public function testBuildFinishCommandAlwaysUsesAppendRedirect(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+
+        // With sendOutputTo (overwrite mode)
+        $event1 = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event1->runInBackground = true;
+        $event1->sendOutputTo('/tmp/test.log');
+
+        $finishCommand1 = $this->builder->buildFinishCommand($event1);
+        $output1 = ProcessUtils::escapeArgument('/tmp/test.log');
+        $this->assertStringContainsString('>> ' . $output1, $finishCommand1);
+
+        // With appendOutputTo (append mode)
+        $event2 = new ClockAwareEvent($this->mutex, 'php artisan test2', $clock);
+        $event2->runInBackground = true;
+        $event2->appendOutputTo('/tmp/test2.log');
+
+        $finishCommand2 = $this->builder->buildFinishCommand($event2);
+        $output2 = ProcessUtils::escapeArgument('/tmp/test2.log');
+        $this->assertStringContainsString('>> ' . $output2, $finishCommand2);
+    }
+
+    /**
+     * @testdox PCB.10 Unix: ensureCorrectUser adds exec inside sudo sh -c
+     */
+    public function testEnsureCorrectUserAddsExecInsideSudo(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+        $event->user = 'www-data';
+
+        $command = $this->builder->buildCommand($event);
+
+        // exec inside sh -c for sudo
+        $this->assertStringContainsString("sh -c 'exec php artisan test", $command);
     }
 }

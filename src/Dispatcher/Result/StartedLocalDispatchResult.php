@@ -26,22 +26,28 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
+    /** @var string|null */
+    private $finishCommandTemplate;
+
     /**
      * @param Process $process
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable $dispatchedAt
+     * @param string|null $finishCommandTemplate sprintf-compatible template for schedule:finish
      */
     public function __construct(
         Process $process,
         string $eventIdentifier,
         string $eventCommand,
-        DateTimeImmutable $dispatchedAt
+        DateTimeImmutable $dispatchedAt,
+        ?string $finishCommandTemplate = null
     ) {
         $this->process = $process;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->dispatchedAt = $dispatchedAt;
+        $this->finishCommandTemplate = $finishCommandTemplate;
     }
 
     /**
@@ -104,5 +110,15 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     public function getExitCode(): ?int
     {
         return $this->process->getExitCode();
+    }
+
+    /**
+     * Get the finish command template.
+     *
+     * @return string|null sprintf-compatible template, or null if not set
+     */
+    public function getFinishCommandTemplate(): ?string
+    {
+        return $this->finishCommandTemplate;
     }
 }

@@ -212,13 +212,24 @@ class ClockAwareEvent extends Event
      * Build the command string for execution via Symfony Process.
      *
      * Delegates to ProcessCommandBuilder which extends Laravel's CommandBuilder,
-     * inheriting ensureCorrectUser() and Windows support while removing the
-     * outer "> /dev/null 2>&1 &" that Process::start() doesn't need.
+     * using exec to replace the shell process so SIGTERM is delivered directly.
      *
      * @return string
      */
     public function buildProcessCommand()
     {
         return (new ProcessCommandBuilder())->buildCommand($this);
+    }
+
+    /**
+     * Build the finish command template for schedule:finish.
+     *
+     * Returns a sprintf-compatible template where %d is the exit code placeholder.
+     *
+     * @return string
+     */
+    public function buildFinishCommandTemplate(): string
+    {
+        return (new ProcessCommandBuilder())->buildFinishCommand($this);
     }
 }

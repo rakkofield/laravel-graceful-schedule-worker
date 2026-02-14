@@ -163,4 +163,37 @@ class StartedLocalDispatchResultTest extends TestCase
         $this->assertSame($explicitTime, $result->getDispatchedAt());
         $process->wait();
     }
+
+    /**
+     * @testdox SLR.12 getFinishCommandTemplate returns null by default
+     */
+    public function testGetFinishCommandTemplateReturnsNullByDefault(): void
+    {
+        $process = Process::fromShellCommandLine('echo test');
+        $process->start();
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+
+        $this->assertNull($result->getFinishCommandTemplate());
+        $process->wait();
+    }
+
+    /**
+     * @testdox SLR.13 getFinishCommandTemplate returns value passed to constructor
+     */
+    public function testGetFinishCommandTemplateReturnsConstructorValue(): void
+    {
+        $process = Process::fromShellCommandLine('echo test');
+        $process->start();
+        $template = 'schedule:finish "test-mutex" %d >> /dev/null 2>&1';
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            $template
+        );
+
+        $this->assertSame($template, $result->getFinishCommandTemplate());
+        $process->wait();
+    }
 }

@@ -59,14 +59,14 @@ final class BackgroundCommandOutputTest extends TestCase
     }
 
     /**
-     * @testdox E2E.3 SIGTERM is forwarded to child process via trap pattern
+     * @testdox E2E.3 SIGTERM is delivered directly to child process via exec
      */
-    public function testSigtermIsForwardedToChildProcess(): void
+    public function testSigtermIsDeliveredToChildProcess(): void
     {
         $outputFile = self::OUTPUT_DIR . '/e2e_bg_sigterm.log';
 
         // Use a PHP one-liner that writes STARTED then sleeps for a long time.
-        // If SIGTERM is properly forwarded, the sleep will be interrupted.
+        // With exec, SIGTERM is delivered directly to the child process.
         $event = new ClockAwareEvent(
             new FakeEventMutex(),
             'php -r \'echo "STARTED\n"; sleep(60);\'',
@@ -95,7 +95,7 @@ final class BackgroundCommandOutputTest extends TestCase
         $this->assertFileExists($outputFile);
         $this->assertStringContainsString('STARTED', (string) file_get_contents($outputFile));
 
-        // Send SIGTERM to the wrapper /bin/sh — trap should forward it to child
+        // Send SIGTERM — exec ensures it goes directly to the child process
         $process->signal(SIGTERM);
 
         // Process should terminate promptly (not hang for 60 seconds)

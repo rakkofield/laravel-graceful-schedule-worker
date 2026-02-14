@@ -186,9 +186,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.8.1 buildProcessCommand includes schedule:finish
+     * @testdox CE.8.1 buildProcessCommand uses exec prefix
      */
-    public function testBuildProcessCommandIncludesScheduleFinish(): void
+    public function testBuildProcessCommandUsesExecPrefix(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -196,7 +196,8 @@ class ClockAwareEventTest extends TestCase
 
         $command = $event->buildProcessCommand();
 
-        $this->assertStringContainsString('schedule:finish', $command);
+        $this->assertStringStartsWith('exec ', $command);
+        $this->assertStringNotContainsString('schedule:finish', $command);
     }
 
     /**
@@ -312,5 +313,20 @@ class ClockAwareEventTest extends TestCase
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, null, 'stepfunctions');
 
         $this->assertSame('stepfunctions', $event->getDispatcherType());
+    }
+
+    /**
+     * @testdox CE.22 buildFinishCommandTemplate returns schedule:finish template
+     */
+    public function testBuildFinishCommandTemplateReturnsTemplate(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+
+        $template = $event->buildFinishCommandTemplate();
+
+        $this->assertStringContainsString('schedule:finish', $template);
+        $this->assertStringContainsString('%d', $template);
     }
 }

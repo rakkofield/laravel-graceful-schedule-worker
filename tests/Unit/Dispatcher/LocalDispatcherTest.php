@@ -201,9 +201,9 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.10 background buildCommand includes schedule:finish
+     * @testdox LD.10 background buildProcessCommand does not include schedule:finish (PHP-side finish)
      */
-    public function testBuildCommandIncludesScheduleFinish(): void
+    public function testBuildProcessCommandDoesNotIncludeScheduleFinish(): void
     {
         $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper());
         $event = $this->createEvent('echo test');
@@ -211,8 +211,10 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // schedule:finish is included when runInBackground = true
-        $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
+        // schedule:finish is NOT included (PHP-side finish handles it)
+        $this->assertStringNotContainsString('schedule:finish', $result->getEventCommand());
+
+        $result->getProcess()->wait();
     }
 
     /**
@@ -552,10 +554,10 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // buildProcessCommand() does not end with trailing " &" (uses trap pattern instead)
-        $this->assertNotEquals(' &', substr($result->getEventCommand(), -2));
-        // schedule:finish is included (buildCommand appends schedule:finish for background)
-        $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
+        // buildProcessCommand() uses exec prefix
+        $this->assertStringStartsWith('exec ', $result->getEventCommand());
+        // schedule:finish is NOT included (PHP-side finish handles it)
+        $this->assertStringNotContainsString('schedule:finish', $result->getEventCommand());
 
         $result->getProcess()->wait();
     }
@@ -638,5 +640,115 @@ class LocalDispatcherTest extends TestCase
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
+    }
+
+    /**
+     * @testdox LD.33 cleanup runs finish command for completed processes
+     */
+    public function testCleanupRunsFinishCommandForCompletedProcesses(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper());
+
+        // Completed process with finishCommandTemplate
+        $proc1 = new StubProcess(false);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test',
+            new DateTimeImmutable(),
+            'schedule:finish "event1" %d >> /dev/null 2>&1'
+        );
+
+        // Running process with finishCommandTemplate
+        $proc2 = new StubProcess(true);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test',
+            new DateTimeImmutable(),
+            'schedule:finish "event2" %d >> /dev/null 2>&1'
+        );
+
+        $dispatcher->addRunningProcess($result1);
+        $dispatcher->addRunningProcess($result2);
+
+        $dispatcher->cleanup();
+
+        // Finish command was run only for the completed process
+        $this->assertCount(1, $dispatcher->getFinishCommandsRun());
+        $this->assertStringContainsString('event1', $dispatcher->getFinishCommandsRun()[0]);
+    }
+
+    /**
+     * @testdox LD.34 stopAll Phase 4 runs finish command for all processes
+     */
+    public function testStopAllRunsFinishCommandForAllProcesses(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
+
+        $proc1 = new StubProcess(true);
+        $proc1->setTerminateOnSignal(true);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test',
+            new DateTimeImmutable(),
+            'schedule:finish "event1" %d >> /dev/null 2>&1'
+        );
+
+        $proc2 = new StubProcess(true);
+        $proc2->setTerminateOnSignal(true);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test',
+            new DateTimeImmutable(),
+            'schedule:finish "event2" %d >> /dev/null 2>&1'
+        );
+
+        $dispatcher->addRunningProcess($result1);
+        $dispatcher->addRunningProcess($result2);
+
+        $dispatcher->stopAll();
+
+        // Both processes got finish commands
+        $this->assertCount(2, $dispatcher->getFinishCommandsRun());
+    }
+
+    /**
+     * @testdox LD.35 runFinishCommand exception does not prevent other finish commands from running
+     */
+    public function testRunFinishCommandExceptionDoesNotStopOtherFinishes(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper());
+
+        $proc1 = new StubProcess(false);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test',
+            new DateTimeImmutable(),
+            'schedule:finish "event1" %d >> /dev/null 2>&1'
+        );
+
+        $proc2 = new StubProcess(false);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test',
+            new DateTimeImmutable(),
+            'schedule:finish "event2" %d >> /dev/null 2>&1'
+        );
+
+        $dispatcher->addRunningProcess($result1);
+        $dispatcher->addRunningProcess($result2);
+
+        // First finish command will throw
+        $dispatcher->willThrowOnFinishCommand(0, new \RuntimeException('Finish failed'));
+
+        $dispatcher->cleanup();
+
+        // Both finish commands were attempted despite first one throwing
+        $this->assertCount(2, $dispatcher->getFinishCommandsRun());
     }
 }
