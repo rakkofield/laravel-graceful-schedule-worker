@@ -71,7 +71,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
                 $dispatcher->cleanup();
             } catch (\Throwable $e) {
                 // Ensure one dispatcher's failure does not affect others
-                $this->logger->warning('[GracefulScheduleWorker] Failed to cleanup dispatcher', [
+                $this->logger->warning('Failed to cleanup dispatcher', [
                     'dispatcher' => $type,
                     'error' => $e->getMessage(),
                     'exception' => $e,
@@ -90,7 +90,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
                 $dispatcher->stopAll();
             } catch (\Throwable $e) {
                 // Ensure one dispatcher's failure does not affect others
-                $this->logger->warning('[GracefulScheduleWorker] Failed to stop dispatcher', [
+                $this->logger->warning('Failed to stop dispatcher', [
                     'dispatcher' => $type,
                     'error' => $e->getMessage(),
                     'exception' => $e,

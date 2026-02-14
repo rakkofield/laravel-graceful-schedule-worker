@@ -131,12 +131,7 @@ class ClockAwareEvent extends Event
      */
     protected function expressionPasses()
     {
-        $date = $this->clock->now();
-
-        if ($this->timezone) {
-            $tz = $this->timezone instanceof \DateTimeZone ? $this->timezone : new \DateTimeZone($this->timezone);
-            $date = $date->setTimezone($tz);
-        }
+        $date = $this->nowWithTimezone();
 
         return (new CronExpression($this->expression, new FieldFactory()))->isDue($date->format('Y-m-d H:i:s'));
     }
@@ -175,12 +170,7 @@ class ClockAwareEvent extends Event
     private function clockAwareTimeInterval($startTime, $endTime)
     {
         return function () use ($startTime, $endTime) {
-            $now = $this->clock->now();
-
-            if ($this->timezone) {
-                $tz = $this->timezone instanceof \DateTimeZone ? $this->timezone : new \DateTimeZone($this->timezone);
-                $now = $now->setTimezone($tz);
-            }
+            $now = $this->nowWithTimezone();
 
             $start = $this->applyTimeString($now, $startTime);
             $end = $this->applyTimeString($now, $endTime);
@@ -195,6 +185,23 @@ class ClockAwareEvent extends Event
 
             return $now >= $start && $now <= $end;
         };
+    }
+
+    /**
+     * Get current time with timezone applied.
+     *
+     * @return \DateTimeImmutable
+     */
+    private function nowWithTimezone(): \DateTimeImmutable
+    {
+        $now = $this->clock->now();
+
+        if ($this->timezone) {
+            $tz = $this->timezone instanceof \DateTimeZone ? $this->timezone : new \DateTimeZone($this->timezone);
+            $now = $now->setTimezone($tz);
+        }
+
+        return $now;
     }
 
     /**

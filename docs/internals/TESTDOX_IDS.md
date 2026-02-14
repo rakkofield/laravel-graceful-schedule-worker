@@ -49,7 +49,10 @@
 | Dispatcher/Result/AlreadyRunningStepFunctionsDispatchResultTest | `ARR` | 7 |
 | Dispatcher/StepFunctions/AwsSfnClientAdapterTest | `SCA` | 3 |
 | Dispatcher/StepFunctions/ExecutionNameGeneratorTest | `ENG` | 9 |
+| Dispatcher/StepFunctions/PayloadTest | `PY` | 3 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
+| ExceptionFormatterTest | `EF` | 3 |
+| Logging/PrefixedLoggerTest | `PL` | 4 |
 | Providers/GracefulScheduleWorkerProviderTest | `GP` | 18 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 27 |
 | Tracker/CacheExecutionTrackerTest | `CT` | 16 |

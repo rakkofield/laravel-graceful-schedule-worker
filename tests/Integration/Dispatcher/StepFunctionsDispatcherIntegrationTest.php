@@ -119,10 +119,12 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         ExecutionNameGeneratorInterface $nameGenerator = null
     ): StepFunctionsDispatcher {
         $adapter = new AwsSfnClientAdapter($this->sfnClient);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         return new StepFunctionsDispatcher(
             $adapter,
             self::$stateMachineArn,
-            $nameGenerator ?? new ExecutionNameGenerator()
+            $nameGenerator ?? new ExecutionNameGenerator(),
+            $clock
         );
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 
 /**
  * Success result class for StepFunctionsDispatcher.
@@ -70,7 +71,7 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
      */
     public function getDispatcherType(): string
     {
-        return 'stepfunctions';
+        return DispatcherType::STEP_FUNCTIONS;
     }
 
     /**

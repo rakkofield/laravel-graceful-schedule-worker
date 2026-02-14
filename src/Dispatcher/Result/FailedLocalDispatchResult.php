@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 
 /**
  * Failure result class for LocalDispatcher.
@@ -76,7 +77,7 @@ class FailedLocalDispatchResult implements FailedDispatchResultInterface
      */
     public function getDispatcherType(): string
     {
-        return 'local';
+        return DispatcherType::LOCAL;
     }
 
     /**

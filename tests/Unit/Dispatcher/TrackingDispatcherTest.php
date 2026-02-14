@@ -71,10 +71,12 @@ class TrackingDispatcherTest extends TestCase
     private function createDispatcher(DispatchResultInterface $resultToReturn): TrackingDispatcher
     {
         $this->innerDispatcher = new FakeDispatcher($resultToReturn);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         return new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
-            $this->logger
+            $this->logger,
+            $clock
         );
     }
 
@@ -239,10 +241,12 @@ class TrackingDispatcherTest extends TestCase
         };
 
         $this->innerDispatcher = new FakeDispatcher($unexpectedResult);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
-            $this->logger
+            $this->logger,
+            $clock
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -329,7 +333,8 @@ class TrackingDispatcherTest extends TestCase
         $throwingTracker = new StubThrowingExecutionTracker($exception);
         $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
         $innerDispatcher = new FakeDispatcher($startedResult);
-        $dispatcher = new TrackingDispatcher($innerDispatcher, $throwingTracker, $this->logger);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $dispatcher = new TrackingDispatcher($innerDispatcher, $throwingTracker, $this->logger, $clock);
 
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -398,7 +403,8 @@ class TrackingDispatcherTest extends TestCase
         $throwingTracker = new StubThrowingExecutionTracker($logicException);
         $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
         $innerDispatcher = new FakeDispatcher($startedResult);
-        $dispatcher = new TrackingDispatcher($innerDispatcher, $throwingTracker, $this->logger);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $dispatcher = new TrackingDispatcher($innerDispatcher, $throwingTracker, $this->logger, $clock);
 
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -416,10 +422,12 @@ class TrackingDispatcherTest extends TestCase
     {
         $skippedResult = FakeSkippedDispatchResult::create('test-mutex', 'echo test', 'withoutOverlapping', 'local');
         $this->innerDispatcher = new FakeDispatcher($skippedResult);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
-            $this->logger
+            $this->logger,
+            $clock
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');

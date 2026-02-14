@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
-use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
@@ -36,19 +36,25 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     /** @var LoggerInterface */
     private $logger;
 
+    /** @var ClockInterface */
+    private $clock;
+
     /**
      * @param ScheduleDispatcherInterface $inner Inner dispatcher
      * @param ExecutionTrackerInterface $tracker Execution tracker
      * @param LoggerInterface $logger Logger
+     * @param ClockInterface $clock Clock
      */
     public function __construct(
         ScheduleDispatcherInterface $inner,
         ExecutionTrackerInterface $tracker,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        ClockInterface $clock
     ) {
         $this->inner = $inner;
         $this->tracker = $tracker;
         $this->logger = $logger;
+        $this->clock = $clock;
     }
 
     /**
@@ -63,7 +69,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         $lockAcquired = $this->tracker->acquireLock($event, $dueAt);
 
         if (!$lockAcquired) {
-            $this->logger->debug('[GracefulScheduleWorker] Lock not acquired, skipping dispatch', [
+            $this->logger->debug('Lock not acquired, skipping dispatch', [
                 'event' => $event->mutexName(),
                 'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
             ]);
@@ -72,7 +78,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
                 $event->mutexName(),
                 (string) $event->command,
                 'lock_not_acquired',
-                new DateTimeImmutable(),
+                $this->clock->now(),
                 $event->getDispatcherType()
             );
         }
@@ -88,7 +94,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             throw $e;
         } catch (\Exception $e) {
             // markExecuted failure does not affect the dispatch itself, so continue with warning
-            $this->logger->error('[GracefulScheduleWorker] Failed to track execution result', [
+            $this->logger->error('Failed to track execution result', [
                 'event' => $event->mutexName(),
                 'error' => $e->getMessage(),
                 'exception' => $e,
@@ -131,7 +137,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         DateTimeInterface $dueAt
     ): void {
         if ($result instanceof StartedDispatchResultInterface) {
-            $this->logger->info('[GracefulScheduleWorker] Event dispatched', [
+            $this->logger->info('Event dispatched', [
                 'event' => $event->mutexName(),
                 'dispatcher_type' => $result->getDispatcherType(),
                 'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
@@ -141,7 +147,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         }
 
         if ($result instanceof AlreadyRunningDispatchResultInterface) {
-            $this->logger->info('[GracefulScheduleWorker] Event already running, skipped new execution', [
+            $this->logger->info('Event already running, skipped new execution', [
                 'event' => $event->mutexName(),
                 'dispatcher_type' => $result->getDispatcherType(),
                 'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
@@ -151,7 +157,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         }
 
         if ($result instanceof SkippedDispatchResultInterface) {
-            $this->logger->info('[GracefulScheduleWorker] Event skipped by inner dispatcher', [
+            $this->logger->info('Event skipped by inner dispatcher', [
                 'event' => $event->mutexName(),
                 'dispatcher_type' => $result->getDispatcherType(),
                 'reason' => $result->getReason(),
@@ -198,6 +204,6 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             $context['exception'] = $exception;
         }
 
-        $this->logger->error('[GracefulScheduleWorker] Failed to dispatch event', $context);
+        $this->logger->error('Failed to dispatch event', $context);
     }
 }

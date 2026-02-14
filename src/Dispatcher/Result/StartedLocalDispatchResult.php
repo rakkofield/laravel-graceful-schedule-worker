@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FinishCommandTemplate;
 use Symfony\Component\Process\Process;
 
@@ -72,7 +73,7 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
      */
     public function getDispatcherType(): string
     {
-        return 'local';
+        return DispatcherType::LOCAL;
     }
 
     /**

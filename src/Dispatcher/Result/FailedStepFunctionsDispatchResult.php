@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 
 /**
  * Failure result class for StepFunctionsDispatcher.
@@ -61,6 +62,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
      * @param string|null $command
      * @param string $error
      * @param \Throwable|null $exception
+     * @param DateTimeImmutable $dispatchedAt
      * @return self
      */
     public static function failed(
@@ -68,7 +70,8 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
         string $identifier,
         ?string $command,
         string $error,
-        ?\Throwable $exception = null
+        ?\Throwable $exception,
+        DateTimeImmutable $dispatchedAt
     ): self {
         return new self(
             $executionName,
@@ -76,7 +79,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
             $command ?? '',
             $error,
             $exception,
-            new DateTimeImmutable()
+            $dispatchedAt
         );
     }
 
@@ -109,7 +112,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
      */
     public function getDispatcherType(): string
     {
-        return 'stepfunctions';
+        return DispatcherType::STEP_FUNCTIONS;
     }
 
     /**

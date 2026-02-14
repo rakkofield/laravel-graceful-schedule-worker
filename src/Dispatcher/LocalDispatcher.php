@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
-use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\ExceptionFormatter;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Symfony\Component\Process\Process;
 
@@ -42,6 +43,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $sleeper;
 
     /**
+     * @var ClockInterface
+     */
+    private $clock;
+
+    /**
      * @var float
      */
     private $stopTimeout;
@@ -50,17 +56,20 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      * @param string|null $basePath Working directory for processes (null uses the current directory)
      * @param LoggerInterface $logger Logger
      * @param SleeperInterface $sleeper Sleeper (for polling in stopAll)
+     * @param ClockInterface $clock Clock
      * @param float $stopTimeout Timeout in seconds for SIGTERM->SIGKILL wait in stopAll()
      */
     public function __construct(
         ?string $basePath,
         LoggerInterface $logger,
         SleeperInterface $sleeper,
+        ClockInterface $clock,
         float $stopTimeout = 10.0
     ) {
         $this->basePath = $basePath;
         $this->logger = $logger;
         $this->sleeper = $sleeper;
+        $this->clock = $clock;
         $this->stopTimeout = $stopTimeout;
     }
 
@@ -92,8 +101,8 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     $identifier,
                     (string) $event->command,
                     'withoutOverlapping',
-                    new DateTimeImmutable(),
-                    'local'
+                    $this->clock->now(),
+                    DispatcherType::LOCAL
                 );
             }
 
@@ -110,7 +119,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     $process,
                     $identifier,
                     $fullCommand,
-                    new DateTimeImmutable(),
+                    $this->clock->now(),
                     $finishCommandTemplate
                 );
                 $this->runningProcesses[] = $result;
@@ -127,7 +136,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             } catch (\Exception $e) {
                 // afterCallback failures don't affect the dispatch result.
                 // \Error is not caught here; it propagates to the command-level handler.
-                $this->logger->warning('[GracefulScheduleWorker] afterCallback failed', [
+                $this->logger->warning('afterCallback failed', [
                     'event' => $identifier,
                     'exitCode' => $process->getExitCode(),
                     'error' => $e->getMessage(),
@@ -135,12 +144,12 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 ]);
             }
 
-            return new StartedLocalDispatchResult($process, $identifier, $fullCommand, new DateTimeImmutable());
+            return new StartedLocalDispatchResult($process, $identifier, $fullCommand, $this->clock->now());
         } catch (\Exception $e) {
             // Note: \Error is not caught (fatal errors propagate to the caller)
-            $error = get_class($e) . ': ' . $e->getMessage();
+            $error = ExceptionFormatter::format($e);
 
-            return new FailedLocalDispatchResult($identifier, $event->command, $error, $e, new DateTimeImmutable());
+            return new FailedLocalDispatchResult($identifier, $event->command, $error, $e, $this->clock->now());
         }
     }
 
@@ -157,7 +166,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 try {
                     $this->runFinishCommand($result);
                 } catch (\Exception $e) {
-                    $this->logger->warning('[GracefulScheduleWorker] Failed to run finish command', [
+                    $this->logger->warning('Failed to run finish command', [
                         'event' => $result->getEventIdentifier(),
                         'error' => $e->getMessage(),
                         'exception' => $e,
@@ -173,23 +182,46 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     public function stopAll(): void
     {
-        // Phase 1: Send SIGTERM to all running processes simultaneously
+        $this->sendSignalToAll(SIGTERM, 'SIGTERM', 'warning');
+        $this->waitForTermination();
+        $this->sendSignalToAll(SIGKILL, 'SIGKILL', 'error');
+        $this->runFinishCommandsForAll();
+        $this->runningProcesses = [];
+    }
+
+    /**
+     * Send a signal to all running processes.
+     *
+     * @param int $signal Signal number
+     * @param string $signalName Signal name for logging
+     * @param string $logLevel PSR log level for failures
+     * @return void
+     */
+    private function sendSignalToAll(int $signal, string $signalName, string $logLevel): void
+    {
         foreach ($this->runningProcesses as $result) {
             try {
                 $process = $result->getProcess();
                 if ($process->isRunning()) {
-                    $process->signal(SIGTERM);
+                    $process->signal($signal);
                 }
             } catch (\Exception $e) {
-                $this->logger->warning('[GracefulScheduleWorker] Failed to send SIGTERM', [
+                $this->logger->log($logLevel, "Failed to send {$signalName}", [
                     'event' => $result->getEventIdentifier(),
                     'error' => $e->getMessage(),
                     'exception' => $e,
                 ]);
             }
         }
+    }
 
-        // Phase 2: Poll and wait for all processes to terminate until timeout
+    /**
+     * Poll and wait for all processes to terminate until timeout.
+     *
+     * @return void
+     */
+    private function waitForTermination(): void
+    {
         $deadline = microtime(true) + $this->stopTimeout;
         while (microtime(true) < $deadline) {
             $allStopped = true;
@@ -204,37 +236,26 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             }
             $this->sleeper->sleep();
         }
+    }
 
-        // Phase 3: Send SIGKILL to processes still running
-        foreach ($this->runningProcesses as $result) {
-            try {
-                $process = $result->getProcess();
-                if ($process->isRunning()) {
-                    $process->signal(SIGKILL);
-                }
-            } catch (\Exception $e) {
-                $this->logger->error('[GracefulScheduleWorker] Failed to send SIGKILL', [
-                    'event' => $result->getEventIdentifier(),
-                    'error' => $e->getMessage(),
-                    'exception' => $e,
-                ]);
-            }
-        }
-
-        // Phase 4: Run finish commands for all processes
+    /**
+     * Run finish commands for all processes.
+     *
+     * @return void
+     */
+    private function runFinishCommandsForAll(): void
+    {
         foreach ($this->runningProcesses as $result) {
             try {
                 $this->runFinishCommand($result);
             } catch (\Exception $e) {
-                $this->logger->warning('[GracefulScheduleWorker] Failed to run finish command', [
+                $this->logger->warning('Failed to run finish command', [
                     'event' => $result->getEventIdentifier(),
                     'error' => $e->getMessage(),
                     'exception' => $e,
                 ]);
             }
         }
-
-        $this->runningProcesses = [];
     }
 
     /**
@@ -269,7 +290,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $process->run();
 
         if (!$process->isSuccessful()) {
-            $this->logger->warning('[GracefulScheduleWorker] schedule:finish exited with non-zero status', [
+            $this->logger->warning('schedule:finish exited with non-zero status', [
                 'event' => $result->getEventIdentifier(),
                 'command' => $command,
                 'exitCode' => $process->getExitCode(),

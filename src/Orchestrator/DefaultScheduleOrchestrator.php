@@ -127,7 +127,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 $this->recoverMissedEvent($event, $app, $missedDue);
             } catch (\Throwable $e) {
                 $this->logger->warning(
-                    '[GracefulScheduleWorker] Failed to check/recover missed event',
+                    'Failed to check/recover missed event',
                     [
                         'event' => $event->mutexName(),
                         'error' => $e->getMessage(),
@@ -159,9 +159,9 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      */
     private function recoverMissedEvent(ClockAwareEvent $event, Application $app, DateTimeInterface $missedDue): void
     {
-        $this->logger->info('[GracefulScheduleWorker] Recovering missed event', [
+        $this->logger->info('Recovering missed event', [
             'event' => $event->mutexName(),
-            'due' => $missedDue->format('Y-m-d H:i:s'),
+            'due' => $missedDue->format(\DateTimeInterface::ATOM),
         ]);
 
         // Do not check filtersPass() during recovery.
@@ -195,14 +195,14 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
             foreach ($events as $event) {
                 try {
                     if (!$event->filtersPass($app)) {
-                        $this->logger->debug('[GracefulScheduleWorker] Event skipped by filters', [
+                        $this->logger->debug('Event skipped by filters', [
                             'event' => $event->mutexName(),
                         ]);
                         continue;
                     }
                 } catch (\Throwable $e) {
                     $this->logger->error(
-                        '[GracefulScheduleWorker] filtersPass threw exception, skipping event',
+                        'filtersPass threw exception, skipping event',
                         [
                             'event' => $event->mutexName(),
                             'error' => $e->getMessage(),

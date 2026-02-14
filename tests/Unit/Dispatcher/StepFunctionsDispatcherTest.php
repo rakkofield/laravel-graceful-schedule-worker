@@ -68,10 +68,12 @@ class StepFunctionsDispatcherTest extends TestCase
 
     private function createDispatcher(): StepFunctionsDispatcher
     {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         return new StepFunctionsDispatcher(
             $this->client,
             $this->stateMachineArn,
-            new ExecutionNameGenerator()
+            new ExecutionNameGenerator(),
+            $clock
         );
     }
 
@@ -296,10 +298,12 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('stateMachineArn cannot be empty');
 
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         new StepFunctionsDispatcher(
             $this->client,
             '',
-            new ExecutionNameGenerator()
+            new ExecutionNameGenerator(),
+            $clock
         );
     }
 

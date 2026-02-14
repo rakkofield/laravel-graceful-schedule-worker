@@ -115,10 +115,10 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         if ($gracePeriod !== null) {
             $deadline = $missedDue->add($gracePeriod);
             if ($now->getTimestamp() > $deadline->getTimestamp()) {
-                $this->logger->warning('[GracefulScheduleWorker] Skipping missed event: grace period exceeded', [
+                $this->logger->warning('Skipping missed event: grace period exceeded', [
                     'event' => $event->mutexName(),
-                    'missedDue' => $missedDue->format('Y-m-d H:i:s'),
-                    'deadline' => $deadline->format('Y-m-d H:i:s'),
+                    'missedDue' => $missedDue->format(\DateTimeInterface::ATOM),
+                    'deadline' => $deadline->format(\DateTimeInterface::ATOM),
                 ]);
                 return null; // Grace period exceeded
             }

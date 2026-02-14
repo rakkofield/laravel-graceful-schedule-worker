@@ -114,7 +114,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
 
         $this->schedule->setDueEvents([$event]);
 
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $clock);
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -150,7 +150,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $clock);
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -194,7 +194,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             ['local' => $localDispatcher, 'stepfunctions' => $sfnDispatcher],
             $this->logger
         );
-        $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger);
+        $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger, $clock);
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -240,7 +240,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $this->innerDispatcher->setResult(
             FakeFailedDispatchResult::create($event->mutexName(), 'echo recover-after-fail', 'StepFunctions error')
         );
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $clock);
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -263,7 +263,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             FakeStartedDispatchResult::create($event->mutexName(), 'echo recover-after-fail', 'fake')
         );
         $this->innerDispatcher->reset();
-        $trackingDispatcher2 = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+        $trackingDispatcher2 = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $clock);
         $orchestrator2 = new DefaultScheduleOrchestrator(
             $trackingDispatcher2,
             $clock,
@@ -300,7 +300,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             ['local' => $localDispatcher, 'stepfunctions' => $sfnDispatcher],
             $this->logger
         );
-        $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger);
+        $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger, $clock);
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,

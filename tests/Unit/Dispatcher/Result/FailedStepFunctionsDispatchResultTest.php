@@ -21,7 +21,9 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused'
+            'Connection refused',
+            null,
+            new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
@@ -37,7 +39,9 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused'
+            'Connection refused',
+            null,
+            new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
         $this->assertSame('stepfunctions', $result->getDispatcherType());
@@ -52,7 +56,9 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             null,
-            'Connection refused'
+            'Connection refused',
+            null,
+            new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
         $this->assertSame('', $result->getEventCommand());
@@ -69,7 +75,8 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'framework/schedule-mutex',
             'php artisan schedule:run',
             'RuntimeException: Connection refused',
-            $exception
+            $exception,
+            new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
         $this->assertSame($exception, $result->getException());
@@ -84,7 +91,9 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused'
+            'Connection refused',
+            null,
+            new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
         $this->assertNull($result->getException());
@@ -95,18 +104,18 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
-        $before = new DateTimeImmutable();
+        $dispatchedAt = new DateTimeImmutable('2024-01-15 10:00:00');
         $result = FailedStepFunctionsDispatchResult::failed(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused'
+            'Connection refused',
+            null,
+            $dispatchedAt
         );
-        $after = new DateTimeImmutable();
 
         $this->assertInstanceOf(DateTimeImmutable::class, $result->getDispatchedAt());
-        $this->assertGreaterThanOrEqual($before, $result->getDispatchedAt());
-        $this->assertLessThanOrEqual($after, $result->getDispatchedAt());
+        $this->assertEquals($dispatchedAt, $result->getDispatchedAt());
     }
 
     /**
@@ -118,7 +127,9 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'my-execution',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused'
+            'Connection refused',
+            null,
+            new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
         $this->assertSame('my-execution', $result->getExecutionName());
@@ -133,7 +144,9 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused'
+            'Connection refused',
+            null,
+            new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
         $this->assertSame('framework/schedule-mutex', $result->getEventIdentifier());

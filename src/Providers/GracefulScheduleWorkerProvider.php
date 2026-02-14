@@ -10,6 +10,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\ServiceProvider;
+use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\Sleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
@@ -18,6 +19,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporterInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\GracefulScheduleWorkCommand;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\LegacyExceptionReporter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
@@ -26,6 +28,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNam
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Logging\PrefixedLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
@@ -36,40 +39,57 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Merge config file (config must be available during register)
         $this->mergeConfigFrom(
             __DIR__ . '/../../config/graceful-scheduler.php',
             'graceful-scheduler'
         );
 
-        // Register ClockInterface as singleton
-        $this->app->singleton(ClockInterface::class, SystemClock::class);
+        $this->registerClock();
+        $this->registerDispatchers();
+        $this->registerStepFunctionsBindings();
+        $this->registerTrackerBindings();
+        $this->registerOrchestrator();
+        $this->registerExceptionReporter();
+    }
 
-        // Register LocalDispatcher
+    /**
+     * Register ClockInterface binding.
+     *
+     * @return void
+     */
+    protected function registerClock(): void
+    {
+        $this->app->singleton(ClockInterface::class, SystemClock::class);
+    }
+
+    /**
+     * Register dispatcher bindings (LocalDispatcher, CompositeDispatcher, TrackingDispatcher).
+     *
+     * @return void
+     */
+    protected function registerDispatchers(): void
+    {
         // Note: basePath() is available for Foundation\Application
         // When using Container only (e.g., tests), basePath is null
         // @phpstan-ignore function.alreadyNarrowedType (tests may use Container)
         $basePath = method_exists($this->app, 'basePath') ? $this->app->basePath() : null;
         $this->app->singleton(LocalDispatcher::class, function (Container $app) use ($basePath) {
-            /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->make('log');
+            /** @var LoggerInterface $rawLogger */
+            $rawLogger = $app->make('log');
+            $logger = new PrefixedLogger($rawLogger);
 
-            return new LocalDispatcher($basePath, $logger, new Sleeper(10000));
+            /** @var ClockInterface $clock */
+            $clock = $app->make(ClockInterface::class);
+
+            return new LocalDispatcher($basePath, $logger, new Sleeper(10000), $clock);
         });
 
-        // StepFunctions bindings (only when AWS SDK is installed)
-        $this->registerStepFunctionsBindings();
-
-        // Register ExecutionTrackerInterface (always registered, implementation depends on config)
-        $this->registerTrackerBindings();
-
-        // Register CompositeDispatcher (used internally)
         $this->app->singleton(CompositeDispatcher::class, function (Container $app) {
             /** @var LocalDispatcher $localDispatcher */
             $localDispatcher = $app->make(LocalDispatcher::class);
 
             $dispatchers = [
-                'local' => $localDispatcher,
+                DispatcherType::LOCAL => $localDispatcher,
             ];
 
             // Add StepFunctionsDispatcher if available and ARN is configured
@@ -82,31 +102,43 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
                 if ($sfArn !== '') {
                     /** @var StepFunctionsDispatcher $stepFunctionsDispatcher */
                     $stepFunctionsDispatcher = $app->make(StepFunctionsDispatcher::class);
-                    $dispatchers['stepfunctions'] = $stepFunctionsDispatcher;
+                    $dispatchers[DispatcherType::STEP_FUNCTIONS] = $stepFunctionsDispatcher;
                 }
             }
 
-            /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->make('log');
+            /** @var LoggerInterface $rawLogger */
+            $rawLogger = $app->make('log');
+            $logger = new PrefixedLogger($rawLogger);
 
             return new CompositeDispatcher($dispatchers, $logger);
         });
 
-        // Register TrackingDispatcher as ScheduleDispatcherInterface
-        // Wraps CompositeDispatcher and adds lock acquisition, execution recording, and failure handling
+        // TrackingDispatcher wraps CompositeDispatcher and adds lock acquisition,
+        // execution recording, and failure handling
         $this->app->singleton(ScheduleDispatcherInterface::class, function (Container $app) {
             /** @var CompositeDispatcher $compositeDispatcher */
             $compositeDispatcher = $app->make(CompositeDispatcher::class);
             /** @var ExecutionTrackerInterface $tracker */
             $tracker = $app->make(ExecutionTrackerInterface::class);
 
-            /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->make('log');
+            /** @var LoggerInterface $rawLogger */
+            $rawLogger = $app->make('log');
+            $logger = new PrefixedLogger($rawLogger);
 
-            return new TrackingDispatcher($compositeDispatcher, $tracker, $logger);
+            /** @var ClockInterface $clock */
+            $clock = $app->make(ClockInterface::class);
+
+            return new TrackingDispatcher($compositeDispatcher, $tracker, $logger, $clock);
         });
+    }
 
-        // Register ScheduleOrchestratorInterface
+    /**
+     * Register ScheduleOrchestratorInterface binding.
+     *
+     * @return void
+     */
+    protected function registerOrchestrator(): void
+    {
         $this->app->singleton(ScheduleOrchestratorInterface::class, function (Container $app) {
             /** @var ScheduleDispatcherInterface $dispatcher */
             $dispatcher = $app->make(ScheduleDispatcherInterface::class);
@@ -115,19 +147,29 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ExecutionTrackerInterface $tracker */
             $tracker = $app->make(ExecutionTrackerInterface::class);
 
-            /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->make('log');
+            /** @var LoggerInterface $rawLogger */
+            $rawLogger = $app->make('log');
+            $logger = new PrefixedLogger($rawLogger);
 
             return new DefaultScheduleOrchestrator($dispatcher, $clock, $tracker, $logger, new Sleeper(100000));
         });
+    }
 
-        // Register ExceptionReporterInterface
-        // Laravel 6: ExceptionHandler::report(Exception), Laravel 7+: report(Throwable)
+    /**
+     * Register ExceptionReporterInterface binding.
+     *
+     * Laravel 6: ExceptionHandler::report(Exception), Laravel 7+: report(Throwable)
+     *
+     * @return void
+     */
+    protected function registerExceptionReporter(): void
+    {
         $this->app->singleton(ExceptionReporterInterface::class, function (Container $app) {
             /** @var ExceptionHandler $handler */
             $handler = $app->make(ExceptionHandler::class);
-            /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->make('log');
+            /** @var LoggerInterface $rawLogger */
+            $rawLogger = $app->make('log');
+            $logger = new PrefixedLogger($rawLogger);
 
             if ($this->isLegacyExceptionHandler()) {
                 return new LegacyExceptionReporter($handler, $logger);
@@ -211,7 +253,10 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ExecutionNameGeneratorInterface $nameGenerator */
             $nameGenerator = $app->make(ExecutionNameGeneratorInterface::class);
 
-            return new StepFunctionsDispatcher($client, $stateMachineArn, $nameGenerator);
+            /** @var ClockInterface $clock */
+            $clock = $app->make(ClockInterface::class);
+
+            return new StepFunctionsDispatcher($client, $stateMachineArn, $nameGenerator, $clock);
         });
     }
 
@@ -258,8 +303,9 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             $lockTtl = $config->get('graceful-scheduler.tracker.lock_ttl', 3600);
             $lockTtl = (int) $lockTtl;
 
-            /** @var \Psr\Log\LoggerInterface $logger */
-            $logger = $app->make('log');
+            /** @var LoggerInterface $rawLogger */
+            $rawLogger = $app->make('log');
+            $logger = new PrefixedLogger($rawLogger);
 
             return new CacheExecutionTracker($cache, $store, $logger, $lockTtl);
         });

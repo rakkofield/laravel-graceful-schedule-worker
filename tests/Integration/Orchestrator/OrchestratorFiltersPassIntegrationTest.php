@@ -102,7 +102,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
     private function createOrchestrator(): DefaultScheduleOrchestrator
     {
         $tracker = $this->createTracker();
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $this->clock);
 
         return new DefaultScheduleOrchestrator(
             $trackingDispatcher,
@@ -279,7 +279,12 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
         // Orchestrator's own clock also starts at 12:00:00 (FixedClock)
         $orchestratorClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $tracker = $this->createTracker();
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger);
+        $trackingDispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $tracker,
+            $this->logger,
+            $orchestratorClock
+        );
 
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,

@@ -70,7 +70,8 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
 
         $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->innerDispatcher = new FakeDispatcher($defaultResult);
-        $this->dispatcher = new TrackingDispatcher($this->innerDispatcher, $this->tracker, $this->logger);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $this->dispatcher = new TrackingDispatcher($this->innerDispatcher, $this->tracker, $this->logger, $clock);
     }
 
     protected function tearDown(): void

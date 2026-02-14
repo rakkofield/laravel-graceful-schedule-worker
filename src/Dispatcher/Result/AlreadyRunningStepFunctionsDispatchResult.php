@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 
 /**
  * Result class for when execution is already running in StepFunctionsDispatcher.
@@ -64,7 +65,7 @@ class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatc
      */
     public function getDispatcherType(): string
     {
-        return 'stepfunctions';
+        return DispatcherType::STEP_FUNCTIONS;
     }
 
     /**

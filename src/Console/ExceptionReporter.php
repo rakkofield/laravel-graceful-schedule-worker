@@ -27,7 +27,7 @@ class ExceptionReporter implements ExceptionReporterInterface
             $this->handler->report($e);
         } catch (\Throwable $reportError) {
             // Never crash the worker; log the reporting failure
-            $this->logger->error('[GracefulScheduleWorker] ExceptionReporter failed', [
+            $this->logger->error('ExceptionReporter failed', [
                 'error' => $reportError->getMessage(),
                 'original' => $e->getMessage(),
                 'original_exception' => $e,

@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
-use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Container\Container;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\Payload;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
+use RakkoInc\LaravelGracefulScheduleWorker\ExceptionFormatter;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
@@ -33,15 +35,20 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /** @var ExecutionNameGeneratorInterface */
     private $nameGenerator;
 
+    /** @var ClockInterface */
+    private $clock;
+
     /**
      * @param StepFunctionsClientInterface $client
      * @param string $stateMachineArn
      * @param ExecutionNameGeneratorInterface $nameGenerator
+     * @param ClockInterface $clock
      */
     public function __construct(
         StepFunctionsClientInterface $client,
         string $stateMachineArn,
-        ExecutionNameGeneratorInterface $nameGenerator
+        ExecutionNameGeneratorInterface $nameGenerator,
+        ClockInterface $clock
     ) {
         if ($stateMachineArn === '') {
             throw new \InvalidArgumentException(
@@ -52,6 +59,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         $this->client = $client;
         $this->stateMachineArn = $stateMachineArn;
         $this->nameGenerator = $nameGenerator;
+        $this->clock = $clock;
     }
 
     /**
@@ -67,15 +75,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         $executionName = $this->nameGenerator->generate($event, $dueAt);
 
         try {
-            $input = json_encode([
-                'command' => $command,
-                'mutexName' => $mutexName,
-                'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
-            ]);
-
-            if ($input === false) {
-                throw new \RuntimeException('Failed to encode input JSON: ' . json_last_error_msg());
-            }
+            $input = (new Payload($command, $mutexName, $dueAt))->toJson();
 
             $result = $this->client->startExecution([
                 'stateMachineArn' => $this->stateMachineArn,
@@ -88,14 +88,14 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 $executionName,
                 $mutexName,
                 (string) $command,
-                new DateTimeImmutable()
+                $this->clock->now()
             );
         } catch (ExecutionAlreadyExistsException $e) {
             return new AlreadyRunningStepFunctionsDispatchResult(
                 $executionName,
                 $mutexName,
                 (string) $command,
-                new DateTimeImmutable()
+                $this->clock->now()
             );
         } catch (StepFunctionsException $e) {
             // Handle Step Functions API errors (not ExecutionAlreadyExists)
@@ -103,8 +103,9 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 $executionName,
                 $mutexName,
                 $command,
-                get_class($e) . ': ' . $e->getMessage(),
-                $e
+                ExceptionFormatter::format($e),
+                $e,
+                $this->clock->now()
             );
         }
     }
