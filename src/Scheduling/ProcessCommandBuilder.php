@@ -26,17 +26,6 @@ class ProcessCommandBuilder extends CommandBuilder
         $output = ProcessUtils::escapeArgument($event->output);
         $redirect = $event->shouldAppendOutput ? ' >> ' : ' > ';
 
-        if (windows_os()) {
-            // Windows: retains the original schedule:finish inline pattern.
-            // LocalDispatcher does not support Windows; this branch exists
-            // only to maintain parent class compatibility.
-            $finished = Application::formatCommandString('schedule:finish')
-                . ' "' . $event->mutexName() . '"';
-
-            return 'cmd /c "(' . $event->command . ' & '
-                . $finished . ' "%errorlevel%")' . $redirect . $output . ' 2>&1"';
-        }
-
         return 'exec ' . $this->ensureCorrectUser(
             $event,
             $event->command . $redirect . $output . ' 2>&1'
@@ -74,7 +63,7 @@ class ProcessCommandBuilder extends CommandBuilder
      */
     protected function ensureCorrectUser(Event $event, $command)
     {
-        return $event->user && !windows_os()
+        return $event->user
             ? 'sudo -u ' . $event->user . ' -- sh -c \'exec ' . $command . '\''
             : $command;
     }
