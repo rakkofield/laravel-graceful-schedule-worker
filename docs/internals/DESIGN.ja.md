@@ -326,10 +326,9 @@ classDiagram
 
     class CompositeDispatcher {
         -dispatchers Map~string,ScheduleDispatcherInterface~
-        -defaultType string
-        +__construct(dispatchers, defaultType)
-        +dispatchEvent(event, container) DispatchResultInterface
-        -resolveDispatcherType(event) string
+        -logger LoggerInterface
+        +__construct(dispatchers, logger)
+        +dispatchEvent(event, container, dueAt) DispatchResultInterface
     }
 
     class LocalDispatcher {
@@ -446,6 +445,7 @@ sequenceDiagram
     participant TDisp as TrackingDispatcher
     participant Track as ExecutionTrackerInterface
     participant Comp as CompositeDispatcher
+    participant Event as ClockAwareEvent
     participant Local as LocalDispatcher
 
     Cmd->>Orch: run(schedule, app, shouldContinue)
@@ -458,7 +458,7 @@ sequenceDiagram
             alt ロック取得成功
                 Track-->>TDisp: true
                 TDisp->>Comp: dispatchEvent(event, container, dueAt)
-                Comp->>Comp: resolveDispatcherType(event)
+                Comp->>Event: getDispatcherType()
                 Comp->>Local: dispatchEvent(event, container, dueAt)
                 Local-->>Comp: StartedDispatchResult
                 Comp-->>TDisp: StartedDispatchResult
@@ -521,13 +521,7 @@ sequenceDiagram
     TDisp->>Comp: dispatchEvent(event, app, dueAt)
     Comp->>Event: getDispatcherType()
 
-    alt イベント指定あり
-        Event-->>Comp: "stepfunctions"
-    else イベント指定なし
-        Event-->>Comp: null
-        Comp->>Comp: use defaultType("local")
-    end
-
+    Event-->>Comp: "stepfunctions" or "local"
     Comp->>Comp: dispatchers[type].dispatchEvent(event, app, dueAt)
 ```
 
@@ -625,7 +619,7 @@ sequenceDiagram
 ┌─────────────────────────────────────────────────────────────────────┐
 │               CompositeDispatcher                                   │
 │  - event.getDispatcherType() で type を取得                         │
-│  - null の場合は defaultType を使用                                 │
+│  - dispatchers[type] にディスパッチ                                 │
 │  - dispatchers[type].dispatchEvent() に委譲                         │
 └─────────────────────┬───────────────────────────────────────────────┘
                       │
@@ -792,20 +786,20 @@ class ClockAwareEvent extends Event
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
 
-use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Foundation\Application;
+use Illuminate\Contracts\Foundation\Application;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 interface ScheduleOrchestratorInterface
 {
     /**
      * スケジュールされたタスクを調整・実行する
      *
-     * @param Schedule $schedule Laravel のスケジュールオブジェクト
+     * @param ClockAwareSchedule $schedule Clock対応のスケジュールオブジェクト
      * @param Application $app Laravel アプリケーションインスタンス
      * @param callable $shouldContinue 実行継続の判定関数
      * @return bool 実行が成功したかどうか
      */
-    public function run(Schedule $schedule, Application $app, callable $shouldContinue): bool;
+    public function run(ClockAwareSchedule $schedule, Application $app, callable $shouldContinue): bool;
 }
 ```
 
@@ -819,8 +813,8 @@ interface ScheduleOrchestratorInterface
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
+use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
@@ -831,65 +825,44 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /** @var array<string, ScheduleDispatcherInterface> */
     private $dispatchers;
 
-    /** @var string DIで注入（config参照はServiceProviderのみ） */
-    private $defaultType;
+    /** @var LoggerInterface */
+    private $logger;
 
     /**
      * @param array<string, ScheduleDispatcherInterface> $dispatchers
-     * @param string $defaultType
-     * @throws \InvalidArgumentException dispatchers が空または defaultType が登録されていない場合
+     * @param LoggerInterface $logger Logger
+     * @throws \InvalidArgumentException dispatchers が空の場合
      */
-    public function __construct(array $dispatchers, string $defaultType)
+    public function __construct(array $dispatchers, LoggerInterface $logger)
     {
         if (empty($dispatchers)) {
-            throw new \InvalidArgumentException('At least one dispatcher must be provided');
-        }
-
-        if (!isset($dispatchers[$defaultType])) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    'Default dispatcher type "%s" is not registered. Available types: %s',
-                    $defaultType,
-                    implode(', ', array_keys($dispatchers))
-                )
-            );
+            throw new \InvalidArgumentException('Dispatchers array cannot be empty');
         }
 
         $this->dispatchers = $dispatchers;
-        $this->defaultType = $defaultType;
+        $this->logger = $logger;
     }
 
     /**
      * 単一イベントをディスパッチする
      *
-     * @param Event $event 実行するスケジュールイベント
+     * @param ClockAwareEvent $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
      * @param DateTimeInterface $dueAt 実行予定時刻
      * @return DispatchResultInterface ディスパッチ結果
      */
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
+    public function dispatchEvent(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
-        $type = $this->resolveDispatcherType($event);
+        $type = $event->getDispatcherType();
 
         if (!isset($this->dispatchers[$type])) {
-            throw new \InvalidArgumentException("Unknown dispatcher type: {$type}");
+            $availableTypes = implode(', ', array_keys($this->dispatchers));
+            throw new \InvalidArgumentException(
+                "Unknown dispatcher type: {$type}. Available types: {$availableTypes}"
+            );
         }
 
         return $this->dispatchers[$type]->dispatchEvent($event, $container, $dueAt);
-    }
-
-    /**
-     * イベントから使用するDispatcherタイプを解決する
-     *
-     * @param Event $event
-     * @return string
-     */
-    private function resolveDispatcherType(Event $event): string
-    {
-        if ($event instanceof ClockAwareEvent && $event->getDispatcherType() !== null) {
-            return $event->getDispatcherType();
-        }
-        return $this->defaultType;
     }
 
     public function cleanup(): void;
@@ -1288,20 +1261,20 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 interface ScheduleDispatcherInterface
 {
     /**
      * 単一イベントをディスパッチする
      *
-     * @param Event $event 実行するスケジュールイベント
+     * @param ClockAwareEvent $event 実行するスケジュールイベント
      * @param Container $container Laravel コンテナインスタンス
      * @param DateTimeInterface $dueAt 実行予定時刻（トラッキングやリカバリに使用）
      * @return DispatchResultInterface ディスパッチ結果
      */
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface;
+    public function dispatchEvent(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface;
 
     /**
      * 完了したプロセスのクリーンアップを行う
@@ -1359,9 +1332,9 @@ interface SkippedDispatchResultInterface extends DispatchResultInterface
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Container\Container;
 use Psr\Log\LoggerInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 /**
@@ -1390,7 +1363,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         LoggerInterface $logger
     );
 
-    public function dispatchEvent(Event $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
+    public function dispatchEvent(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
     {
         // 1. ロック取得
         if (!$this->tracker->acquireLock($event, $dueAt)) {
@@ -1425,53 +1398,53 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
 use DateTimeInterface;
-use Illuminate\Console\Scheduling\Event;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 interface ExecutionTrackerInterface
 {
     /**
      * タスクの実行を記録する
      *
-     * @param Event $event 実行されたイベント
+     * @param ClockAwareEvent $event 実行されたイベント
      * @param DateTimeInterface $dueAt 実行予定時刻
      */
-    public function markExecuted(Event $event, DateTimeInterface $dueAt): void;
+    public function markExecuted(ClockAwareEvent $event, DateTimeInterface $dueAt): void;
 
     /**
      * リカバリすべき取りこぼしがあれば、その実行予定時刻を返す
      *
      * 以下の条件をすべて満たす場合に missedDue を返す:
      * - 前回の実行予定時刻より後の実行予定が存在する（取りこぼしあり）
-     * - grace period 内である（ClockAwareEvent の場合）
+     * - grace period 内である
      *
      * 初回実行（実行記録なし）の場合は null を返す。
      * cron 式が不正な場合は例外を投げる。
      *
-     * @param Event $event チェック対象のイベント
+     * @param ClockAwareEvent $event チェック対象のイベント
      * @param DateTimeInterface $now 現在時刻
      * @return DateTimeInterface|null リカバリすべき場合は missedDue、そうでなければ null
      * @throws \InvalidArgumentException cron 式が不正な場合
      */
-    public function getMissedDueIfRecoverable(Event $event, DateTimeInterface $now): ?DateTimeInterface;
+    public function getMissedDueIfRecoverable(ClockAwareEvent $event, DateTimeInterface $now): ?DateTimeInterface;
 
     /**
      * 指定時刻に対するロックを取得する
      *
      * 複数 Worker が同じタスクを重複実行しないよう、排他ロックを取得する。
      *
-     * @param Event $event 対象イベント
+     * @param ClockAwareEvent $event 対象イベント
      * @param DateTimeInterface $dueAt 実行予定時刻
      * @return bool ロック取得成功なら true
      */
-    public function acquireLock(Event $event, DateTimeInterface $dueAt): bool;
+    public function acquireLock(ClockAwareEvent $event, DateTimeInterface $dueAt): bool;
 
     /**
      * 指定時刻に対するロックを解放する
      *
-     * @param Event $event 対象イベント
+     * @param ClockAwareEvent $event 対象イベント
      * @param DateTimeInterface $dueAt 実行予定時刻
      */
-    public function releaseLock(Event $event, DateTimeInterface $dueAt): void;
+    public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void;
 }
 ```
 
@@ -1565,12 +1538,9 @@ interface ExecutionTrackerInterface
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
 | T2.11 | testDelegatesToEventSpecifiedDispatcher | イベント指定の Dispatcher に委譲 |
-| T2.12 | testUsesDefaultWhenNoEventSetting | 未指定時は defaultType 使用 |
-| T2.13 | testUsesDefaultWhenDispatcherTypeIsNull | null 時も defaultType 使用 |
+| T2.12 | testDefaultDispatcherTypeUsesLocalDispatcher | デフォルトdispatcher typeはlocalを使用 |
 | T2.14 | testThrowsOnUnknownType | 未登録 type で例外 |
-| T2.15 | testReceivesDefaultTypeViaConstructor | defaultType がコンストラクタ経由 |
 | T2.16 | testThrowsWhenDispatchersArrayIsEmpty | 空配列で例外 |
-| T2.17 | testThrowsWhenDefaultTypeNotInDispatchers | 未登録 defaultType で例外 |
 | T2.18 | testCleanupDelegatesToAllChildDispatchers | cleanup が全子に委譲 |
 | T2.19 | testStopAllDelegatesToAllChildDispatchers | stopAll が全子に委譲 |
 | T2.20 | testCleanupContinuesWhenChildThrows | 子の例外でも他の子に委譲 |

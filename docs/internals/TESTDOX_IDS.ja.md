@@ -27,8 +27,9 @@
 | Clock/SystemClockTest | `SC` | 2 |
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
-| Scheduling/ClockAwareScheduleTest | `CS` | 15 |
+| Scheduling/ClockAwareScheduleTest | `CS` | 10 |
 | Scheduling/ClockAwareEventTest | `CE` | 21 |
+| Scheduling/ProcessCommandBuilderTest | `PCB` | 5 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
 | Console/ExceptionReporterTest | `ER` | 3 |
@@ -49,8 +50,8 @@
 | Dispatcher/StepFunctions/ExecutionNameGeneratorTest | `ENG` | 9 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
 | Providers/GracefulScheduleWorkerProviderTest | `GP` | 16 |
-| Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 22 |
-| Tracker/CacheExecutionTrackerTest | `CT` | 15 |
+| Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 23 |
+| Tracker/CacheExecutionTrackerTest | `CT` | 16 |
 | Tracker/NullExecutionTrackerTest | `NT` | 4 |
 
 ### Integration Tests
@@ -59,8 +60,7 @@
 |---|---|---|
 | Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 4 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
-| Orchestrator/OrchestratorMixedEventsIntegrationTest | `TI` | 4 |
-| Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 5 |
+| Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 7 |
 | Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 3 |
 | Dispatcher/TrackingDispatcherRedisIntegrationTest | `TDI` | 6 |
 | Tracker/CacheExecutionTrackerRedisTest | `CTI` | 7 |
@@ -76,11 +76,10 @@
 
 ## TI プレフィックスの番号範囲
 
-`TI` は Orchestrator Integration 3ファイルで共有し、番号範囲で分離する：
+`TI` は Orchestrator Integration ファイルで共有し、番号範囲で分離する：
 
 | テストファイル | 番号範囲 |
 |---|---|
-| OrchestratorFlowIntegrationTest | TI.1〜TI.4 |
+| OrchestratorFlowIntegrationTest | TI.1〜TI.4, TI.20 |
 | OrchestratorFiltersPassIntegrationTest | TI.5〜TI.10 |
-| OrchestratorMixedEventsIntegrationTest | TI.16〜TI.19 |
-| ScheduleRunCompatibilityIntegrationTest | TI.11〜TI.15 |
+| ScheduleRunCompatibilityIntegrationTest | TI.11〜TI.15, TI.21〜TI.22 |
