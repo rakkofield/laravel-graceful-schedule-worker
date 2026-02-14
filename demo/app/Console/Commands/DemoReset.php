@@ -29,6 +29,7 @@ class DemoReset extends Command
             $this->clearWorkerData($worker);
         }
 
+        $this->clearLongTaskKeys();
         $this->clearTrackerKeys();
 
         $this->info('Demo data and tracker keys cleared.');
@@ -66,6 +67,18 @@ class DemoReset extends Command
         Cache::forget("{$prefix}:last");
 
         $this->line("Cleared data for worker '{$worker}'.");
+    }
+
+    /**
+     * @return void
+     */
+    private function clearLongTaskKeys()
+    {
+        $keys = ['demo:longtask:status', 'demo:longtask:last-step', 'demo:longtask:steps'];
+        foreach ($keys as $key) {
+            Cache::forget($key);
+        }
+        $this->line('Cleared long-task keys.');
     }
 
     /**

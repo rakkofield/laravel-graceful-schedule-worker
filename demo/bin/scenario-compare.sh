@@ -16,43 +16,42 @@ set -e
 # Duration: ~8 minutes
 # ===================================================================
 
-COMPOSE="docker compose -f compose.yaml --profile compare"
 cd "$(dirname "$0")/.."
 
 cleanup() {
     echo ""
     echo "==> Cleaning up..."
-    $COMPOSE down 2>/dev/null || true
+    docker compose --profile compare down 2>/dev/null || true
 }
 trap cleanup EXIT
 
 echo "==> Starting Redis..."
-$COMPOSE up -d --wait redis
+docker compose up -d --wait redis
 
 echo "==> Resetting demo data..."
-$COMPOSE run --rm graceful php artisan demo:reset
+docker compose run --rm php php artisan demo:reset
 
 echo "==> Starting both workers (graceful + cron)..."
-$COMPOSE up -d --build graceful cron
+docker compose --profile compare up -d --build php cron
 
 echo "==> Waiting 3 minutes for normal execution..."
 sleep 180
 
 echo "==> Simulating outage: stopping both workers..."
-$COMPOSE stop graceful cron
+docker compose --profile compare stop php cron
 
 echo "==> Workers stopped. Waiting 3 minutes (missed executions)..."
 sleep 180
 
 echo "==> Restarting both workers..."
-$COMPOSE up -d graceful cron
+docker compose --profile compare up -d php cron
 
 echo "==> Waiting 2 minutes for recovery + normal execution..."
 sleep 120
 
 echo ""
 echo "==> Comparison Report:"
-$COMPOSE run --rm graceful php artisan demo:report --worker=compare
+docker compose run --rm php php artisan demo:report --worker=compare
 
 echo ""
 echo "==> Scenario complete."

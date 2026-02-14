@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Console\Commands\DemoLongTask;
 use App\Console\Commands\DemoReport;
 use App\Console\Commands\DemoReset;
 use App\Console\Commands\DemoTick;
@@ -25,6 +26,7 @@ class Kernel extends ConsoleKernel
         Hello::class,
         LoopHello::class,
         DemoTick::class,
+        DemoLongTask::class,
         DemoReport::class,
         DemoReset::class,
     ];
@@ -54,13 +56,26 @@ class Kernel extends ConsoleKernel
      */
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
-        // graceful tick — executed by schedule:graceful-work only
+        $scenario = getenv('DEMO_SCENARIO');
+
+        if ($scenario === 'signal' || $scenario === 'stepfunctions') {
+            $schedule->command('demo:long-task')->everyMinute()
+                ->runInBackground()
+                ->appendOutputTo('/tmp/scheduler.log');
+
+            if ($scenario === 'stepfunctions' && config('graceful-scheduler.stepfunctions.endpoint')) {
+                $schedule->exec('echo "sfn-task-executed"')->everyMinute()
+                    ->dispatchVia('stepfunctions');
+            }
+            return;
+        }
+
+        // Default: existing behavior (deploy, compare, default)
         $schedule->command('demo:tick', ['--worker=graceful'])->everyMinute()
             ->runInBackground()
             ->enableRecovery()
             ->appendOutputTo('/tmp/scheduler.log');
 
-        // Step Functions example — only when moto endpoint is available
         if (config('graceful-scheduler.stepfunctions.endpoint')) {
             $schedule->exec('echo "hello from stepfunctions"')->everyMinute()
                 ->dispatchVia('stepfunctions');
