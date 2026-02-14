@@ -33,8 +33,8 @@ class DemoTick extends Command
         $count = Cache::increment("{$prefix}:count");
         $this->setTtl("{$prefix}:count", $ttl);
 
-        // Record this minute
-        Cache::put("{$prefix}:timeline:{$minute}", 1, $ttl);
+        // Record this minute with actual execution timestamp
+        Cache::put("{$prefix}:timeline:{$minute}", date('Y-m-d\TH:i:s'), $ttl);
 
         // Update first (only if not set)
         if (!Cache::has("{$prefix}:first")) {

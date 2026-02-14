@@ -120,6 +120,12 @@ class DemoReport extends Command
     }
 
     /**
+     * Threshold in seconds: execution later than this is considered recovery.
+     * Normal dispatch fires at :00, recovery fires mid-minute after restart.
+     */
+    private static $recoveryThreshold = 5;
+
+    /**
      * @param string $prefix
      * @param string[] $minutes
      * @return string[]
@@ -127,24 +133,32 @@ class DemoReport extends Command
     private function buildStatuses($prefix, $minutes)
     {
         $statuses = [];
-        $prevMissed = false;
 
         foreach ($minutes as $minute) {
-            $has = Cache::has("{$prefix}:timeline:{$minute}");
+            $executedAt = Cache::get("{$prefix}:timeline:{$minute}");
 
-            if ($has && $prevMissed) {
-                $statuses[] = 'RECOVERED';
-                $prevMissed = false;
-            } elseif ($has) {
-                $statuses[] = 'OK';
-                $prevMissed = false;
-            } else {
+            if ($executedAt === null) {
                 $statuses[] = 'MISSED';
-                $prevMissed = true;
+            } elseif ($this->isRecovery($executedAt)) {
+                $statuses[] = 'RECOVERED';
+            } else {
+                $statuses[] = 'OK';
             }
         }
 
         return $statuses;
+    }
+
+    /**
+     * @param string $executedAt  e.g. "2026-02-14T10:05:32"
+     * @return bool
+     */
+    private function isRecovery($executedAt)
+    {
+        $dt = new DateTime($executedAt);
+        $seconds = (int) $dt->format('s');
+
+        return $seconds > self::$recoveryThreshold;
     }
 
     /**
