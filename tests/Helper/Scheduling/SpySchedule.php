@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
-use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
@@ -17,7 +16,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
  */
 class SpySchedule extends ClockAwareSchedule
 {
-    /** @var array<Event> */
+    /** @var array<ClockAwareEvent> */
     private $dueEventsToReturn = [];
 
     /** @var int */
@@ -41,7 +40,7 @@ class SpySchedule extends ClockAwareSchedule
     /**
      * Set events that dueEvents will return
      *
-     * @param array<Event> $events
+     * @param array<ClockAwareEvent> $events
      * @return void
      */
     public function setDueEvents(array $events): void
@@ -53,7 +52,7 @@ class SpySchedule extends ClockAwareSchedule
      * {@inheritdoc}
      *
      * @param \Illuminate\Contracts\Foundation\Application $app
-     * @return array<Event>
+     * @return array<ClockAwareEvent>
      */
     public function dueEvents($app)
     {
@@ -84,10 +83,10 @@ class SpySchedule extends ClockAwareSchedule
      *
      * Adds to the event list returned by Schedule::events().
      *
-     * @param Event $event
+     * @param ClockAwareEvent $event
      * @return void
      */
-    public function addEvent(Event $event): void
+    public function addEvent(ClockAwareEvent $event): void
     {
         $this->events[] = $event;
     }

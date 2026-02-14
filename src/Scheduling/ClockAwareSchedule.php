@@ -83,6 +83,18 @@ class ClockAwareSchedule extends Schedule
     }
 
     /**
+     * {@inheritdoc}
+     *
+     * @return ClockAwareEvent[]
+     */
+    public function events()
+    {
+        /** @var ClockAwareEvent[] $events */
+        $events = parent::events();
+        return $events;
+    }
+
+    /**
      * Execute a callback with the clock frozen at the specified time.
      *
      * Called by the Orchestrator as an entry point to evaluate

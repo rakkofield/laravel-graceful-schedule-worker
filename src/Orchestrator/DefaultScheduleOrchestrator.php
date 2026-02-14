@@ -111,7 +111,6 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      */
     private function checkMissedExecutions(ClockAwareSchedule $schedule, Application $app, DateTimeInterface $now): void
     {
-        /** @var ClockAwareEvent $event */
         foreach ($schedule->events() as $event) {
             try {
                 if (!$this->isRecoverableEvent($event)) {
