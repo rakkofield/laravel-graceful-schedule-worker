@@ -29,14 +29,15 @@
 | Clock/FreezableClockTest | `FC` | 7 |
 | Scheduling/ClockAwareScheduleTest | `CS` | 10 |
 | Scheduling/ClockAwareEventTest | `CE` | 22 |
-| Scheduling/ProcessCommandBuilderTest | `PCB` | 10 |
+| Scheduling/FinishCommandTemplateTest | `FCT` | 3 |
+| Scheduling/ProcessCommandBuilderTest | `PCB` | 11 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
 | Console/ExceptionReporterTest | `ER` | 3 |
 | Console/LegacyExceptionReporterTest | `LER` | 3 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
 | Console/UsesClockAwareScheduleTest | `UCS` | 11 |
-| Dispatcher/LocalDispatcherTest | `LD` | 35 |
+| Dispatcher/LocalDispatcherTest | `LD` | 37 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 18 |
 | Dispatcher/StepFunctionsDispatcherTest | `SFD` | 14 |

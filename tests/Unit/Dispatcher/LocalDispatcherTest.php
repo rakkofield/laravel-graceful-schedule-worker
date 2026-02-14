@@ -19,6 +19,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FinishCommandTemplate;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
 
 class LocalDispatcherTest extends TestCase
@@ -656,7 +657,7 @@ class LocalDispatcherTest extends TestCase
             'event1',
             'echo test',
             new DateTimeImmutable(),
-            'schedule:finish "event1" %d >> /dev/null 2>&1'
+            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
         );
 
         // Running process with finishCommandTemplate
@@ -666,7 +667,7 @@ class LocalDispatcherTest extends TestCase
             'event2',
             'echo test',
             new DateTimeImmutable(),
-            'schedule:finish "event2" %d >> /dev/null 2>&1'
+            new FinishCommandTemplate('schedule:finish "event2"', '>> /dev/null 2>&1')
         );
 
         $dispatcher->addRunningProcess($result1);
@@ -677,6 +678,7 @@ class LocalDispatcherTest extends TestCase
         // Finish command was run only for the completed process
         $this->assertCount(1, $dispatcher->getFinishCommandsRun());
         $this->assertStringContainsString('event1', $dispatcher->getFinishCommandsRun()[0]);
+        $this->assertStringContainsString(' 143 ', $dispatcher->getFinishCommandsRun()[0]);
     }
 
     /**
@@ -693,7 +695,7 @@ class LocalDispatcherTest extends TestCase
             'event1',
             'echo test',
             new DateTimeImmutable(),
-            'schedule:finish "event1" %d >> /dev/null 2>&1'
+            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
         );
 
         $proc2 = new StubProcess(true);
@@ -703,7 +705,7 @@ class LocalDispatcherTest extends TestCase
             'event2',
             'echo test',
             new DateTimeImmutable(),
-            'schedule:finish "event2" %d >> /dev/null 2>&1'
+            new FinishCommandTemplate('schedule:finish "event2"', '>> /dev/null 2>&1')
         );
 
         $dispatcher->addRunningProcess($result1);
@@ -711,12 +713,14 @@ class LocalDispatcherTest extends TestCase
 
         $dispatcher->stopAll();
 
-        // Both processes got finish commands
+        // Both processes got finish commands with exit code 143
         $this->assertCount(2, $dispatcher->getFinishCommandsRun());
+        $this->assertStringContainsString(' 143 ', $dispatcher->getFinishCommandsRun()[0]);
+        $this->assertStringContainsString(' 143 ', $dispatcher->getFinishCommandsRun()[1]);
     }
 
     /**
-     * @testdox LD.35 runFinishCommand exception does not prevent other finish commands from running
+     * @testdox LD.35 cleanup: runFinishCommand exception does not prevent other finish commands from running
      */
     public function testRunFinishCommandExceptionDoesNotStopOtherFinishes(): void
     {
@@ -728,7 +732,7 @@ class LocalDispatcherTest extends TestCase
             'event1',
             'echo test',
             new DateTimeImmutable(),
-            'schedule:finish "event1" %d >> /dev/null 2>&1'
+            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
         );
 
         $proc2 = new StubProcess(false);
@@ -737,7 +741,7 @@ class LocalDispatcherTest extends TestCase
             'event2',
             'echo test',
             new DateTimeImmutable(),
-            'schedule:finish "event2" %d >> /dev/null 2>&1'
+            new FinishCommandTemplate('schedule:finish "event2"', '>> /dev/null 2>&1')
         );
 
         $dispatcher->addRunningProcess($result1);
@@ -750,5 +754,71 @@ class LocalDispatcherTest extends TestCase
 
         // Both finish commands were attempted despite first one throwing
         $this->assertCount(2, $dispatcher->getFinishCommandsRun());
+    }
+
+    /**
+     * @testdox LD.36 stopAll Phase 4: first finish command exception does not prevent second from running
+     */
+    public function testStopAllFinishCommandExceptionDoesNotStopOtherFinishes(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
+
+        $proc1 = new StubProcess(true);
+        $proc1->setTerminateOnSignal(true);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test',
+            new DateTimeImmutable(),
+            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
+        );
+
+        $proc2 = new StubProcess(true);
+        $proc2->setTerminateOnSignal(true);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test',
+            new DateTimeImmutable(),
+            new FinishCommandTemplate('schedule:finish "event2"', '>> /dev/null 2>&1')
+        );
+
+        $dispatcher->addRunningProcess($result1);
+        $dispatcher->addRunningProcess($result2);
+
+        // First finish command will throw
+        $dispatcher->willThrowOnFinishCommand(0, new \RuntimeException('Finish failed'));
+
+        $dispatcher->stopAll();
+
+        // Both finish commands were attempted despite first one throwing
+        $this->assertCount(2, $dispatcher->getFinishCommandsRun());
+        $this->assertStringContainsString('event2', $dispatcher->getFinishCommandsRun()[1]);
+    }
+
+    /**
+     * @testdox LD.37 finish command uses exit code 143 when process exit code is null
+     */
+    public function testFinishCommandUsesExitCode143WhenProcessExitCodeIsNull(): void
+    {
+        $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), 0.05);
+
+        // Process with null exit code (terminated but exit code not captured)
+        $proc = new StubProcess(true);
+        $proc->setTerminateOnSignal(true);
+        $result = new StartedLocalDispatchResult(
+            $proc,
+            'event1',
+            'echo test',
+            new DateTimeImmutable(),
+            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
+        );
+
+        $dispatcher->addRunningProcess($result);
+
+        $dispatcher->stopAll();
+
+        $this->assertCount(1, $dispatcher->getFinishCommandsRun());
+        $this->assertStringContainsString(' 143 ', $dispatcher->getFinishCommandsRun()[0]);
     }
 }

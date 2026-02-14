@@ -6,6 +6,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FinishCommandTemplate;
 use Symfony\Component\Process\Process;
 
 /**
@@ -178,13 +179,16 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.13 getFinishCommandTemplate returns value passed to constructor
+     * @testdox SLR.13 getFinishCommandTemplate returns FinishCommandTemplate passed to constructor
      */
     public function testGetFinishCommandTemplateReturnsConstructorValue(): void
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $template = 'schedule:finish "test-mutex" %d >> /dev/null 2>&1';
+        $template = new FinishCommandTemplate(
+            'schedule:finish "test-mutex"',
+            '>> /dev/null 2>&1'
+        );
         $result = new StartedLocalDispatchResult(
             $process,
             'test-id',

@@ -50,8 +50,8 @@ class TestableLocalDispatcher extends LocalDispatcher
         $index = count($this->finishCommandsRun);
         $template = $result->getFinishCommandTemplate();
         if ($template !== null) {
-            $exitCode = $result->getExitCode() ?? 143;
-            $this->finishCommandsRun[] = sprintf($template, $exitCode);
+            $exitCode = $result->getExitCode() ?? LocalDispatcher::EXIT_CODE_SIGTERM;
+            $this->finishCommandsRun[] = $template->buildCommand($exitCode);
         }
 
         if (isset($this->finishExceptions[$index])) {

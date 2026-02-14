@@ -316,9 +316,9 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
-     * @testdox CE.22 buildFinishCommandTemplate returns schedule:finish template
+     * @testdox CE.22 buildFinishCommandTemplate returns FinishCommandTemplate instance
      */
-    public function testBuildFinishCommandTemplateReturnsTemplate(): void
+    public function testBuildFinishCommandTemplateReturnsFinishCommandTemplate(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -326,7 +326,9 @@ class ClockAwareEventTest extends TestCase
 
         $template = $event->buildFinishCommandTemplate();
 
-        $this->assertStringContainsString('schedule:finish', $template);
-        $this->assertStringContainsString('%d', $template);
+        $this->assertInstanceOf(FinishCommandTemplate::class, $template);
+        $command = $template->buildCommand(0);
+        $this->assertStringContainsString('schedule:finish', $command);
+        $this->assertStringContainsString(' 0 ', $command);
     }
 }

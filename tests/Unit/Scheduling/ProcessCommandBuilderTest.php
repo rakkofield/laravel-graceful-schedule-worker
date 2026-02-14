@@ -43,7 +43,8 @@ class ProcessCommandBuilderTest extends TestCase
         $this->assertStringNotContainsString('schedule:finish', $command);
 
         // schedule:finish IS in buildFinishCommand
-        $finishCommand = $this->builder->buildFinishCommand($event);
+        $template = $this->builder->buildFinishCommand($event);
+        $finishCommand = $template->buildCommand(0);
         $output = ProcessUtils::escapeArgument('/tmp/test.log');
         $this->assertStringContainsString('schedule:finish', $finishCommand);
         $this->assertStringContainsString('>> ' . $output . ' 2>&1', $finishCommand);
@@ -99,7 +100,8 @@ class ProcessCommandBuilderTest extends TestCase
         $this->assertStringEndsWith('2>&1', $command);
 
         // buildFinishCommand should contain schedule:finish
-        $finishCommand = $this->builder->buildFinishCommand($event);
+        $template = $this->builder->buildFinishCommand($event);
+        $finishCommand = $template->buildCommand(0);
         $devNull = ProcessUtils::escapeArgument('/dev/null');
         $this->assertStringContainsString('schedule:finish', $finishCommand);
         $this->assertStringContainsString($devNull, $finishCommand);
@@ -140,7 +142,8 @@ class ProcessCommandBuilderTest extends TestCase
         $this->assertStringNotContainsString('>> ' . $output, $command);
 
         // buildFinishCommand should always use >> (append) to avoid overwriting main command output
-        $finishCommand = $this->builder->buildFinishCommand($event);
+        $template = $this->builder->buildFinishCommand($event);
+        $finishCommand = $template->buildCommand(0);
         $this->assertStringContainsString('>> ' . $output . ' 2>&1', $finishCommand);
     }
 
@@ -164,22 +167,20 @@ class ProcessCommandBuilderTest extends TestCase
     }
 
     /**
-     * @testdox PCB.8 Unix: buildFinishCommand returns correct schedule:finish command template
+     * @testdox PCB.8 Unix: buildFinishCommand returns FinishCommandTemplate with correct schedule:finish command
      */
-    public function testBuildFinishCommandReturnsCorrectTemplate(): void
+    public function testBuildFinishCommandReturnsFinishCommandTemplate(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
         $event->runInBackground = true;
 
-        $finishCommand = $this->builder->buildFinishCommand($event);
+        $template = $this->builder->buildFinishCommand($event);
 
-        // Contains schedule:finish
-        $this->assertStringContainsString('schedule:finish', $finishCommand);
-        // Contains mutex name
-        $this->assertStringContainsString($event->mutexName(), $finishCommand);
-        // Contains %d placeholder for exit code
-        $this->assertStringContainsString('%d', $finishCommand);
+        $this->assertInstanceOf(FinishCommandTemplate::class, $template);
+        $command = $template->buildCommand(0);
+        $this->assertStringContainsString('schedule:finish', $command);
+        $this->assertStringContainsString($event->mutexName(), $command);
     }
 
     /**
@@ -194,18 +195,20 @@ class ProcessCommandBuilderTest extends TestCase
         $event1->runInBackground = true;
         $event1->sendOutputTo('/tmp/test.log');
 
-        $finishCommand1 = $this->builder->buildFinishCommand($event1);
+        $template1 = $this->builder->buildFinishCommand($event1);
+        $command1 = $template1->buildCommand(0);
         $output1 = ProcessUtils::escapeArgument('/tmp/test.log');
-        $this->assertStringContainsString('>> ' . $output1, $finishCommand1);
+        $this->assertStringContainsString('>> ' . $output1, $command1);
 
         // With appendOutputTo (append mode)
         $event2 = new ClockAwareEvent($this->mutex, 'php artisan test2', $clock);
         $event2->runInBackground = true;
         $event2->appendOutputTo('/tmp/test2.log');
 
-        $finishCommand2 = $this->builder->buildFinishCommand($event2);
+        $template2 = $this->builder->buildFinishCommand($event2);
+        $command2 = $template2->buildCommand(0);
         $output2 = ProcessUtils::escapeArgument('/tmp/test2.log');
-        $this->assertStringContainsString('>> ' . $output2, $finishCommand2);
+        $this->assertStringContainsString('>> ' . $output2, $command2);
     }
 
     /**
@@ -222,5 +225,23 @@ class ProcessCommandBuilderTest extends TestCase
 
         // exec inside sh -c for sudo
         $this->assertStringContainsString("sh -c 'exec php artisan test", $command);
+    }
+
+    /**
+     * @testdox PCB.11 Unix: buildFinishCommand handles output path containing percent sign
+     */
+    public function testBuildFinishCommandHandlesPercentInOutputPath(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+        $event->appendOutputTo('/tmp/100%done.log');
+
+        $template = $this->builder->buildFinishCommand($event);
+        $command = $template->buildCommand(0);
+
+        $this->assertStringContainsString('schedule:finish', $command);
+        $this->assertStringContainsString('100%done', $command);
+        $this->assertStringContainsString(' 0 ', $command);
     }
 }

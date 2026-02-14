@@ -224,11 +224,9 @@ class ClockAwareEvent extends Event
     /**
      * Build the finish command template for schedule:finish.
      *
-     * Returns a sprintf-compatible template where %d is the exit code placeholder.
-     *
-     * @return string
+     * @return FinishCommandTemplate
      */
-    public function buildFinishCommandTemplate(): string
+    public function buildFinishCommandTemplate(): FinishCommandTemplate
     {
         return (new ProcessCommandBuilder())->buildFinishCommand($this);
     }

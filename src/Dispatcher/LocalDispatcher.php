@@ -18,6 +18,9 @@ use Symfony\Component\Process\Process;
 
 class LocalDispatcher implements ScheduleDispatcherInterface
 {
+    /** @var int */
+    public const EXIT_CODE_SIGTERM = 143;
+
     /**
      * @var string|null
      */
@@ -237,7 +240,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * Run the schedule:finish command for a completed process.
+     * Run the schedule:finish command for a completed or terminated process.
      *
      * @param StartedLocalDispatchResult $result
      * @return void
@@ -249,11 +252,19 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             return;
         }
 
-        $exitCode = $result->getExitCode() ?? 143;
-        $command = sprintf($template, $exitCode);
+        $exitCode = $result->getExitCode() ?? self::EXIT_CODE_SIGTERM;
+        $command = $template->buildCommand($exitCode);
 
         $process = Process::fromShellCommandline($command, $this->basePath);
         $process->setTimeout(null);
         $process->run();
+
+        if (!$process->isSuccessful()) {
+            $this->logger->warning('[GracefulScheduleWorker] schedule:finish exited with non-zero status', [
+                'event' => $result->getEventIdentifier(),
+                'exitCode' => $process->getExitCode(),
+                'errorOutput' => $process->getErrorOutput(),
+            ]);
+        }
     }
 }

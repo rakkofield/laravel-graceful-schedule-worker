@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FinishCommandTemplate;
 use Symfony\Component\Process\Process;
 
 /**
@@ -26,7 +27,7 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
-    /** @var string|null */
+    /** @var FinishCommandTemplate|null */
     private $finishCommandTemplate;
 
     /**
@@ -34,14 +35,14 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable $dispatchedAt
-     * @param string|null $finishCommandTemplate sprintf-compatible template for schedule:finish
+     * @param FinishCommandTemplate|null $finishCommandTemplate Template for schedule:finish
      */
     public function __construct(
         Process $process,
         string $eventIdentifier,
         string $eventCommand,
         DateTimeImmutable $dispatchedAt,
-        ?string $finishCommandTemplate = null
+        ?FinishCommandTemplate $finishCommandTemplate = null
     ) {
         $this->process = $process;
         $this->eventIdentifier = $eventIdentifier;
@@ -115,9 +116,9 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     /**
      * Get the finish command template.
      *
-     * @return string|null sprintf-compatible template, or null if not set
+     * @return FinishCommandTemplate|null Template, or null if not set
      */
-    public function getFinishCommandTemplate(): ?string
+    public function getFinishCommandTemplate(): ?FinishCommandTemplate
     {
         return $this->finishCommandTemplate;
     }

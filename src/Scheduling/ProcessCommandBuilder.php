@@ -43,19 +43,20 @@ class ProcessCommandBuilder extends CommandBuilder
     /**
      * Build the finish command template for schedule:finish.
      *
-     * Returns a sprintf-compatible template where %d is the exit code placeholder.
+     * Returns a FinishCommandTemplate that builds the final command via string
+     * concatenation, avoiding sprintf % character conflicts in output paths.
      * Always uses append redirect (>>) to avoid overwriting the main command output.
      *
      * @param Event $event
-     * @return string
+     * @return FinishCommandTemplate
      */
-    public function buildFinishCommand(Event $event): string
+    public function buildFinishCommand(Event $event): FinishCommandTemplate
     {
         $output = ProcessUtils::escapeArgument($event->output);
         $finished = Application::formatCommandString('schedule:finish')
             . ' "' . $event->mutexName() . '"';
 
-        return $finished . ' %d >> ' . $output . ' 2>&1';
+        return new FinishCommandTemplate($finished, '>> ' . $output . ' 2>&1');
     }
 
     /**
