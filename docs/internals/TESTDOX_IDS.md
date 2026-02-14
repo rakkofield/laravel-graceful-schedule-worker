@@ -29,7 +29,7 @@
 | Clock/FreezableClockTest | `FC` | 7 |
 | Scheduling/ClockAwareScheduleTest | `CS` | 10 |
 | Scheduling/ClockAwareEventTest | `CE` | 21 |
-| Scheduling/ProcessCommandBuilderTest | `PCB` | 5 |
+| Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
 | Console/ExceptionReporterTest | `ER` | 3 |
@@ -72,7 +72,7 @@
 | Test File | Prefix | Test Count |
 |---|---|---|
 | GracefulScheduleWorkerCommandTest | `E2E` | 1 |
-| BackgroundCommandOutputTest | `E2E` | 1 |
+| BackgroundCommandOutputTest | `E2E` | 2 |
 
 ## TI Prefix Number Ranges
 

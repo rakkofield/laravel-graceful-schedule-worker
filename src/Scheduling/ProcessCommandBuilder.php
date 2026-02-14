@@ -18,6 +18,9 @@ class ProcessCommandBuilder extends CommandBuilder
      * because Process::start() handles async execution.
      * Redirects schedule:finish output to the same file as the main command.
      *
+     * Uses a shell trap pattern so that SIGTERM sent to the /bin/sh wrapper
+     * is forwarded to the actual child process.
+     *
      * @param Event $event
      * @return string
      */
@@ -33,10 +36,22 @@ class ProcessCommandBuilder extends CommandBuilder
                 . $finished . ' "%errorlevel%")' . $redirect . $output . ' 2>&1"';
         }
 
-        return $this->ensureCorrectUser(
+        // Main command (ensureCorrectUser applies only here)
+        $mainCmd = $this->ensureCorrectUser(
             $event,
-            '(' . $event->command . $redirect . $output . ' 2>&1 ; '
-            . $finished . ' "$?" >> ' . $output . ' 2>&1)'
+            $event->command . $redirect . $output . ' 2>&1'
         );
+
+        // schedule:finish command
+        $finishCmd = $finished . ' "$EXIT_CODE" >> ' . $output . ' 2>&1';
+
+        // trap handler (on SIGTERM)
+        $trapHandler = 'kill $CHILD 2>/dev/null; wait $CHILD 2>/dev/null; EXIT_CODE=$?; '
+            . $finishCmd . '; exit $EXIT_CODE';
+
+        return $mainCmd . ' & CHILD=$!; '
+            . "trap '" . $trapHandler . "' TERM; "
+            . 'wait $CHILD; EXIT_CODE=$?; '
+            . $finishCmd;
     }
 }

@@ -552,8 +552,8 @@ class LocalDispatcherTest extends TestCase
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
 
-        // buildProcessCommand() removes the trailing &
-        $this->assertStringNotContainsString(' &', $result->getEventCommand());
+        // buildProcessCommand() does not end with trailing " &" (uses trap pattern instead)
+        $this->assertNotEquals(' &', substr($result->getEventCommand(), -2));
         // schedule:finish is included (buildCommand appends schedule:finish for background)
         $this->assertStringContainsString('schedule:finish', $result->getEventCommand());
 

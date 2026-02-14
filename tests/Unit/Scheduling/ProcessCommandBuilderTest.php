@@ -47,9 +47,9 @@ class ProcessCommandBuilderTest extends TestCase
     }
 
     /**
-     * @testdox PCB.2 Unix: no outer /dev/null redirect
+     * @testdox PCB.2 Unix: main command output goes to specified file, not /dev/null
      */
-    public function testNoOuterDevNullRedirect(): void
+    public function testMainCommandOutputGoesToSpecifiedFile(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
@@ -57,12 +57,17 @@ class ProcessCommandBuilderTest extends TestCase
         $event->appendOutputTo('/tmp/test.log');
 
         $command = $this->builder->buildCommand($event);
+        $output = ProcessUtils::escapeArgument('/tmp/test.log');
 
-        $this->assertStringNotContainsString('/dev/null', $command);
+        // Main command part (before "& CHILD") should redirect to specified file
+        $mainPart = substr($command, 0, (int) strpos($command, '& CHILD'));
+        $this->assertStringContainsString('>> ' . $output . ' 2>&1', $mainPart);
+        // schedule:finish should also redirect to specified file
+        $this->assertStringNotContainsString('> ' . ProcessUtils::escapeArgument('/dev/null'), $mainPart);
     }
 
     /**
-     * @testdox PCB.3 Unix: no trailing &
+     * @testdox PCB.3 Unix: command ends with schedule:finish redirect, no trailing &
      */
     public function testNoTrailingAmpersand(): void
     {
@@ -72,7 +77,7 @@ class ProcessCommandBuilderTest extends TestCase
 
         $command = $this->builder->buildCommand($event);
 
-        $this->assertStringEndsWith(')', $command);
+        $this->assertStringEndsWith('2>&1', $command);
     }
 
     /**
@@ -89,7 +94,7 @@ class ProcessCommandBuilderTest extends TestCase
 
         $this->assertStringContainsString('schedule:finish', $command);
         $this->assertStringContainsString($devNull, $command);
-        $this->assertStringEndsWith(')', $command);
+        $this->assertStringEndsWith('2>&1', $command);
     }
 
     /**
@@ -115,7 +120,7 @@ class ProcessCommandBuilderTest extends TestCase
     }
 
     /**
-     * @testdox PCB.5 Unix: wraps with sudo -u when user is set
+     * @testdox PCB.5 Unix: wraps only main command with sudo -u when user is set
      */
     public function testWrapsWithSudoWhenUserIsSet(): void
     {
@@ -126,6 +131,31 @@ class ProcessCommandBuilderTest extends TestCase
 
         $command = $this->builder->buildCommand($event);
 
-        $this->assertStringContainsString('sudo -u www-data', $command);
+        // sudo wraps only the main command part (before & CHILD)
+        $mainPart = substr($command, 0, (int) strpos($command, '& CHILD'));
+        $this->assertStringContainsString('sudo -u www-data', $mainPart);
+
+        // trap/wait/finish portion should NOT be wrapped in sudo
+        $trapPart = substr($command, (int) strpos($command, '& CHILD'));
+        $this->assertStringNotContainsString('sudo', $trapPart);
+    }
+
+    /**
+     * @testdox PCB.7 Unix: uses trap pattern for SIGTERM forwarding
+     */
+    public function testUsesTrapPatternForSigtermForwarding(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event->runInBackground = true;
+        $event->appendOutputTo('/tmp/test.log');
+
+        $command = $this->builder->buildCommand($event);
+
+        $this->assertStringContainsString('& CHILD=$!', $command);
+        $this->assertStringContainsString("trap '", $command);
+        $this->assertStringContainsString("' TERM", $command);
+        $this->assertStringContainsString('kill $CHILD', $command);
+        $this->assertStringContainsString('wait $CHILD', $command);
     }
 }

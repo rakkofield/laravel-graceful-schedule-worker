@@ -210,7 +210,7 @@ class ClockAwareEventTest extends TestCase
 
         $command = $event->buildProcessCommand();
 
-        $this->assertStringEndsWith(')', $command);
+        $this->assertStringEndsWith('2>&1', $command);
     }
 
     /**

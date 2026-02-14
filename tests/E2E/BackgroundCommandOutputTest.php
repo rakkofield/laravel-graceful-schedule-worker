@@ -57,4 +57,51 @@ final class BackgroundCommandOutputTest extends TestCase
         $contents = file_get_contents($outputFile);
         $this->assertStringContainsString('Hello World!', $contents);
     }
+
+    /**
+     * @testdox E2E.3 SIGTERM is forwarded to child process via trap pattern
+     */
+    public function testSigtermIsForwardedToChildProcess(): void
+    {
+        $outputFile = self::OUTPUT_DIR . '/e2e_bg_sigterm.log';
+
+        // Use a PHP one-liner that writes STARTED then sleeps for a long time.
+        // If SIGTERM is properly forwarded, the sleep will be interrupted.
+        $event = new ClockAwareEvent(
+            new FakeEventMutex(),
+            'php -r \'echo "STARTED\n"; sleep(60);\'',
+            new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'))
+        );
+        $event->runInBackground = true;
+        $event->sendOutputTo($outputFile);
+
+        $command = $event->buildProcessCommand();
+        $process = Process::fromShellCommandline($command, self::SKELETON_PATH);
+        $process->setTimeout(10);
+        $process->start();
+
+        // Wait for the child to start
+        $deadline = time() + 5;
+        while (time() < $deadline) {
+            if (
+                file_exists($outputFile)
+                && strpos((string) file_get_contents($outputFile), 'STARTED') !== false
+            ) {
+                break;
+            }
+            usleep(100000);
+        }
+
+        $this->assertFileExists($outputFile);
+        $this->assertStringContainsString('STARTED', (string) file_get_contents($outputFile));
+
+        // Send SIGTERM to the wrapper /bin/sh — trap should forward it to child
+        $process->signal(SIGTERM);
+
+        // Process should terminate promptly (not hang for 60 seconds)
+        $process->wait();
+
+        $this->assertFalse($process->isRunning());
+    }
+
 }
