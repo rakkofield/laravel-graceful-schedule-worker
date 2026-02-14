@@ -57,19 +57,65 @@ bin/scenario-compare.sh
 
 The graceful worker executes 1 more tick than cron thanks to recovery.
 
+## Scenario 3: Signal Handling (~2 min)
+
+Visualizes graceful shutdown when a background process receives SIGTERM:
+
+```bash
+bin/scenario-signal.sh
+```
+
+**What happens:**
+1. Worker starts `demo:long-task` (8-step task, 1 second per step) in background
+2. After step 3, SIGTERM is sent to the worker
+3. Worker stops the loop and sends SIGTERM to the child process
+4. Child finishes its current step and exits gracefully
+5. Redis shows the final status (`stopped-gracefully`) and last completed step
+
+## Scenario 4: Step Functions Deployment Resilience (~2 min)
+
+Compares local process vs Step Functions behavior during a deployment (worker kill):
+
+```bash
+bin/scenario-stepfunctions.sh
+```
+
+**What happens:**
+1. Worker starts both `demo:long-task` (local) and a Step Functions execution
+2. After step 3, the worker is hard-killed (simulating deployment)
+3. Local task is interrupted mid-execution
+4. Step Functions execution completes independently on moto
+
+**Expected output:**
+- Local process: `INTERRUPTED at step 3/8`
+- Step Functions: `SUCCEEDED`
+
 ## Manual Operations
 
 ```bash
-# Reset demo data (clear ticks + tracker keys)
-docker compose --profile compare run --rm graceful php artisan demo:reset
+# Reset demo data (clear ticks + tracker keys + long-task keys)
+docker compose run --rm php php artisan demo:reset
 
 # View single worker report
-docker compose --profile compare run --rm graceful php artisan demo:report --worker=graceful
-docker compose --profile compare run --rm graceful php artisan demo:report --worker=cron
+docker compose run --rm php php artisan demo:report --worker=graceful
+docker compose run --rm php php artisan demo:report --worker=cron
 
 # View comparison report
-docker compose --profile compare run --rm graceful php artisan demo:report --worker=compare
+docker compose run --rm php php artisan demo:report --worker=compare
+
+# Check Step Functions execution history
+docker compose run --rm -e SFN_ENDPOINT=http://moto:5000 php php bin/check-stepfunctions.php
 ```
+
+## DEMO_SCENARIO Environment Variable
+
+The `DEMO_SCENARIO` variable controls which tasks are registered in `gracefulSchedule()`:
+
+| Value | Tasks |
+|-------|-------|
+| _(empty/default)_ | `demo:tick` with recovery + Step Functions echo |
+| `signal` | `demo:long-task` (SIGTERM handling demo) |
+| `stepfunctions` | `demo:long-task` + Step Functions echo |
 
 ## How Recovery Works
 
