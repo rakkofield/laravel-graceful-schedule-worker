@@ -51,7 +51,7 @@ bin/scenario-compare.sh
   2026-02-14T10:02     OK             OK
   2026-02-14T10:03     MISSED         MISSED
   2026-02-14T10:04     MISSED         MISSED
-  2026-02-14T10:05     MISSED         OK           ← recovery
+  2026-02-14T10:05     MISSED         RECOVERED    ← recovery
   2026-02-14T10:06     OK             OK
 ```
 

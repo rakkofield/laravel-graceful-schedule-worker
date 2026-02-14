@@ -55,13 +55,12 @@ class DemoReport extends Command
         $this->info("");
 
         $minutes = $this->getMinuteRange($first, $last);
+        $statuses = $this->buildStatuses($prefix, $minutes);
+
         $headers = ['Minute', 'Status'];
         $rows = [];
-
-        foreach ($minutes as $minute) {
-            $key = "{$prefix}:timeline:{$minute}";
-            $status = Cache::has($key) ? 'OK' : 'MISSED';
-            $rows[] = [$minute, $status];
+        foreach ($minutes as $i => $minute) {
+            $rows[] = [$minute, $statuses[$i]];
         }
 
         $this->table($headers, $rows);
@@ -97,13 +96,13 @@ class DemoReport extends Command
         $this->info("");
 
         $minutes = $this->getMinuteRange($first, $last);
+        $cronStatuses = $this->buildStatuses('demo:tick:cron', $minutes);
+        $gracefulStatuses = $this->buildStatuses('demo:tick:graceful', $minutes);
+
         $headers = ['Minute', 'cron', 'graceful'];
         $rows = [];
-
-        foreach ($minutes as $minute) {
-            $cronStatus = Cache::has("demo:tick:cron:timeline:{$minute}") ? 'OK' : 'MISSED';
-            $gracefulStatus = Cache::has("demo:tick:graceful:timeline:{$minute}") ? 'OK' : 'MISSED';
-            $rows[] = [$minute, $cronStatus, $gracefulStatus];
+        foreach ($minutes as $i => $minute) {
+            $rows[] = [$minute, $cronStatuses[$i], $gracefulStatuses[$i]];
         }
 
         $this->table($headers, $rows);
@@ -118,6 +117,34 @@ class DemoReport extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * @param string $prefix
+     * @param string[] $minutes
+     * @return string[]
+     */
+    private function buildStatuses($prefix, $minutes)
+    {
+        $statuses = [];
+        $prevMissed = false;
+
+        foreach ($minutes as $minute) {
+            $has = Cache::has("{$prefix}:timeline:{$minute}");
+
+            if ($has && $prevMissed) {
+                $statuses[] = 'RECOVERED';
+                $prevMissed = false;
+            } elseif ($has) {
+                $statuses[] = 'OK';
+                $prevMissed = false;
+            } else {
+                $statuses[] = 'MISSED';
+                $prevMissed = true;
+            }
+        }
+
+        return $statuses;
     }
 
     /**

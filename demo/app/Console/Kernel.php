@@ -40,7 +40,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         // cron tick — executed by schedule:run only
-        $schedule->command('demo:tick', ['--worker=cron'])->everyMinute();
+        $schedule->command('demo:tick', ['--worker=cron'])->everyMinute()
+            ->appendOutputTo(storage_path('logs/scheduler.log'));
     }
 
     /**
@@ -56,7 +57,8 @@ class Kernel extends ConsoleKernel
         // graceful tick — executed by schedule:graceful-work only
         $schedule->command('demo:tick', ['--worker=graceful'])->everyMinute()
             ->runInBackground()
-            ->enableRecovery();
+            ->enableRecovery()
+            ->appendOutputTo(storage_path('logs/scheduler.log'));
 
         // Step Functions example — only when moto endpoint is available
         if (config('graceful-scheduler.stepfunctions.endpoint')) {
