@@ -88,7 +88,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             throw $e;
         } catch (\Exception $e) {
             // markExecuted failure does not affect the dispatch itself, so continue with warning
-            $this->logger->warning('[GracefulScheduleWorker] Failed to track execution result', [
+            $this->logger->error('[GracefulScheduleWorker] Failed to track execution result', [
                 'event' => $event->mutexName(),
                 'error' => $e->getMessage(),
                 'exception' => $e,

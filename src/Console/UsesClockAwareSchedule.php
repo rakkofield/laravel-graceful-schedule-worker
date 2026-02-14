@@ -15,7 +15,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
  * - ClockAwareSchedule::class — ClockAwareSchedule populated via gracefulSchedule()
  *
  * This separation ensures schedule:run only processes native events,
- * and graceful-schedule:work only processes ClockAwareEvents.
+ * and schedule:graceful-work only processes ClockAwareEvents.
  *
  * Prerequisite: Must be used in a class that extends Illuminate\Foundation\Console\Kernel.
  * (Depends on $this->app, scheduleTimezone(), scheduleCache())

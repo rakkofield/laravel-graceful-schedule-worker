@@ -33,14 +33,14 @@
 | Scheduling/ProcessCommandBuilderTest | `PCB` | 11 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
-| Console/ExceptionReporterTest | `ER` | 3 |
-| Console/LegacyExceptionReporterTest | `LER` | 3 |
+| Console/ExceptionReporterTest | `ER` | 4 |
+| Console/LegacyExceptionReporterTest | `LER` | 4 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
 | Console/UsesClockAwareScheduleTest | `UCS` | 11 |
 | Dispatcher/LocalDispatcherTest | `LD` | 37 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 18 |
-| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 14 |
+| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 17 |
 | Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 13 |
 | Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 8 |
 | Dispatcher/Result/SkippedDispatchResultTest | `SD` | 9 |
@@ -50,8 +50,8 @@
 | Dispatcher/StepFunctions/AwsSfnClientAdapterTest | `SCA` | 3 |
 | Dispatcher/StepFunctions/ExecutionNameGeneratorTest | `ENG` | 9 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
-| Providers/GracefulScheduleWorkerProviderTest | `GP` | 16 |
-| Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 23 |
+| Providers/GracefulScheduleWorkerProviderTest | `GP` | 18 |
+| Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 27 |
 | Tracker/CacheExecutionTrackerTest | `CT` | 16 |
 | Tracker/NullExecutionTrackerTest | `NT` | 4 |
 

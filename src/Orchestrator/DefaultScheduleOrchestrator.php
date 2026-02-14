@@ -74,29 +74,31 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         // Check for missed executions once at startup
         $this->checkMissedExecutions($schedule, $app, $this->clock->now());
 
-        while ($shouldContinue()) {
-            // Sleep to reduce CPU load
-            $this->sleeper->sleep();
+        try {
+            while ($shouldContinue()) {
+                // Sleep to reduce CPU load
+                $this->sleeper->sleep();
 
-            $now = $this->clock->now();
-            $currentMinute = $now->setTime((int) $now->format('H'), (int) $now->format('i'), 0);
+                $now = $this->clock->now();
+                $currentMinute = $now->setTime((int) $now->format('H'), (int) $now->format('i'), 0);
 
-            // Dispatch events once at second 0 of each minute
-            if (
-                (int) $now->format('s') === 0 &&
-                $currentMinute != $lastExecutionStartedAt
-            ) {
-                $lastExecutionStartedAt = $currentMinute;
+                // Dispatch events once at second 0 of each minute
+                if (
+                    (int) $now->format('s') === 0 &&
+                    $currentMinute != $lastExecutionStartedAt
+                ) {
+                    $lastExecutionStartedAt = $currentMinute;
 
-                $this->evaluateAndDispatch($schedule, $app, $now);
+                    $this->evaluateAndDispatch($schedule, $app, $now);
+                }
+
+                // Clean up completed processes
+                $this->dispatcher->cleanup();
             }
-
-            // Clean up completed processes
-            $this->dispatcher->cleanup();
+        } finally {
+            // Stop running processes on exit
+            $this->dispatcher->stopAll();
         }
-
-        // Stop running processes on exit
-        $this->dispatcher->stopAll();
 
         return true;
     }
@@ -199,7 +201,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                         continue;
                     }
                 } catch (\Throwable $e) {
-                    $this->logger->warning(
+                    $this->logger->error(
                         '[GracefulScheduleWorker] filtersPass threw exception, skipping event',
                         [
                             'event' => $event->mutexName(),

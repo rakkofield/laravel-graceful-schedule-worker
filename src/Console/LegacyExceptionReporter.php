@@ -7,6 +7,11 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Psr\Log\LoggerInterface;
 
+/**
+ * Exception reporter for Laravel 6.x (ExceptionHandler::report accepts only \Exception).
+ *
+ * Wraps non-Exception Throwables in ErrorException before delegating to the handler.
+ */
 class LegacyExceptionReporter implements ExceptionReporterInterface
 {
     /** @var ExceptionHandler */
@@ -38,7 +43,7 @@ class LegacyExceptionReporter implements ExceptionReporterInterface
             $this->handler->report($e);
         } catch (\Throwable $reportError) {
             // Never crash the worker; log the reporting failure
-            $this->logger->warning('[GracefulScheduleWorker] ExceptionReporter failed', [
+            $this->logger->error('[GracefulScheduleWorker] ExceptionReporter failed', [
                 'error' => $reportError->getMessage(),
                 'original' => $e->getMessage(),
                 'original_exception' => $original,

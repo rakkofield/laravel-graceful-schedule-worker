@@ -13,6 +13,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ThrowingFakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
@@ -616,8 +617,8 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $dispatched = $this->dispatcher->getDispatched();
         $this->assertSame($eventThatPasses, $dispatched[0]['event']);
 
-        // Verify a warning log is output
-        $this->assertTrue($spyLogger->hasLogContaining('warning', 'filtersPass threw exception'));
+        // Verify an error log is output
+        $this->assertTrue($spyLogger->hasLogContaining('error', 'filtersPass threw exception'));
     }
 
     /**
@@ -694,9 +695,40 @@ class DefaultScheduleOrchestratorTest extends TestCase
     }
 
     /**
-     * @testdox DO.24 filtersPass exception logs warning with details
+     * @testdox DO.27 stopAll is called even when dispatchEvent throws
      */
-    public function testFiltersPassExceptionLogsWarning(): void
+    public function testStopAllIsCalledEvenWhenDispatchEventThrows(): void
+    {
+        $event = $this->createEvent('echo test');
+        $this->schedule->setDueEvents([$event]);
+
+        $defaultResult = FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake');
+        $throwingDispatcher = new ThrowingFakeDispatcher($defaultResult);
+        $throwingDispatcher->willThrowOnDispatch(new \RuntimeException('dispatch failed'));
+
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $throwingDispatcher,
+            $this->clock,
+            new NullExecutionTracker(),
+            $this->logger,
+            $this->sleeper
+        );
+
+        try {
+            $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
+            $this->fail('Expected RuntimeException to be thrown');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('dispatch failed', $e->getMessage());
+        }
+
+        // stopAll is called even after exception
+        $this->assertSame(1, $throwingDispatcher->getStopAllCallCount());
+    }
+
+    /**
+     * @testdox DO.24 filtersPass exception logs error with details
+     */
+    public function testFiltersPassExceptionLogsError(): void
     {
         $event = $this->createEvent('echo throw');
         $event->when(function () {
@@ -712,11 +744,11 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // Event is skipped
         $this->assertSame(0, $this->dispatcher->getDispatchCount());
 
-        // Verify the warning log contents
-        $warningLogs = $spyLogger->getLogsByLevel('warning');
-        $this->assertCount(1, $warningLogs);
-        $this->assertStringContainsString('filtersPass threw exception', $warningLogs[0]['message']);
-        $this->assertSame('custom filter error', $warningLogs[0]['context']['error']);
-        $this->assertInstanceOf(\RuntimeException::class, $warningLogs[0]['context']['exception']);
+        // Verify the error log contents
+        $errorLogs = $spyLogger->getLogsByLevel('error');
+        $this->assertCount(1, $errorLogs);
+        $this->assertStringContainsString('filtersPass threw exception', $errorLogs[0]['message']);
+        $this->assertSame('custom filter error', $errorLogs[0]['context']['error']);
+        $this->assertInstanceOf(\RuntimeException::class, $errorLogs[0]['context']['exception']);
     }
 }

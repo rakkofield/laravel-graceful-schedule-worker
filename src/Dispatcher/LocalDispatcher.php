@@ -215,7 +215,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     $process->signal(SIGKILL);
                 }
             } catch (\Exception $e) {
-                $this->logger->warning('[GracefulScheduleWorker] Failed to send SIGKILL', [
+                $this->logger->error('[GracefulScheduleWorker] Failed to send SIGKILL', [
                     'event' => $result->getEventIdentifier(),
                     'error' => $e->getMessage(),
                     'exception' => $e,
@@ -262,6 +262,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         if (!$process->isSuccessful()) {
             $this->logger->warning('[GracefulScheduleWorker] schedule:finish exited with non-zero status', [
                 'event' => $result->getEventIdentifier(),
+                'command' => $command,
                 'exitCode' => $process->getExitCode(),
                 'errorOutput' => $process->getErrorOutput(),
             ]);

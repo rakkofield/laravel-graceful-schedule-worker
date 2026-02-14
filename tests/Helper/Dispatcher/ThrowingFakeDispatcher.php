@@ -18,10 +18,16 @@ class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
     private $resultToReturn;
 
     /** @var \Throwable|null */
+    private $dispatchException;
+
+    /** @var \Throwable|null */
     private $cleanupException;
 
     /** @var \Throwable|null */
     private $stopAllException;
+
+    /** @var int */
+    private $dispatchCount = 0;
 
     /** @var int */
     private $cleanupCallCount = 0;
@@ -50,7 +56,22 @@ class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
         Container $container,
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
+        $this->dispatchCount++;
+        if ($this->dispatchException !== null) {
+            throw $this->dispatchException;
+        }
         return $this->resultToReturn;
+    }
+
+    /**
+     * Configure dispatchEvent to throw an exception.
+     *
+     * @param \Throwable $exception
+     * @return void
+     */
+    public function willThrowOnDispatch(\Throwable $exception): void
+    {
+        $this->dispatchException = $exception;
     }
 
     /**
@@ -95,6 +116,16 @@ class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
         if ($this->stopAllException !== null) {
             throw $this->stopAllException;
         }
+    }
+
+    /**
+     * Get the number of times dispatchEvent() was called.
+     *
+     * @return int
+     */
+    public function getDispatchCount(): int
+    {
+        return $this->dispatchCount;
     }
 
     /**

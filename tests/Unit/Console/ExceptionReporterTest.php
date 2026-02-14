@@ -47,9 +47,9 @@ class ExceptionReporterTest extends TestCase
     }
 
     /**
-     * @testdox ER.3 Logs warning when handler report throws
+     * @testdox ER.3 Logs error when handler report throws
      */
-    public function testLogsWarningWhenHandlerReportThrows(): void
+    public function testLogsErrorWhenHandlerReportThrows(): void
     {
         $handler = new SpyExceptionHandler();
         $handler->willThrowOnReport(new \RuntimeException('report failed'));
@@ -59,11 +59,11 @@ class ExceptionReporterTest extends TestCase
         $reporter->report(new \RuntimeException('original error'));
 
         // Should not throw
-        $warningLogs = $logger->getLogsByLevel('warning');
-        $this->assertCount(1, $warningLogs);
-        $this->assertStringContainsString('ExceptionReporter failed', $warningLogs[0]['message']);
-        $this->assertSame('report failed', $warningLogs[0]['context']['error']);
-        $this->assertSame('original error', $warningLogs[0]['context']['original']);
+        $errorLogs = $logger->getLogsByLevel('error');
+        $this->assertCount(1, $errorLogs);
+        $this->assertStringContainsString('ExceptionReporter failed', $errorLogs[0]['message']);
+        $this->assertSame('report failed', $errorLogs[0]['context']['error']);
+        $this->assertSame('original error', $errorLogs[0]['context']['original']);
     }
 
     /**
@@ -79,10 +79,9 @@ class ExceptionReporterTest extends TestCase
         $originalException = new \RuntimeException('original error');
         $reporter->report($originalException);
 
-        $warningLogs = $logger->getLogsByLevel('warning');
-        $this->assertCount(1, $warningLogs);
-        // Bug: 'original_exception' key is missing from log context
-        $this->assertArrayHasKey('original_exception', $warningLogs[0]['context']);
-        $this->assertSame($originalException, $warningLogs[0]['context']['original_exception']);
+        $errorLogs = $logger->getLogsByLevel('error');
+        $this->assertCount(1, $errorLogs);
+        $this->assertArrayHasKey('original_exception', $errorLogs[0]['context']);
+        $this->assertSame($originalException, $errorLogs[0]['context']['original_exception']);
     }
 }

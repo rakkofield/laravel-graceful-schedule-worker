@@ -27,6 +27,9 @@ class ProcessCommandBuilder extends CommandBuilder
         $redirect = $event->shouldAppendOutput ? ' >> ' : ' > ';
 
         if (windows_os()) {
+            // Windows: retains the original schedule:finish inline pattern.
+            // LocalDispatcher does not support Windows; this branch exists
+            // only to maintain parent class compatibility.
             $finished = Application::formatCommandString('schedule:finish')
                 . ' "' . $event->mutexName() . '"';
 

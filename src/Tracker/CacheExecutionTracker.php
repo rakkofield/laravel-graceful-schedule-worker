@@ -91,7 +91,8 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
             return null; // First execution, no missed executions
         }
 
-        // Calculate the previous run date from the cron expression (exceptions propagate as-is)
+        // Calculate the previous run date from the cron expression
+        // (invalid expressions are wrapped in InvalidArgumentException)
         try {
             $cron = new CronExpression($event->expression, new FieldFactory());
             $previousRunDate = $cron->getPreviousRunDate($now);
@@ -144,6 +145,8 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @throws \Exception If the underlying cache store fails
      */
     public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {

@@ -321,9 +321,9 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox TD.12 markExecuted exception is caught and warning log is output
+     * @testdox TD.12 markExecuted exception is caught and error log is output
      */
-    public function testCatchesMarkExecutedExceptionAndLogsWarning(): void
+    public function testCatchesMarkExecutedExceptionAndLogsError(): void
     {
         $exception = new \RuntimeException('Redis connection lost');
         $throwingTracker = new StubThrowingExecutionTracker($exception);
@@ -339,13 +339,13 @@ class TrackingDispatcherTest extends TestCase
 
         $this->assertSame($startedResult, $result);
 
-        // Warning log is output
-        $warningLogs = $this->logger->getLogsByLevel('warning');
-        $this->assertCount(1, $warningLogs);
-        $this->assertStringContainsString('Failed to track execution result', $warningLogs[0]['message']);
-        $this->assertSame($event->mutexName(), $warningLogs[0]['context']['event']);
-        $this->assertSame('Redis connection lost', $warningLogs[0]['context']['error']);
-        $this->assertSame($exception, $warningLogs[0]['context']['exception']);
+        // Error log is output
+        $errorLogs = $this->logger->getLogsByLevel('error');
+        $this->assertCount(1, $errorLogs);
+        $this->assertStringContainsString('Failed to track execution result', $errorLogs[0]['message']);
+        $this->assertSame($event->mutexName(), $errorLogs[0]['context']['event']);
+        $this->assertSame('Redis connection lost', $errorLogs[0]['context']['error']);
+        $this->assertSame($exception, $errorLogs[0]['context']['exception']);
     }
 
     /**
