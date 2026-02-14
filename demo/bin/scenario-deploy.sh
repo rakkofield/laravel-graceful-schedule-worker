@@ -21,14 +21,12 @@ cd "$(dirname "$0")/.."
 cleanup() {
     echo ""
     echo "==> Cleaning up..."
-    $COMPOSE stop graceful 2>/dev/null || true
-    $COMPOSE rm -f graceful 2>/dev/null || true
+    $COMPOSE down 2>/dev/null || true
 }
 trap cleanup EXIT
 
 echo "==> Starting Redis..."
-$COMPOSE up -d redis
-sleep 5
+$COMPOSE up -d --wait redis
 
 echo "==> Resetting demo data..."
 $COMPOSE run --rm graceful php artisan demo:reset
