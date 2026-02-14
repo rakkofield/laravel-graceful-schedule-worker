@@ -103,5 +103,4 @@ final class BackgroundCommandOutputTest extends TestCase
 
         $this->assertFalse($process->isRunning());
     }
-
 }
