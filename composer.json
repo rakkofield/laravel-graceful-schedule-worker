@@ -8,7 +8,7 @@
         "illuminate/console": "^6.0 || ^7.0",
         "illuminate/support": "^6.0 || ^7.0",
         "illuminate/cache": "^6.0 || ^7.0",
-        "symfony/process": "^4.4 || ^5.4",
+        "symfony/process": "^4.4.2 || ^5.4",
         "symfony/console": "^4.4 || ^5.4",
         "dragonmantank/cron-expression": "^2.3.1 || ^3.0",
         "psr/log": "^1.0 || ^2.0 || ^3.0",
