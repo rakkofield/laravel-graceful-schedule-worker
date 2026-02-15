@@ -142,7 +142,7 @@ class ProviderWiringIntegrationTest extends TestCase
         $event = new ClockAwareEvent(new FakeEventMutex(), 'echo hello', new SystemClock(), 'local');
         $dueAt = new DateTimeImmutable();
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertSame('local', $result->getDispatcherType());

@@ -106,7 +106,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
             FakeStartedDispatchResult::create($event->mutexName(), 'echo test', 'fake')
         );
 
-        $result = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $this->dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
@@ -131,11 +131,11 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
         );
 
         // First call: success
-        $result1 = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result1 = $this->dispatcher->dispatchEvent($event, $dueAt);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
 
         // Second call: skipped due to lock acquisition failure
-        $result2 = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result2 = $this->dispatcher->dispatchEvent($event, $dueAt);
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result2);
         $this->assertSame('lock_not_acquired', $result2->getReason());
         $this->assertSame(1, $this->innerDispatcher->getDispatchCount());
@@ -155,7 +155,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
             FakeFailedDispatchResult::create($event->mutexName(), 'echo test-fail', 'dispatch error')
         );
 
-        $result = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $this->dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
 
@@ -177,7 +177,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
             FakeAlreadyRunningDispatchResult::create($event->mutexName(), 'echo test-already', 'fake')
         );
 
-        $result = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $this->dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result);
 
@@ -206,7 +206,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
             )
         );
 
-        $this->dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $this->dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertTrue($this->logger->hasLogContaining('error', 'Failed to dispatch event'));
         $errorLogs = $this->logger->getLogsByLevel('error');
@@ -228,11 +228,11 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
             FakeStartedDispatchResult::create($event->mutexName(), 'echo test-dueat', 'fake')
         );
 
-        $result1 = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt1);
+        $result1 = $this->dispatcher->dispatchEvent($event, $dueAt1);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
 
         // Different dueAt means independent locks
-        $result2 = $this->dispatcher->dispatchEvent($event, $this->container, $dueAt2);
+        $result2 = $this->dispatcher->dispatchEvent($event, $dueAt2);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result2);
 
         $this->assertSame(2, $this->innerDispatcher->getDispatchCount());

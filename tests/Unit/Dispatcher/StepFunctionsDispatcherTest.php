@@ -85,7 +85,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
@@ -102,7 +102,7 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->client->willThrowExecutionAlreadyExists('test-execution');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertInstanceOf(AlreadyRunningStepFunctionsDispatchResult::class, $result);
         $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result);
@@ -116,7 +116,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -132,7 +132,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -154,7 +154,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertSame('stepfunctions', $result->getDispatcherType());
     }
@@ -169,7 +169,7 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->client->willThrowError('Connection refused');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
@@ -184,7 +184,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -199,7 +199,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertNotNull($result->getExecutionArn());
         $this->assertStringContainsString('arn:aws:states:', $result->getExecutionArn());
@@ -213,7 +213,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertSame($event->mutexName(), $result->getEventIdentifier());
     }
@@ -226,7 +226,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertSame('php artisan report:daily', $result->getEventCommand());
     }
@@ -241,7 +241,7 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->client->willThrowError('Connection refused');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertNotNull($result->getException());
         $this->assertSame('Connection refused', $result->getException()->getMessage());
@@ -287,7 +287,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Failed to encode input JSON');
 
-        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt);
     }
 
     /**
@@ -322,6 +322,6 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Database connection lost');
 
-        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt);
     }
 }

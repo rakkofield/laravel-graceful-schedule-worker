@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
@@ -67,7 +66,6 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        Container $container,
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();

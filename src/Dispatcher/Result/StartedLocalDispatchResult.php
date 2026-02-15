@@ -134,6 +134,8 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
      */
     public function runAfterCallbacks(Container $container): void
     {
+        // $event is null for foreground results; afterCallbacks are already
+        // called directly in dispatchEvent(), so this is a no-op.
         if ($this->event === null) {
             return;
         }

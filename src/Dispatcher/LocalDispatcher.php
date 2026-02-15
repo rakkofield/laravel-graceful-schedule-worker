@@ -53,11 +53,12 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $stopTimeout;
 
     /**
-     * @var Container|null
+     * @var Container
      */
-    protected $container;
+    private $container;
 
     /**
+     * @param Container $container Laravel container instance
      * @param string|null $basePath Working directory for processes (null uses the current directory)
      * @param LoggerInterface $logger Logger
      * @param SleeperInterface $sleeper Sleeper (for polling in stopAll)
@@ -65,12 +66,14 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      * @param float $stopTimeout Timeout in seconds for SIGTERM->SIGKILL wait in stopAll()
      */
     public function __construct(
+        Container $container,
         ?string $basePath,
         LoggerInterface $logger,
         SleeperInterface $sleeper,
         ClockInterface $clock,
         float $stopTimeout = 10.0
     ) {
+        $this->container = $container;
         $this->basePath = $basePath;
         $this->logger = $logger;
         $this->sleeper = $sleeper;
@@ -88,16 +91,13 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      * - runInBackground = false: runs synchronously via buildCommand() and calls afterCallbacks directly
      *
      * @param ClockAwareEvent $event The schedule event to execute
-     * @param Container $container Laravel container instance
      * @param DateTimeInterface $dueAt Scheduled due time (unused in LocalDispatcher)
      * @return DispatchResultInterface Dispatch result
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        Container $container,
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
-        $this->container = $container;
         $identifier = $event->mutexName();
 
         try {
@@ -112,7 +112,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 );
             }
 
-            $event->callBeforeCallbacks($container);
+            $event->callBeforeCallbacks($this->container);
 
             if ($event->runInBackground) {
                 // Background: generate exec command, run async
@@ -137,7 +137,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $process->run();
 
             try {
-                $event->callAfterCallbacksWithExitCode($container, (int) $process->getExitCode());
+                $event->callAfterCallbacksWithExitCode($this->container, (int) $process->getExitCode());
             } catch (\Exception $e) {
                 // afterCallback failures don't affect the dispatch result.
                 // \Error is not caught here; it propagates to the command-level handler.
@@ -171,7 +171,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 try {
                     $this->runAfterCallbacksForResult($result);
                 } catch (\Exception $e) {
-                    $this->logger->warning('afterCallback failed', [
+                    $this->logger->warning('afterCallback failed during cleanup', [
                         'event' => $result->getEventIdentifier(),
                         'error' => $e->getMessage(),
                         'exception' => $e,
@@ -254,7 +254,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             try {
                 $this->runAfterCallbacksForResult($result);
             } catch (\Exception $e) {
-                $this->logger->warning('afterCallback failed', [
+                $this->logger->warning('afterCallback failed during stopAll', [
                     'event' => $result->getEventIdentifier(),
                     'error' => $e->getMessage(),
                     'exception' => $e,
@@ -283,10 +283,6 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     private function runAfterCallbacksForResult(StartedLocalDispatchResult $result): void
     {
-        if ($this->container === null) {
-            return;
-        }
-
         $result->runAfterCallbacks($this->container);
     }
 }

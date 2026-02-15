@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispatchResultInterface;
@@ -62,7 +61,6 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        Container $container,
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         // 1. Acquire lock (cache connection failure propagates as exception and stops the worker)
@@ -84,7 +82,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         }
 
         // 2. Delegate to inner dispatcher
-        $result = $this->inner->dispatchEvent($event, $container, $dueAt);
+        $result = $this->inner->dispatchEvent($event, $dueAt);
 
         // 3. Track based on result
         try {

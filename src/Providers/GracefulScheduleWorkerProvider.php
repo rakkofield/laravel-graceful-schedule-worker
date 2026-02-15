@@ -81,7 +81,7 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
-            return new LocalDispatcher($basePath, $logger, new Sleeper(10000), $clock);
+            return new LocalDispatcher($app, $basePath, $logger, new Sleeper(10000), $clock);
         });
 
         $this->app->singleton(CompositeDispatcher::class, function (Container $app) {

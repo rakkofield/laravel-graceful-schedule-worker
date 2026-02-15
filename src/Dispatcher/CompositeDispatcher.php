@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -40,13 +39,11 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
      * Dispatch a single event.
      *
      * @param ClockAwareEvent $event The schedule event to execute
-     * @param Container $container Laravel container instance
      * @param DateTimeInterface $dueAt Scheduled due time
      * @return DispatchResultInterface Dispatch result
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        Container $container,
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         $type = $event->getDispatcherType();
@@ -58,7 +55,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
             );
         }
 
-        return $this->dispatchers[$type]->dispatchEvent($event, $container, $dueAt);
+        return $this->dispatchers[$type]->dispatchEvent($event, $dueAt);
     }
 
     /**

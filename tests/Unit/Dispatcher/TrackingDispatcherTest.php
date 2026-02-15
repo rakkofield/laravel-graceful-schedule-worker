@@ -90,13 +90,12 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertSame($startedResult, $result);
         $this->assertCount(1, $this->innerDispatcher->getDispatched());
         $dispatched = $this->innerDispatcher->getDispatched()[0];
         $this->assertSame($event, $dispatched['event']);
-        $this->assertSame($this->container, $dispatched['container']);
         $this->assertSame($dueAt, $dispatched['dueAt']);
     }
 
@@ -113,7 +112,7 @@ class TrackingDispatcherTest extends TestCase
         // Set lock acquisition to fail
         $this->tracker->setLockResult($event->mutexName(), $dueAt, false);
 
-        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(SkippedDispatchResult::class, $result);
@@ -135,7 +134,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
 
         $executed = $this->tracker->getExecuted();
         $this->assertArrayHasKey($event->mutexName(), $executed);
@@ -152,7 +151,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
 
         $executed = $this->tracker->getExecuted();
         $this->assertArrayHasKey($event->mutexName(), $executed);
@@ -174,7 +173,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
 
         // markExecuted is not called
         $executed = $this->tracker->getExecuted();
@@ -205,7 +204,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
 
         $errorLogs = $this->logger->getLogsByLevel('error');
         $this->assertCount(1, $errorLogs);
@@ -254,7 +253,7 @@ class TrackingDispatcherTest extends TestCase
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('Unexpected dispatch result type');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
     }
 
     /**
@@ -296,7 +295,7 @@ class TrackingDispatcherTest extends TestCase
         // Set lock acquisition to fail
         $this->tracker->setLockResult($event->mutexName(), $dueAt, false);
 
-        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertSame('local', $result->getDispatcherType());
     }
@@ -314,7 +313,7 @@ class TrackingDispatcherTest extends TestCase
         // Set lock acquisition to fail
         $this->tracker->setLockResult($event->mutexName(), $dueAt, false);
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
 
         // DEBUG log is output
         $debugLogs = $this->logger->getLogsByLevel('debug');
@@ -340,7 +339,7 @@ class TrackingDispatcherTest extends TestCase
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         // No exception is thrown and the result is returned
-        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertSame($startedResult, $result);
 
@@ -363,7 +362,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
 
         $infoLogs = $this->logger->getLogsByLevel('info');
         $this->assertCount(1, $infoLogs);
@@ -383,7 +382,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
 
         $infoLogs = $this->logger->getLogsByLevel('info');
         $this->assertCount(1, $infoLogs);
@@ -412,7 +411,7 @@ class TrackingDispatcherTest extends TestCase
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('Programming error');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
     }
 
     /**
@@ -432,7 +431,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
 
         // SkippedDispatchResult is returned from inner dispatcher
         $this->assertSame($skippedResult, $result);
@@ -466,7 +465,7 @@ class TrackingDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
-        $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $dispatcher->dispatchEvent($event, $dueAt);
 
         // Lock should be released since dispatch failed (task was not executed)
         $locks = $this->tracker->getLocks();
@@ -492,7 +491,7 @@ class TrackingDispatcherTest extends TestCase
         // Set lock acquisition to fail
         $this->tracker->setLockResult($event->mutexName(), $dueAt, false);
 
-        $result = $dispatcher->dispatchEvent($event, $this->container, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
 
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
         $this->assertSame('stepfunctions', $result->getDispatcherType());

@@ -84,7 +84,7 @@ class CompositeDispatcherTest extends TestCase
 
         $event = $this->createClockAwareEvent('echo test', 'stepfunctions');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
@@ -114,7 +114,7 @@ class CompositeDispatcherTest extends TestCase
 
         $event = $this->createClockAwareEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
@@ -144,7 +144,7 @@ class CompositeDispatcherTest extends TestCase
 
         $event = $this->createClockAwareEvent('echo test', null);
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
@@ -171,7 +171,7 @@ class CompositeDispatcherTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Unknown dispatcher type: unknown. Available types: local');
 
-        $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt);
     }
 
     /**
@@ -189,7 +189,7 @@ class CompositeDispatcherTest extends TestCase
 
         $event = $this->createClockAwareEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
     }

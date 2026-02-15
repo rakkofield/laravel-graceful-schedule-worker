@@ -170,7 +170,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         // Evaluating with the current time against a past dueAt would produce incorrect results.
         // Return value is intentionally not checked here.
         // TrackingDispatcher handles result logging (failures are logged as warnings).
-        $this->dispatcher->dispatchEvent($event, $app, $missedDue);
+        $this->dispatcher->dispatchEvent($event, $missedDue);
     }
 
     /**
@@ -215,7 +215,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 // TrackingDispatcher handles result-based failures (logging, tracking).
                 // Infrastructure failures (e.g. cache connection) stop the worker,
                 // as continuing in a partially functional state could cause missed tracking.
-                $this->dispatcher->dispatchEvent($event, $app, $now);
+                $this->dispatcher->dispatchEvent($event, $now);
             }
         };
 

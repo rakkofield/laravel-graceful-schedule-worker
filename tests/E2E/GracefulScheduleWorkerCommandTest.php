@@ -14,10 +14,9 @@ use Symfony\Component\Process\Process;
  * These tests launch actual processes using the skeleton application.
  * They require PHP 8.4 or lower due to skeleton's Laravel 7.x dependency.
  *
- * LocalDispatcher now uses buildCommand() to construct the full command including:
- * - Output redirection (appendOutputTo, sendOutputTo)
- * - schedule:finish call (which triggers afterCallbacks via Artisan command)
+ * LocalDispatcher uses buildCommand() for foreground and buildProcessCommand() for background.
  * beforeCallbacks are called synchronously in the parent process before dispatch.
+ * afterCallbacks are called directly by LocalDispatcher (no schedule:finish subprocess).
  *
  * @group e2e
  */
