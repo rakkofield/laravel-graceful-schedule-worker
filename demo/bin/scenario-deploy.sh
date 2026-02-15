@@ -20,7 +20,7 @@ cd "$(dirname "$0")/.."
 cleanup() {
     echo ""
     echo "==> Cleaning up..."
-    docker compose down 2>/dev/null || true
+    docker compose down -v 2>/dev/null || true
 }
 trap cleanup EXIT
 

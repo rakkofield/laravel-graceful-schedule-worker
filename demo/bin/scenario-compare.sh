@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.."
 cleanup() {
     echo ""
     echo "==> Cleaning up..."
-    docker compose --profile compare down 2>/dev/null || true
+    docker compose --profile compare down -v 2>/dev/null || true
 }
 trap cleanup EXIT
 
