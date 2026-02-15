@@ -9,6 +9,7 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcess;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
 use Symfony\Component\Process\Process;
@@ -234,9 +235,8 @@ class StartedLocalDispatchResultTest extends TestCase
      */
     public function testRunAfterCallbacksUsesExitCodeSigtermWhenNull(): void
     {
-        $process = Process::fromShellCommandLine('sleep 10');
-        $process->start();
-        $process->stop(0);
+        // Use StubProcess to guarantee null exit code regardless of Symfony Process version
+        $process = new StubProcess(false);
         $mutex = new FakeEventMutex();
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $event = new SpyCallbackEvent($mutex, 'php artisan test', $clock);
@@ -247,6 +247,8 @@ class StartedLocalDispatchResultTest extends TestCase
             new DateTimeImmutable(),
             $event
         );
+
+        $this->assertNull($process->getExitCode());
 
         $container = new Container();
         $result->runAfterCallbacks($container);
