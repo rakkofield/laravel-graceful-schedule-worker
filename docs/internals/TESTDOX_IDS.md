@@ -38,7 +38,7 @@
 | Console/UsesClockAwareScheduleTest | `UCS` | 11 |
 | Dispatcher/LocalDispatcherTest | `LD` | 37 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
-| Dispatcher/TrackingDispatcherTest | `TD` | 18 |
+| Dispatcher/TrackingDispatcherTest | `TD` | 20 |
 | Dispatcher/StepFunctionsDispatcherTest | `SFD` | 17 |
 | Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 16 |
 | Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 8 |
@@ -53,8 +53,8 @@
 | ExceptionFormatterTest | `EF` | 3 |
 | Logging/PrefixedLoggerTest | `PL` | 4 |
 | Providers/GracefulScheduleWorkerProviderTest | `GP` | 18 |
-| Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 27 |
-| Tracker/CacheExecutionTrackerTest | `CT` | 16 |
+| Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 28 |
+| Tracker/CacheExecutionTrackerTest | `CT` | 18 |
 | Tracker/NullExecutionTrackerTest | `NT` | 4 |
 
 ### Integration Tests

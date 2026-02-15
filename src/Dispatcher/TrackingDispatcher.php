@@ -161,12 +161,28 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
                 'reason' => $result->getReason(),
                 'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
             ]);
-            $this->tracker->releaseLock($event, $dueAt);
+            try {
+                $this->tracker->releaseLock($event, $dueAt);
+            } catch (\Exception $e) {
+                $this->logger->error('Failed to release lock', [
+                    'event' => $event->mutexName(),
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+            }
             return;
         }
 
         if ($result instanceof FailedDispatchResultInterface) {
-            $this->tracker->releaseLock($event, $dueAt);
+            try {
+                $this->tracker->releaseLock($event, $dueAt);
+            } catch (\Exception $e) {
+                $this->logger->error('Failed to release lock', [
+                    'event' => $event->mutexName(),
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+            }
             $this->handleDispatchFailure($event, $result);
             return;
         }

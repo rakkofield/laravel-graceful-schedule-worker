@@ -204,7 +204,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         $gracePeriod = $event->getGracePeriod();
         if ($gracePeriod !== null) {
             $seconds = $this->dateIntervalToSeconds($gracePeriod);
-            return $seconds * 2;
+            return max($seconds * 2, self::DEFAULT_TTL_SECONDS);
         }
         return self::DEFAULT_TTL_SECONDS;
     }

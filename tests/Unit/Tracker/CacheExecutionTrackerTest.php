@@ -362,4 +362,40 @@ class CacheExecutionTrackerTest extends TestCase
         // Bug: falls back to 0 instead of $interval->d, returning 0
         $this->assertSame(86400, $result);
     }
+
+    /**
+     * @testdox CT.17 calculateTtl enforces minimum of DEFAULT_TTL_SECONDS for short grace periods
+     */
+    public function testCalculateTtlEnforcesMinimumForShortGracePeriod(): void
+    {
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 10:00:00'));
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+        $event = $this->createEvent('php artisan test:task', $clock);
+        $event->withGracePeriod(5); // 5 minutes = 300 seconds → 2x = 600 < 86400
+
+        $reflection = new \ReflectionMethod($tracker, 'calculateTtl');
+        $reflection->setAccessible(true);
+        $result = $reflection->invoke($tracker, $event);
+
+        // Should be DEFAULT_TTL_SECONDS (86400) since 300*2=600 < 86400
+        $this->assertSame(86400, $result);
+    }
+
+    /**
+     * @testdox CT.18 calculateTtl uses doubled grace period when it exceeds DEFAULT_TTL_SECONDS
+     */
+    public function testCalculateTtlUsesDoubledGracePeriodWhenExceedsDefault(): void
+    {
+        $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 10:00:00'));
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+        $event = $this->createEvent('php artisan test:task', $clock);
+        $event->withGracePeriod(1440); // 24 hours = 86400 seconds → 2x = 172800 > 86400
+
+        $reflection = new \ReflectionMethod($tracker, 'calculateTtl');
+        $reflection->setAccessible(true);
+        $result = $reflection->invoke($tracker, $event);
+
+        // Should be 172800 (86400 * 2) since it exceeds DEFAULT_TTL_SECONDS
+        $this->assertSame(172800, $result);
+    }
 }

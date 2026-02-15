@@ -496,4 +496,70 @@ class TrackingDispatcherTest extends TestCase
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
         $this->assertSame('stepfunctions', $result->getDispatcherType());
     }
+
+    /**
+     * @testdox TD.19 releaseLock exception on Skipped result is caught and logged
+     */
+    public function testReleaseLockExceptionOnSkippedResultIsCaughtAndLogged(): void
+    {
+        $skippedResult = FakeSkippedDispatchResult::create('test-mutex', 'echo test', 'withoutOverlapping', 'local');
+        $this->innerDispatcher = new FakeDispatcher($skippedResult);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $this->tracker->setReleaseLockException(new \RuntimeException('Redis connection lost'));
+        $dispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $this->tracker,
+            $this->logger,
+            $clock
+        );
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        // No exception is thrown
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
+
+        $this->assertSame($skippedResult, $result);
+
+        // Error log for releaseLock failure
+        $errorLogs = $this->logger->getLogsByLevel('error');
+        $this->assertCount(1, $errorLogs);
+        $this->assertStringContainsString('Failed to release lock', $errorLogs[0]['message']);
+        $this->assertSame($event->mutexName(), $errorLogs[0]['context']['event']);
+        $this->assertSame('Redis connection lost', $errorLogs[0]['context']['error']);
+    }
+
+    /**
+     * @testdox TD.20 releaseLock exception on Failed result is caught and handleDispatchFailure still runs
+     */
+    public function testReleaseLockExceptionOnFailedResultIsCaughtAndHandleDispatchFailureStillRuns(): void
+    {
+        $failedResult = FakeFailedDispatchResult::create(
+            'test-mutex',
+            'echo test',
+            'StepFunctions error',
+            'stepfunctions'
+        );
+        $this->innerDispatcher = new FakeDispatcher($failedResult);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $this->tracker->setReleaseLockException(new \RuntimeException('Redis connection lost'));
+        $dispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $this->tracker,
+            $this->logger,
+            $clock
+        );
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        // No exception is thrown
+        $result = $dispatcher->dispatchEvent($event, $dueAt);
+
+        $this->assertSame($failedResult, $result);
+
+        // Both releaseLock error and dispatch failure error are logged
+        $errorLogs = $this->logger->getLogsByLevel('error');
+        $this->assertCount(2, $errorLogs);
+        $this->assertStringContainsString('Failed to release lock', $errorLogs[0]['message']);
+        $this->assertStringContainsString('Failed to dispatch event', $errorLogs[1]['message']);
+    }
 }

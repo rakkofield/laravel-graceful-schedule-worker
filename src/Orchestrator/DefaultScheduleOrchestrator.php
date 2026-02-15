@@ -72,7 +72,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         $lastExecutionStartedAt = null;
 
         // Check for missed executions once at startup
-        $this->checkMissedExecutions($schedule, $app, $this->clock->now());
+        $this->checkMissedExecutions($schedule, $this->clock->now());
 
         try {
             while ($shouldContinue()) {
@@ -107,11 +107,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      * Recover missed task executions.
      *
      * @param ClockAwareSchedule $schedule
-     * @param Application $app
      * @param DateTimeInterface $now
      * @return void
      */
-    private function checkMissedExecutions(ClockAwareSchedule $schedule, Application $app, DateTimeInterface $now): void
+    private function checkMissedExecutions(ClockAwareSchedule $schedule, DateTimeInterface $now): void
     {
         foreach ($schedule->events() as $event) {
             try {
@@ -124,9 +123,11 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                     continue;
                 }
 
-                $this->recoverMissedEvent($event, $app, $missedDue);
+                $this->recoverMissedEvent($event, $missedDue);
             } catch (\Throwable $e) {
-                $this->logger->warning(
+                $logLevel = $e instanceof \Error ? 'error' : 'warning';
+                $this->logger->log(
+                    $logLevel,
                     'Failed to check/recover missed event',
                     [
                         'event' => $event->mutexName(),
@@ -153,11 +154,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
      * Recover a missed event execution.
      *
      * @param ClockAwareEvent $event
-     * @param Application $app
      * @param DateTimeInterface $missedDue
      * @return void
      */
-    private function recoverMissedEvent(ClockAwareEvent $event, Application $app, DateTimeInterface $missedDue): void
+    private function recoverMissedEvent(ClockAwareEvent $event, DateTimeInterface $missedDue): void
     {
         $this->logger->info('Recovering missed event', [
             'event' => $event->mutexName(),

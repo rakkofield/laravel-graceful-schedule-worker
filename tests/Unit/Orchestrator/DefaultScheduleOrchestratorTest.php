@@ -751,4 +751,47 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->assertSame('custom filter error', $errorLogs[0]['context']['error']);
         $this->assertInstanceOf(\RuntimeException::class, $errorLogs[0]['context']['exception']);
     }
+
+    /**
+     * @testdox DO.28 checkMissedExecutions logs error level for \Error
+     */
+    public function testCheckMissedExecutionsLogsErrorLevelForError(): void
+    {
+        $event = $this->createEvent('echo event1');
+        $event->cron('0 * * * *');
+        $event->enableRecovery();
+
+        // FakeExecutionTracker only supports \Exception, so we use a custom tracker
+        $errorThrowingTracker = new class extends FakeExecutionTracker {
+            public function getMissedDueIfRecoverable(
+                \RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent $event,
+                \DateTimeInterface $now
+            ): ?\DateTimeInterface {
+                throw new \Error('Fatal error in tracker');
+            }
+        };
+
+        $this->schedule->setDueEvents([]);
+        $this->schedule->addEvent($event);
+
+        $spyLogger = new SpyLogger();
+        $orchestrator = new DefaultScheduleOrchestrator(
+            $this->dispatcher,
+            $this->clock,
+            $errorThrowingTracker,
+            $spyLogger,
+            $this->sleeper
+        );
+        $orchestrator->run($this->schedule, $this->app, $this->createShouldContinue());
+
+        // \Error is logged at error level
+        $errorLogs = $spyLogger->getLogsByLevel('error');
+        $this->assertCount(1, $errorLogs);
+        $this->assertStringContainsString('Failed to check/recover missed event', $errorLogs[0]['message']);
+        $this->assertSame('Fatal error in tracker', $errorLogs[0]['context']['error']);
+
+        // No warning logs (since \Error goes to error level)
+        $warningLogs = $spyLogger->getLogsByLevel('warning');
+        $this->assertCount(0, $warningLogs);
+    }
 }

@@ -399,9 +399,9 @@ class CompositeDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox CD.13 Logs warning when stopAll throws an exception
+     * @testdox CD.13 Logs error when stopAll throws an exception
      */
-    public function testStopAllLogsWarningWhenChildThrows(): void
+    public function testStopAllLogsErrorWhenChildThrows(): void
     {
         $localResult = FakeStartedDispatchResult::create('local-id', 'cmd', 'local');
         $sfnResult = FakeStartedDispatchResult::create('sfn-id', 'cmd', 'stepfunctions');
@@ -422,10 +422,10 @@ class CompositeDispatcherTest extends TestCase
         $dispatcher->stopAll();
 
         // Log is output
-        $warningLogs = $logger->getLogsByLevel('warning');
-        $this->assertCount(1, $warningLogs);
-        $this->assertStringContainsString('Failed to stop dispatcher', $warningLogs[0]['message']);
-        $this->assertSame('local', $warningLogs[0]['context']['dispatcher']);
-        $this->assertSame('StopAll failed', $warningLogs[0]['context']['error']);
+        $errorLogs = $logger->getLogsByLevel('error');
+        $this->assertCount(1, $errorLogs);
+        $this->assertStringContainsString('Failed to stop dispatcher', $errorLogs[0]['message']);
+        $this->assertSame('local', $errorLogs[0]['context']['dispatcher']);
+        $this->assertSame('StopAll failed', $errorLogs[0]['context']['error']);
     }
 }

@@ -87,7 +87,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
                 $dispatcher->stopAll();
             } catch (\Throwable $e) {
                 // Ensure one dispatcher's failure does not affect others
-                $this->logger->warning('Failed to stop dispatcher', [
+                $this->logger->error('Failed to stop dispatcher', [
                     'dispatcher' => $type,
                     'error' => $e->getMessage(),
                     'exception' => $e,

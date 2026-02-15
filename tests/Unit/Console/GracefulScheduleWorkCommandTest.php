@@ -97,13 +97,18 @@ class GracefulScheduleWorkCommandTest extends TestCase
 
         $command = new GracefulScheduleWorkCommand();
         $command->setLaravel($app);
-        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
+        $output = new BufferedOutput();
+        $command->setOutput(new OutputStyle(new ArrayInput([]), $output));
 
         $exitCode = $command->handle($orchestrator, $schedule, $reporter);
 
         $this->assertSame(1, $exitCode);
         $this->assertSame(1, $reporter->getReportedCount());
         $this->assertSame($exception, $reporter->getReported()[0]);
+        $this->assertStringContainsString(
+            'Schedule worker terminated due to an error: Cache connection failed',
+            $output->fetch()
+        );
     }
 
     /**
@@ -121,13 +126,18 @@ class GracefulScheduleWorkCommandTest extends TestCase
 
         $command = new GracefulScheduleWorkCommand();
         $command->setLaravel($app);
-        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput()));
+        $output = new BufferedOutput();
+        $command->setOutput(new OutputStyle(new ArrayInput([]), $output));
 
         $exitCode = $command->handle($orchestrator, $schedule, $reporter);
 
         $this->assertSame(1, $exitCode);
         $this->assertSame(1, $reporter->getReportedCount());
         $this->assertSame($error, $reporter->getReported()[0]);
+        $this->assertStringContainsString(
+            'Schedule worker terminated due to an error: Unexpected type',
+            $output->fetch()
+        );
     }
 
     /**

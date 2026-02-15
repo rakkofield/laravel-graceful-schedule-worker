@@ -57,6 +57,7 @@ class GracefulScheduleWorkCommand extends Command
                 }
             );
         } catch (\Throwable $e) {
+            $this->error('Schedule worker terminated due to an error: ' . $e->getMessage());
             $reporter->report($e);
 
             return 1;

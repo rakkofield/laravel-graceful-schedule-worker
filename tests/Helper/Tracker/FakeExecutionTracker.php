@@ -38,6 +38,11 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     private $recoverableExceptions = [];
 
     /**
+     * @var \Exception|null
+     */
+    private $releaseLockException;
+
+    /**
      * {@inheritdoc}
      */
     public function markExecuted(ClockAwareEvent $event, DateTimeInterface $dueAt): void
@@ -81,6 +86,9 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
      */
     public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {
+        if ($this->releaseLockException !== null) {
+            throw $this->releaseLockException;
+        }
         $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
         unset($this->locks[$key]);
     }
@@ -152,6 +160,16 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
     }
 
     /**
+     * Test helper: set exception for releaseLock
+     *
+     * @param \Exception $exception
+     */
+    public function setReleaseLockException(\Exception $exception): void
+    {
+        $this->releaseLockException = $exception;
+    }
+
+    /**
      * Test helper: reset
      */
     public function reset(): void
@@ -161,5 +179,6 @@ class FakeExecutionTracker implements ExecutionTrackerInterface
         $this->recoverableResults = [];
         $this->recoverableExceptions = [];
         $this->lockResults = [];
+        $this->releaseLockException = null;
     }
 }
