@@ -30,6 +30,7 @@ class DemoReset extends Command
         }
 
         $this->clearLongTaskKeys();
+        $this->clearSlowTaskKeys();
         $this->clearTrackerKeys();
 
         $this->info('Demo data and tracker keys cleared.');
@@ -84,9 +85,41 @@ class DemoReset extends Command
     /**
      * @return void
      */
+    private function clearSlowTaskKeys()
+    {
+        $prefix = 'demo:slowtask';
+        $first = Cache::get("{$prefix}:first");
+        $last = Cache::get("{$prefix}:last");
+
+        if ($first && $last) {
+            $start = new \DateTime($first);
+            $end = new \DateTime($last);
+            $end->modify('+1 minute');
+
+            $interval = new \DateInterval('PT1M');
+            $period = new \DatePeriod($start, $interval, $end);
+
+            foreach ($period as $dt) {
+                $minute = $dt->format('Y-m-d\TH:i');
+                Cache::forget("{$prefix}:timeline:{$minute}");
+            }
+        }
+
+        Cache::forget("{$prefix}:count");
+        Cache::forget("{$prefix}:first");
+        Cache::forget("{$prefix}:last");
+
+        $this->line('Cleared slow-task keys.');
+    }
+
+    /**
+     * @return void
+     */
     private function clearTrackerKeys()
     {
         $cachePrefix = config('cache.prefix', '');
+        $redis = $this->cacheRedis();
+        $redisPrefix = config('database.redis.options.prefix', '');
 
         $patterns = [
             'schedule:tracker:last:*',
@@ -95,14 +128,29 @@ class DemoReset extends Command
 
         foreach ($patterns as $pattern) {
             $fullPattern = $cachePrefix ? "{$cachePrefix}:{$pattern}" : $pattern;
-            $keys = Redis::keys($fullPattern);
+            $keys = $redis->keys($fullPattern);
 
             if (!empty($keys)) {
                 foreach ($keys as $key) {
-                    Redis::del($key);
+                    // Strip Redis connection prefix (phpredis adds it to keys() results
+                    // but also auto-adds it to del() arguments)
+                    $strippedKey = $redisPrefix && strpos($key, $redisPrefix) === 0
+                        ? substr($key, strlen($redisPrefix))
+                        : $key;
+                    $redis->del($strippedKey);
                 }
                 $this->line("Cleared " . count($keys) . " tracker key(s) matching '{$pattern}'.");
             }
         }
+    }
+
+    /**
+     * @return \Illuminate\Redis\Connections\Connection
+     */
+    private function cacheRedis()
+    {
+        $store = config('cache.stores.redis.connection', 'cache');
+
+        return Redis::connection($store);
     }
 }

@@ -90,6 +90,52 @@ bin/scenario-stepfunctions.sh
 - Local process: `INTERRUPTED at step 3/8`
 - Step Functions: `SUCCEEDED`
 
+## Scenario 5: Overlap Prevention (~5 min)
+
+Demonstrates `withoutOverlapping()` preventing concurrent execution of a slow task:
+
+```bash
+bin/scenario-overlap.sh
+```
+
+**What happens:**
+1. A 90-second task (`demo:slow-task`) is scheduled every minute with `withoutOverlapping()`
+2. While the first execution is running, the next scheduled run is skipped
+3. After the first execution completes, the next scheduled run executes normally
+4. Report shows which minutes executed and which were skipped
+
+**Expected output:**
+
+```
+  Minute               Status
+  --------------------------------
+  2026-02-15T10:01     EXECUTED
+  2026-02-15T10:02     SKIPPED (overlap)
+  2026-02-15T10:03     EXECUTED
+  2026-02-15T10:04     SKIPPED (overlap)
+  2026-02-15T10:05     EXECUTED
+
+3 executions, 2 skipped due to overlap
+```
+
+## Scenario 6: Execution Tracker Visualization (~7 min)
+
+Shows the execution tracker's Redis data across normal operation, downtime, and recovery:
+
+```bash
+bin/scenario-tracker.sh
+```
+
+**What happens:**
+1. **Phase 1 (Normal):** Worker runs for 2 minutes — tracker shows fresh data with small elapsed times
+2. **Phase 2 (Downtime):** Worker stopped for 2 minutes — tracker shows growing elapsed times
+3. **Phase 3 (Recovery):** Worker restarts — recovery fires, tracker data updates
+
+**Tracker dashboard shows:**
+- `[Last Executed Times]` — Unix timestamps, elapsed time, and TTL for each tracked task
+- `[Active Locks]` — Recovery locks that prevent duplicate recovery dispatches
+- `[Key Format Guide]` — Explanation of the key naming convention
+
 ## Manual Operations
 
 ```bash
@@ -103,6 +149,12 @@ docker compose run --rm php php artisan demo:report --worker=cron
 # View comparison report
 docker compose run --rm php php artisan demo:report --worker=compare
 
+# View overlap report
+docker compose run --rm php php artisan demo:report --worker=overlap
+
+# View tracker dashboard
+docker compose run --rm php php artisan demo:tracker
+
 # Check Step Functions execution history
 docker compose run --rm -e SFN_ENDPOINT=http://moto:5000 php php bin/check-stepfunctions.php
 ```
@@ -115,6 +167,7 @@ The `DEMO_SCENARIO` variable controls which tasks are registered in `gracefulSch
 |-------|-------|
 | _(empty/default)_ | `demo:tick` with recovery + Step Functions echo |
 | `signal` | `demo:long-task` (SIGTERM handling demo) |
+| `overlap` | `demo:slow-task` with `withoutOverlapping()` |
 | `stepfunctions` | `demo:long-task` + Step Functions echo |
 
 ## How Recovery Works

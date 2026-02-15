@@ -13,7 +13,7 @@ class DemoReport extends Command
     /**
      * @var string
      */
-    protected $signature = 'demo:report {--worker=graceful : Worker name (cron, graceful, or compare)}';
+    protected $signature = 'demo:report {--worker=graceful : Worker name (cron, graceful, compare, or overlap)}';
 
     /**
      * @var string
@@ -29,6 +29,10 @@ class DemoReport extends Command
 
         if ($worker === 'compare') {
             return $this->compareReport();
+        }
+
+        if ($worker === 'overlap') {
+            return $this->overlapReport();
         }
 
         return $this->singleReport($worker);
@@ -115,6 +119,49 @@ class DemoReport extends Command
         } else {
             $this->info("cron executed " . abs($diff) . " more tick(s) than graceful.");
         }
+
+        return 0;
+    }
+
+    /**
+     * @return int
+     */
+    private function overlapReport()
+    {
+        $prefix = 'demo:slowtask';
+        $first = Cache::get("{$prefix}:first");
+        $last = Cache::get("{$prefix}:last");
+        $count = Cache::get("{$prefix}:count", 0);
+
+        if (!$first || !$last) {
+            $this->warn('No data found for overlap scenario.');
+            return 1;
+        }
+
+        $this->info('Overlap Prevention Report');
+        $this->info("Total executions: {$count}");
+        $this->info('');
+
+        $minutes = $this->getMinuteRange($first, $last);
+
+        $executed = 0;
+        $skipped = 0;
+        $headers = ['Minute', 'Status'];
+        $rows = [];
+
+        foreach ($minutes as $minute) {
+            $executedAt = Cache::get("{$prefix}:timeline:{$minute}");
+            if ($executedAt !== null) {
+                $rows[] = [$minute, 'EXECUTED'];
+                $executed++;
+            } else {
+                $rows[] = [$minute, 'SKIPPED (overlap)'];
+                $skipped++;
+            }
+        }
+
+        $this->table($headers, $rows);
+        $this->info("{$executed} executions, {$skipped} skipped due to overlap");
 
         return 0;
     }
