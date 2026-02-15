@@ -227,14 +227,4 @@ class ClockAwareEvent extends Event
     {
         return (new ProcessCommandBuilder())->buildCommand($this);
     }
-
-    /**
-     * Build the finish command template for schedule:finish.
-     *
-     * @return FinishCommandTemplate
-     */
-    public function buildFinishCommandTemplate(): FinishCommandTemplate
-    {
-        return (new ProcessCommandBuilder())->buildFinishCommand($this);
-    }
 }

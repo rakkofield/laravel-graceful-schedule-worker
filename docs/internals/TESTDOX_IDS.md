@@ -28,9 +28,8 @@
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
 | Scheduling/ClockAwareScheduleTest | `CS` | 10 |
-| Scheduling/ClockAwareEventTest | `CE` | 22 |
-| Scheduling/FinishCommandTemplateTest | `FCT` | 3 |
-| Scheduling/ProcessCommandBuilderTest | `PCB` | 11 |
+| Scheduling/ClockAwareEventTest | `CE` | 21 |
+| Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
 | Console/ExceptionReporterTest | `ER` | 4 |
@@ -41,7 +40,7 @@
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 18 |
 | Dispatcher/StepFunctionsDispatcherTest | `SFD` | 17 |
-| Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 13 |
+| Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 16 |
 | Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 8 |
 | Dispatcher/Result/SkippedDispatchResultTest | `SD` | 9 |
 | Dispatcher/Result/StartedStepFunctionsDispatchResultTest | `SSR` | 8 |

@@ -53,6 +53,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $stopTimeout;
 
     /**
+     * @var Container|null
+     */
+    protected $container;
+
+    /**
      * @param string|null $basePath Working directory for processes (null uses the current directory)
      * @param LoggerInterface $logger Logger
      * @param SleeperInterface $sleeper Sleeper (for polling in stopAll)
@@ -79,7 +84,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      * Respects the Event's runInBackground setting and selects the appropriate execution path.
      * - beforeCallbacks are executed synchronously in the parent process
      * - runInBackground = true: uses buildProcessCommand() with exec, runs async via Process::start()
-     *   (schedule:finish is handled by PHP-side cleanup/stopAll)
+     *   (afterCallbacks are handled by cleanup/stopAll)
      * - runInBackground = false: runs synchronously via buildCommand() and calls afterCallbacks directly
      *
      * @param ClockAwareEvent $event The schedule event to execute
@@ -92,6 +97,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         Container $container,
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
+        $this->container = $container;
         $identifier = $event->mutexName();
 
         try {
@@ -109,9 +115,8 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $event->callBeforeCallbacks($container);
 
             if ($event->runInBackground) {
-                // Background: generate exec command (no schedule:finish), run async
+                // Background: generate exec command, run async
                 $fullCommand = $event->buildProcessCommand();
-                $finishCommandTemplate = $event->buildFinishCommandTemplate();
                 $process = $this->createProcess($fullCommand);
                 $process->start();
 
@@ -120,13 +125,13 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     $identifier,
                     $fullCommand,
                     $this->clock->now(),
-                    $finishCommandTemplate
+                    $event
                 );
                 $this->runningProcesses[] = $result;
                 return $result;
             }
 
-            // Foreground: run command synchronously without schedule:finish and call afterCallbacks directly
+            // Foreground: run command synchronously and call afterCallbacks directly
             $fullCommand = $event->buildCommand();
             $process = $this->createProcess($fullCommand);
             $process->run();
@@ -164,9 +169,9 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 $stillRunning[] = $result;
             } else {
                 try {
-                    $this->runFinishCommand($result);
+                    $this->runAfterCallbacksForResult($result);
                 } catch (\Exception $e) {
-                    $this->logger->warning('Failed to run finish command', [
+                    $this->logger->warning('afterCallback failed', [
                         'event' => $result->getEventIdentifier(),
                         'error' => $e->getMessage(),
                         'exception' => $e,
@@ -185,7 +190,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $this->sendSignalToAll(SIGTERM, 'SIGTERM', 'warning');
         $this->waitForTermination();
         $this->sendSignalToAll(SIGKILL, 'SIGKILL', 'error');
-        $this->runFinishCommandsForAll();
+        $this->runAfterCallbacksForAll();
         $this->runningProcesses = [];
     }
 
@@ -239,17 +244,17 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * Run finish commands for all processes.
+     * Run afterCallbacks for all processes.
      *
      * @return void
      */
-    private function runFinishCommandsForAll(): void
+    private function runAfterCallbacksForAll(): void
     {
         foreach ($this->runningProcesses as $result) {
             try {
-                $this->runFinishCommand($result);
+                $this->runAfterCallbacksForResult($result);
             } catch (\Exception $e) {
-                $this->logger->warning('Failed to run finish command', [
+                $this->logger->warning('afterCallback failed', [
                     'event' => $result->getEventIdentifier(),
                     'error' => $e->getMessage(),
                     'exception' => $e,
@@ -271,31 +276,17 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * Run the schedule:finish command for a completed or terminated process.
+     * Run afterCallbacks for a completed or terminated process.
      *
      * @param StartedLocalDispatchResult $result
      * @return void
      */
-    protected function runFinishCommand(StartedLocalDispatchResult $result): void
+    private function runAfterCallbacksForResult(StartedLocalDispatchResult $result): void
     {
-        $template = $result->getFinishCommandTemplate();
-        if ($template === null) {
+        if ($this->container === null) {
             return;
         }
 
-        $exitCode = $result->getExitCode() ?? self::EXIT_CODE_SIGTERM;
-        $command = $template->buildCommand($exitCode);
-
-        $process = $this->createProcess($command);
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            $this->logger->warning('schedule:finish exited with non-zero status', [
-                'event' => $result->getEventIdentifier(),
-                'command' => $command,
-                'exitCode' => $process->getExitCode(),
-                'errorOutput' => $process->getErrorOutput(),
-            ]);
-        }
+        $result->runAfterCallbacks($this->container);
     }
 }

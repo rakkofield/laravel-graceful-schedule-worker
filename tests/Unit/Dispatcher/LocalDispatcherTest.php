@@ -19,7 +19,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FinishCommandTemplate;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
 
 class LocalDispatcherTest extends TestCase
@@ -673,186 +672,143 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.33 cleanup runs finish command for completed processes
+     * @testdox LD.33 cleanup runs afterCallbacks for completed background processes
      */
-    public function testCleanupRunsFinishCommandForCompletedProcesses(): void
+    public function testCleanupRunsAfterCallbacksForCompletedProcesses(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher->setContainer($this->app);
 
-        // Completed process with finishCommandTemplate
+        // Completed process with event
         $proc1 = new StubProcess(false);
-        $result1 = new StartedLocalDispatchResult(
-            $proc1,
-            'event1',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
-        );
+        $event1 = $this->createSpyEvent('echo test');
+        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test', new DateTimeImmutable(), $event1);
 
-        // Running process with finishCommandTemplate
+        // Running process with event
         $proc2 = new StubProcess(true);
-        $result2 = new StartedLocalDispatchResult(
-            $proc2,
-            'event2',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event2"', '>> /dev/null 2>&1')
-        );
+        $event2 = $this->createSpyEvent('echo test');
+        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test', new DateTimeImmutable(), $event2);
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
 
         $dispatcher->cleanup();
 
-        // Finish command was run only for the completed process
-        $this->assertCount(1, $dispatcher->getFinishCommandsRun());
-        $this->assertStringContainsString('event1', $dispatcher->getFinishCommandsRun()[0]);
-        $this->assertStringContainsString(' 143 ', $dispatcher->getFinishCommandsRun()[0]);
+        // afterCallbacks were run only for the completed process
+        $this->assertTrue($event1->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertFalse($event2->wasAfterCallbacksWithExitCodeCalled());
     }
 
     /**
-     * @testdox LD.34 stopAll Phase 4 runs finish command for all processes
+     * @testdox LD.34 stopAll runs afterCallbacks for all processes
      */
-    public function testStopAllRunsFinishCommandForAllProcesses(): void
+    public function testStopAllRunsAfterCallbacksForAllProcesses(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), $fixedClock, 0.05);
+        $dispatcher->setContainer($this->app);
 
         $proc1 = new StubProcess(true);
         $proc1->setTerminateOnSignal(true);
-        $result1 = new StartedLocalDispatchResult(
-            $proc1,
-            'event1',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
-        );
+        $event1 = $this->createSpyEvent('echo test');
+        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test', new DateTimeImmutable(), $event1);
 
         $proc2 = new StubProcess(true);
         $proc2->setTerminateOnSignal(true);
-        $result2 = new StartedLocalDispatchResult(
-            $proc2,
-            'event2',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event2"', '>> /dev/null 2>&1')
-        );
+        $event2 = $this->createSpyEvent('echo test');
+        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test', new DateTimeImmutable(), $event2);
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
 
         $dispatcher->stopAll();
 
-        // Both processes got finish commands with exit code 143
-        $this->assertCount(2, $dispatcher->getFinishCommandsRun());
-        $this->assertStringContainsString(' 143 ', $dispatcher->getFinishCommandsRun()[0]);
-        $this->assertStringContainsString(' 143 ', $dispatcher->getFinishCommandsRun()[1]);
+        // Both processes got afterCallbacks with exit code 143
+        $this->assertTrue($event1->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertSame(LocalDispatcher::EXIT_CODE_SIGTERM, $event1->getAfterCallbacksExitCode());
+        $this->assertTrue($event2->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertSame(LocalDispatcher::EXIT_CODE_SIGTERM, $event2->getAfterCallbacksExitCode());
     }
 
     /**
-     * @testdox LD.35 cleanup: runFinishCommand exception does not prevent other finish commands from running
+     * @testdox LD.35 cleanup: afterCallbacks exception does not prevent other callbacks from running
      */
-    public function testRunFinishCommandExceptionDoesNotStopOtherFinishes(): void
+    public function testAfterCallbacksExceptionDoesNotStopOtherCallbacks(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher->setContainer($this->app);
 
         $proc1 = new StubProcess(false);
-        $result1 = new StartedLocalDispatchResult(
-            $proc1,
-            'event1',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
-        );
+        $event1 = $this->createSpyEvent('echo test');
+        $event1->throwOnAfterCallback(new \RuntimeException('afterCallback failed'));
+        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test', new DateTimeImmutable(), $event1);
 
         $proc2 = new StubProcess(false);
-        $result2 = new StartedLocalDispatchResult(
-            $proc2,
-            'event2',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event2"', '>> /dev/null 2>&1')
-        );
+        $event2 = $this->createSpyEvent('echo test');
+        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test', new DateTimeImmutable(), $event2);
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
-
-        // First finish command will throw
-        $dispatcher->willThrowOnFinishCommand(0, new \RuntimeException('Finish failed'));
 
         $dispatcher->cleanup();
 
-        // Both finish commands were attempted despite first one throwing
-        $this->assertCount(2, $dispatcher->getFinishCommandsRun());
+        // Both afterCallbacks were attempted despite first one throwing
+        $this->assertTrue($event1->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertTrue($event2->wasAfterCallbacksWithExitCodeCalled());
     }
 
     /**
-     * @testdox LD.36 stopAll Phase 4: first finish command exception does not prevent second from running
+     * @testdox LD.36 stopAll: first afterCallbacks exception does not prevent second from running
      */
-    public function testStopAllFinishCommandExceptionDoesNotStopOtherFinishes(): void
+    public function testStopAllAfterCallbacksExceptionDoesNotStopOtherCallbacks(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), $fixedClock, 0.05);
+        $dispatcher->setContainer($this->app);
 
         $proc1 = new StubProcess(true);
         $proc1->setTerminateOnSignal(true);
-        $result1 = new StartedLocalDispatchResult(
-            $proc1,
-            'event1',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
-        );
+        $event1 = $this->createSpyEvent('echo test');
+        $event1->throwOnAfterCallback(new \RuntimeException('afterCallback failed'));
+        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test', new DateTimeImmutable(), $event1);
 
         $proc2 = new StubProcess(true);
         $proc2->setTerminateOnSignal(true);
-        $result2 = new StartedLocalDispatchResult(
-            $proc2,
-            'event2',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event2"', '>> /dev/null 2>&1')
-        );
+        $event2 = $this->createSpyEvent('echo test');
+        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test', new DateTimeImmutable(), $event2);
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
 
-        // First finish command will throw
-        $dispatcher->willThrowOnFinishCommand(0, new \RuntimeException('Finish failed'));
-
         $dispatcher->stopAll();
 
-        // Both finish commands were attempted despite first one throwing
-        $this->assertCount(2, $dispatcher->getFinishCommandsRun());
-        $this->assertStringContainsString('event2', $dispatcher->getFinishCommandsRun()[1]);
+        // Both afterCallbacks were attempted despite first one throwing
+        $this->assertTrue($event1->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertTrue($event2->wasAfterCallbacksWithExitCodeCalled());
     }
 
     /**
-     * @testdox LD.37 finish command uses exit code 143 when process exit code is null
+     * @testdox LD.37 afterCallbacks uses exit code 143 when process exit code is null
      */
-    public function testFinishCommandUsesExitCode143WhenProcessExitCodeIsNull(): void
+    public function testAfterCallbacksUsesExitCode143WhenProcessExitCodeIsNull(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TestableLocalDispatcher(null, new NullLogger(), new NullSleeper(), $fixedClock, 0.05);
+        $dispatcher->setContainer($this->app);
 
         // Process with null exit code (terminated but exit code not captured)
         $proc = new StubProcess(true);
         $proc->setTerminateOnSignal(true);
-        $result = new StartedLocalDispatchResult(
-            $proc,
-            'event1',
-            'echo test',
-            new DateTimeImmutable(),
-            new FinishCommandTemplate('schedule:finish "event1"', '>> /dev/null 2>&1')
-        );
+        $event = $this->createSpyEvent('echo test');
+        $result = new StartedLocalDispatchResult($proc, 'event1', 'echo test', new DateTimeImmutable(), $event);
 
         $dispatcher->addRunningProcess($result);
 
         $dispatcher->stopAll();
 
-        $this->assertCount(1, $dispatcher->getFinishCommandsRun());
-        $this->assertStringContainsString(' 143 ', $dispatcher->getFinishCommandsRun()[0]);
+        $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertSame(LocalDispatcher::EXIT_CODE_SIGTERM, $event->getAfterCallbacksExitCode());
     }
 }

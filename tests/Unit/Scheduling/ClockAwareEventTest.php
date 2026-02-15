@@ -314,21 +314,4 @@ class ClockAwareEventTest extends TestCase
 
         $this->assertSame('stepfunctions', $event->getDispatcherType());
     }
-
-    /**
-     * @testdox CE.22 buildFinishCommandTemplate returns FinishCommandTemplate instance
-     */
-    public function testBuildFinishCommandTemplateReturnsFinishCommandTemplate(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
-        $event->runInBackground = true;
-
-        $template = $event->buildFinishCommandTemplate();
-
-        $this->assertInstanceOf(FinishCommandTemplate::class, $template);
-        $command = $template->buildCommand(0);
-        $this->assertStringContainsString('schedule:finish', $command);
-        $this->assertStringContainsString(' 0 ', $command);
-    }
 }

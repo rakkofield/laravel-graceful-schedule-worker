@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FinishCommandTemplate;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
 use Symfony\Component\Process\Process;
 
 /**
@@ -166,38 +170,110 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox SLR.12 getFinishCommandTemplate returns null by default
+     * @testdox SLR.12 getEvent returns null by default
      */
-    public function testGetFinishCommandTemplateReturnsNullByDefault(): void
+    public function testGetEventReturnsNullByDefault(): void
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
 
-        $this->assertNull($result->getFinishCommandTemplate());
+        $this->assertNull($result->getEvent());
         $process->wait();
     }
 
     /**
-     * @testdox SLR.13 getFinishCommandTemplate returns FinishCommandTemplate passed to constructor
+     * @testdox SLR.13 getEvent returns ClockAwareEvent passed to constructor
      */
-    public function testGetFinishCommandTemplateReturnsConstructorValue(): void
+    public function testGetEventReturnsConstructorValue(): void
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $template = new FinishCommandTemplate(
-            'schedule:finish "test-mutex"',
-            '>> /dev/null 2>&1'
-        );
+        $mutex = new FakeEventMutex();
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new SpyCallbackEvent($mutex, 'php artisan test', $clock);
         $result = new StartedLocalDispatchResult(
             $process,
             'test-id',
             'php artisan test',
             new DateTimeImmutable(),
-            $template
+            $event
         );
 
-        $this->assertSame($template, $result->getFinishCommandTemplate());
+        $this->assertSame($event, $result->getEvent());
         $process->wait();
+    }
+
+    /**
+     * @testdox SLR.14 runAfterCallbacks calls callAfterCallbacksWithExitCode with process exit code
+     */
+    public function testRunAfterCallbacksCallsAfterCallbacksWithExitCode(): void
+    {
+        $process = Process::fromShellCommandLine('echo test');
+        $process->run();
+        $mutex = new FakeEventMutex();
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new SpyCallbackEvent($mutex, 'php artisan test', $clock);
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            $event
+        );
+
+        $container = new Container();
+        $result->runAfterCallbacks($container);
+
+        $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertSame(0, $event->getAfterCallbacksExitCode());
+    }
+
+    /**
+     * @testdox SLR.15 runAfterCallbacks uses EXIT_CODE_SIGTERM when process exit code is null
+     */
+    public function testRunAfterCallbacksUsesExitCodeSigtermWhenNull(): void
+    {
+        $process = Process::fromShellCommandLine('sleep 10');
+        $process->start();
+        $process->stop(0);
+        $mutex = new FakeEventMutex();
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new SpyCallbackEvent($mutex, 'php artisan test', $clock);
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            $event
+        );
+
+        $container = new Container();
+        $result->runAfterCallbacks($container);
+
+        $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertSame(LocalDispatcher::EXIT_CODE_SIGTERM, $event->getAfterCallbacksExitCode());
+    }
+
+    /**
+     * @testdox SLR.16 runAfterCallbacks is a no-op when event is null
+     */
+    public function testRunAfterCallbacksIsNoOpWhenEventIsNull(): void
+    {
+        $process = Process::fromShellCommandLine('echo test');
+        $process->run();
+        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+
+        $container = new Container();
+        $result->runAfterCallbacks($container);
+
+        // No exception thrown = success
+        $this->assertTrue(true);
+    }
+
+    protected function tearDown(): void
+    {
+        Container::setInstance(null);
+        parent::tearDown();
     }
 }

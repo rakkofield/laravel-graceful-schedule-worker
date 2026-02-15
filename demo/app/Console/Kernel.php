@@ -63,14 +63,9 @@ class Kernel extends ConsoleKernel
         $scenario = getenv('DEMO_SCENARIO');
 
         if ($scenario === 'overlap') {
-            // Workaround: withoutOverlapping(2) uses a short mutex TTL (2 min) so
-            // the mutex expires naturally. This is needed because schedule:finish
-            // only resolves Schedule::class events, not ClockAwareSchedule events,
-            // so afterCallbacks (including mutex release) don't run for background
-            // tasks. See: https://github.com/rakkofield/laravel-graceful-worker/issues/XXX
             $schedule->command('demo:slow-task', ['--duration=90'])
                 ->everyMinute()
-                ->withoutOverlapping(2)
+                ->withoutOverlapping()
                 ->runInBackground()
                 ->appendOutputTo('/tmp/scheduler.log');
             return;

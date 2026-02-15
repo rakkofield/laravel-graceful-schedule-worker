@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
+use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FinishCommandTemplate;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Symfony\Component\Process\Process;
 
 /**
@@ -28,28 +30,28 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
-    /** @var FinishCommandTemplate|null */
-    private $finishCommandTemplate;
+    /** @var ClockAwareEvent|null */
+    private $event;
 
     /**
      * @param Process $process
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable $dispatchedAt
-     * @param FinishCommandTemplate|null $finishCommandTemplate Template for schedule:finish
+     * @param ClockAwareEvent|null $event The event to run afterCallbacks on
      */
     public function __construct(
         Process $process,
         string $eventIdentifier,
         string $eventCommand,
         DateTimeImmutable $dispatchedAt,
-        ?FinishCommandTemplate $finishCommandTemplate = null
+        ?ClockAwareEvent $event = null
     ) {
         $this->process = $process;
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->dispatchedAt = $dispatchedAt;
-        $this->finishCommandTemplate = $finishCommandTemplate;
+        $this->event = $event;
     }
 
     /**
@@ -115,12 +117,28 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
     }
 
     /**
-     * Get the finish command template.
+     * Get the event.
      *
-     * @return FinishCommandTemplate|null Template, or null if not set
+     * @return ClockAwareEvent|null
      */
-    public function getFinishCommandTemplate(): ?FinishCommandTemplate
+    public function getEvent(): ?ClockAwareEvent
     {
-        return $this->finishCommandTemplate;
+        return $this->event;
+    }
+
+    /**
+     * Run afterCallbacks on the event with the process exit code.
+     *
+     * @param Container $container
+     * @return void
+     */
+    public function runAfterCallbacks(Container $container): void
+    {
+        if ($this->event === null) {
+            return;
+        }
+
+        $exitCode = $this->getExitCode() ?? LocalDispatcher::EXIT_CODE_SIGTERM;
+        $this->event->callAfterCallbacksWithExitCode($container, $exitCode);
     }
 }

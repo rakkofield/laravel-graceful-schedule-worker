@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
-use Illuminate\Console\Application;
 use Illuminate\Console\Scheduling\CommandBuilder;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Support\ProcessUtils;
@@ -16,7 +15,6 @@ class ProcessCommandBuilder extends CommandBuilder
      *
      * Uses exec to replace the shell process with the command,
      * so that SIGTERM is delivered directly to the command process.
-     * schedule:finish is handled separately via buildFinishCommand().
      *
      * @param Event $event
      * @return string
@@ -30,25 +28,6 @@ class ProcessCommandBuilder extends CommandBuilder
             $event,
             $event->command . $redirect . $output . ' 2>&1'
         );
-    }
-
-    /**
-     * Build the finish command template for schedule:finish.
-     *
-     * Returns a FinishCommandTemplate that builds the final command via string
-     * concatenation, avoiding sprintf % character conflicts in output paths.
-     * Always uses append redirect (>>) to avoid overwriting the main command output.
-     *
-     * @param Event $event
-     * @return FinishCommandTemplate
-     */
-    public function buildFinishCommand(Event $event): FinishCommandTemplate
-    {
-        $output = ProcessUtils::escapeArgument($event->output);
-        $finished = Application::formatCommandString('schedule:finish')
-            . ' "' . $event->mutexName() . '"';
-
-        return new FinishCommandTemplate($finished, '>> ' . $output . ' 2>&1');
     }
 
     /**
