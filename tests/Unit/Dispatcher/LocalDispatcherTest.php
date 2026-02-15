@@ -867,4 +867,43 @@ class LocalDispatcherTest extends TestCase
         $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
         $this->assertSame(LocalDispatcher::EXIT_CODE_SIGTERM, $event->getAfterCallbacksExitCode());
     }
+
+    /**
+     * @testdox LD.38 cleanup releases withoutOverlapping mutex via afterCallbacks
+     */
+    public function testCleanupReleasesWithoutOverlappingMutex(): void
+    {
+        $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $dispatcher = new TestableLocalDispatcher(
+            $this->app,
+            null,
+            new NullLogger(),
+            new NullSleeper(),
+            $fixedClock
+        );
+
+        $event = $this->createEvent('echo test');
+        $event->withoutOverlapping();
+
+        // Simulate the mutex being held (as dispatchEvent would do)
+        $this->mutex->create($event);
+        $this->assertTrue($this->mutex->exists($event));
+
+        // Completed process with the real event (not SpyEvent)
+        $proc = new StubProcess(false);
+        $result = new StartedLocalDispatchResult(
+            $proc,
+            $event->mutexName(),
+            'echo test',
+            new DateTimeImmutable(),
+            $event
+        );
+
+        $dispatcher->addRunningProcess($result);
+        $dispatcher->cleanup();
+
+        // mutex->forget() was called via the then() callback from withoutOverlapping()
+        $this->assertSame(1, $this->mutex->getForgetCount($event->mutexName()));
+        $this->assertFalse($this->mutex->exists($event));
+    }
 }
