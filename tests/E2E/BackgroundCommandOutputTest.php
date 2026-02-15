@@ -42,7 +42,8 @@ final class BackgroundCommandOutputTest extends TestCase
         $event = new ClockAwareEvent(
             new FakeEventMutex(),
             Application::formatCommandString('hello'),
-            new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'))
+            new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00')),
+            'local'
         );
         $event->runInBackground = true;
         $event->sendOutputTo($outputFile);
@@ -70,7 +71,8 @@ final class BackgroundCommandOutputTest extends TestCase
         $event = new ClockAwareEvent(
             new FakeEventMutex(),
             'php -r \'echo "STARTED\n"; sleep(60);\'',
-            new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'))
+            new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00')),
+            'local'
         );
         $event->runInBackground = true;
         $event->sendOutputTo($outputFile);

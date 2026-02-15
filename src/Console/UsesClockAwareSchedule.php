@@ -52,8 +52,8 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
 
             $schedule = new ClockAwareSchedule(
                 $clock,
-                $this->scheduleTimezone(),
-                config('graceful-scheduler.dispatch', 'local')
+                config('graceful-scheduler.dispatch', 'local'),
+                $this->scheduleTimezone()
             );
             $schedule->useCache($this->scheduleCache());
             $this->gracefulSchedule($schedule);

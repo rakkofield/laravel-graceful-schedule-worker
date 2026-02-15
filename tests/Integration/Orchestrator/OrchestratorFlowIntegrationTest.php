@@ -109,7 +109,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $tracker = $this->createTracker();
 
-        $event = new ClockAwareEvent($this->eventMutex, 'echo normal', $clock);
+        $event = new ClockAwareEvent($this->eventMutex, 'echo normal', $clock, 'local');
         $event->cron('0 * * * *');
 
         $this->schedule->setDueEvents([$event]);
@@ -140,7 +140,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 11:05:00'));
         $tracker = $this->createTracker();
 
-        $event = new ClockAwareEvent($this->eventMutex, 'echo recovery', $clock);
+        $event = new ClockAwareEvent($this->eventMutex, 'echo recovery', $clock, 'local');
         $event->cron('0 * * * *');
         $event->withGracePeriod(120);
 
@@ -203,10 +203,10 @@ class OrchestratorFlowIntegrationTest extends TestCase
             new NullSleeper()
         );
 
-        $localEvent = new ClockAwareEvent($this->eventMutex, 'echo local', $clock);
+        $localEvent = new ClockAwareEvent($this->eventMutex, 'echo local', $clock, 'local');
         $localEvent->cron('0 * * * *');
 
-        $sfnEvent = new ClockAwareEvent($this->eventMutex, 'echo sfn', $clock);
+        $sfnEvent = new ClockAwareEvent($this->eventMutex, 'echo sfn', $clock, 'local');
         $sfnEvent->cron('0 * * * *');
         $sfnEvent->dispatchVia('stepfunctions');
 
@@ -226,7 +226,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 11:05:00'));
         $tracker = $this->createTracker();
 
-        $event = new ClockAwareEvent($this->eventMutex, 'echo recover-after-fail', $clock);
+        $event = new ClockAwareEvent($this->eventMutex, 'echo recover-after-fail', $clock, 'local');
         $event->cron('0 * * * *');
         $event->withGracePeriod(120);
 
@@ -309,7 +309,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             new NullSleeper()
         );
 
-        $event = new ClockAwareEvent($this->eventMutex, 'echo shutdown', $clock);
+        $event = new ClockAwareEvent($this->eventMutex, 'echo shutdown', $clock, 'local');
         $event->cron('0 * * * *');
         $this->schedule->setDueEvents([$event]);
 

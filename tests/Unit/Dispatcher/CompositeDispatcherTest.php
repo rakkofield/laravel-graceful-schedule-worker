@@ -56,7 +56,7 @@ class CompositeDispatcherTest extends TestCase
     private function createClockAwareEvent(string $command, ?string $dispatcherType = null): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, $command, $clock);
+        $event = new ClockAwareEvent($this->mutex, $command, $clock, 'local');
         if ($dispatcherType !== null) {
             $event->dispatchVia($dispatcherType);
         }

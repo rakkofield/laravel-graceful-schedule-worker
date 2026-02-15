@@ -59,7 +59,7 @@ class ClockAwareEventCompatibilityTest extends TestCase
      */
     private function createEvent(string $command = 'echo test'): ClockAwareEvent
     {
-        return new ClockAwareEvent($this->mutex, $command, $this->clock);
+        return new ClockAwareEvent($this->mutex, $command, $this->clock, 'local');
     }
 
     /**

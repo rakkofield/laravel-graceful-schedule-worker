@@ -23,7 +23,7 @@ class StubLongMutexEvent extends ClockAwareEvent
      */
     public function __construct(EventMutex $mutex, string $command, string $mutexName, ClockInterface $clock)
     {
-        parent::__construct($mutex, $command, $clock);
+        parent::__construct($mutex, $command, $clock, 'local');
         $this->customMutexName = $mutexName;
     }
 

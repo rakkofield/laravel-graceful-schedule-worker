@@ -176,7 +176,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testExecPassesDefaultDispatcherTypeToClockAwareEvent(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock, null, 'stepfunctions');
+        $schedule = new ClockAwareSchedule($clock, 'stepfunctions');
 
         $event = $schedule->exec('echo test');
 

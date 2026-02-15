@@ -38,15 +38,15 @@ class ClockAwareEvent extends Event
      * @param EventMutex $mutex
      * @param string $command
      * @param ClockInterface $clock
-     * @param \DateTimeZone|string|null $timezone
      * @param string $defaultDispatcherType
+     * @param \DateTimeZone|string|null $timezone
      */
     public function __construct(
         EventMutex $mutex,
         $command,
         ClockInterface $clock,
-        $timezone = null,
-        string $defaultDispatcherType = 'local'
+        string $defaultDispatcherType,
+        $timezone = null
     ) {
         parent::__construct($mutex, $command, $timezone);
         $this->clock = $clock;

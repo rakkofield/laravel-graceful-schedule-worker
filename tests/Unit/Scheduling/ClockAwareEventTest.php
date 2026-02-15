@@ -29,7 +29,7 @@ class ClockAwareEventTest extends TestCase
     public function testCanInjectClock(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
     }
@@ -40,7 +40,7 @@ class ClockAwareEventTest extends TestCase
     public function testCanSetGracePeriod(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $result = $event->withGracePeriod(30);
 
@@ -53,7 +53,7 @@ class ClockAwareEventTest extends TestCase
     public function testCanEnableRecovery(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $result = $event->enableRecovery();
 
@@ -66,7 +66,7 @@ class ClockAwareEventTest extends TestCase
     public function testRecoverableIsFalseByDefault(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $this->assertFalse($event->isRecoverable());
         $this->assertNull($event->getGracePeriod());
@@ -78,7 +78,7 @@ class ClockAwareEventTest extends TestCase
     public function testWithGracePeriodSetsRecoverableToTrue(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $event->withGracePeriod(30);
 
@@ -91,7 +91,7 @@ class ClockAwareEventTest extends TestCase
     public function testWithGracePeriodSetsCorrectInterval(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $event->withGracePeriod(30);
 
@@ -112,7 +112,7 @@ class ClockAwareEventTest extends TestCase
     public function testWithGracePeriodWithNullSetsUnlimited(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $event->withGracePeriod(null);
 
@@ -126,7 +126,7 @@ class ClockAwareEventTest extends TestCase
     public function testWithGracePeriodZeroSetsRecoverableWithoutGracePeriod(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $event->withGracePeriod(0);
 
@@ -140,7 +140,7 @@ class ClockAwareEventTest extends TestCase
     public function testEnableRecoverySetsRecoverableWithUnlimitedGrace(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $event->enableRecovery();
 
@@ -154,7 +154,7 @@ class ClockAwareEventTest extends TestCase
     public function testDispatchViaReturnsSelfForMethodChaining(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $result = $event->dispatchVia('local');
 
@@ -167,7 +167,7 @@ class ClockAwareEventTest extends TestCase
     public function testGetDispatcherTypeReturnsLocalByDefault(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $this->assertSame('local', $event->getDispatcherType());
     }
@@ -178,7 +178,7 @@ class ClockAwareEventTest extends TestCase
     public function testDispatchViaSetsDispatcherType(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $event->dispatchVia('stepfunctions');
 
@@ -191,7 +191,7 @@ class ClockAwareEventTest extends TestCase
     public function testBuildProcessCommandUsesExecPrefix(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
 
         $command = $event->buildProcessCommand();
@@ -206,7 +206,7 @@ class ClockAwareEventTest extends TestCase
     public function testBuildProcessCommandDoesNotEndWithAmpersand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
 
         $command = $event->buildProcessCommand();
@@ -221,7 +221,7 @@ class ClockAwareEventTest extends TestCase
     {
         // UTC 03:00 = Asia/Tokyo 12:00
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'Asia/Tokyo');
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
 
         // Between 11:00-13:00 in Tokyo time (12:00 is within range)
         $event->between('11:00', '13:00');
@@ -237,7 +237,7 @@ class ClockAwareEventTest extends TestCase
     {
         // UTC 03:00 = Asia/Tokyo 12:00
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'Asia/Tokyo');
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
 
         // Between 13:00-15:00 in Tokyo time (12:00 is out of range)
         $event->between('13:00', '15:00');
@@ -253,7 +253,7 @@ class ClockAwareEventTest extends TestCase
     {
         // Running at 00:30. between('23:00', '01:00') -> start(23:00) > now(00:30), so shift start to previous day
         $clock = new FixedClock(new DateTimeImmutable('2024-01-02 00:30:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $event->between('23:00', '01:00');
 
@@ -269,7 +269,7 @@ class ClockAwareEventTest extends TestCase
         // Running at 23:30. between('23:00', '01:00') -> end(01:00) < start(23:00) and start(23:00) <= now(23:30)
         // -> shift end to next day
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 23:30:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $event->between('23:00', '01:00');
 
@@ -284,7 +284,7 @@ class ClockAwareEventTest extends TestCase
     {
         // UTC 03:00 = Asia/Tokyo 12:00
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'Asia/Tokyo');
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
 
         // Between 11:00-13:00 in Tokyo time (12:00 is within range, so skipped)
         $event->unlessBetween('11:00', '13:00');
@@ -299,7 +299,7 @@ class ClockAwareEventTest extends TestCase
     public function testGetDispatcherTypeReturnsDefaultValueFromConstructor(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
 
         $this->assertSame('local', $event->getDispatcherType());
     }
@@ -310,7 +310,7 @@ class ClockAwareEventTest extends TestCase
     public function testGetDispatcherTypeReturnsCustomDefaultFromConstructor(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, null, 'stepfunctions');
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'stepfunctions');
 
         $this->assertSame('stepfunctions', $event->getDispatcherType());
     }
@@ -321,7 +321,7 @@ class ClockAwareEventTest extends TestCase
     public function testBuildFinishCommandTemplateReturnsFinishCommandTemplate(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
 
         $template = $event->buildFinishCommandTemplate();

@@ -90,7 +90,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock);
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
     }
 
     /**

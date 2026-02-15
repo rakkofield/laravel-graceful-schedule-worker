@@ -53,7 +53,7 @@ class CacheExecutionTrackerTest extends TestCase
     private function createEvent(string $command, ClockInterface $clock = null): ClockAwareEvent
     {
         $defaultClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock ?? $defaultClock);
+        return new ClockAwareEvent($this->mutex, $command, $clock ?? $defaultClock, 'local');
     }
 
     /**

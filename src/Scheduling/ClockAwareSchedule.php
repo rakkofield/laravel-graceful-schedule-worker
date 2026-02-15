@@ -24,10 +24,10 @@ class ClockAwareSchedule extends Schedule
 
     /**
      * @param ClockInterface $clock
-     * @param \DateTimeZone|string|null $timezone
      * @param string $defaultDispatcherType
+     * @param \DateTimeZone|string|null $timezone
      */
-    public function __construct(ClockInterface $clock, $timezone = null, string $defaultDispatcherType = 'local')
+    public function __construct(ClockInterface $clock, string $defaultDispatcherType = 'local', $timezone = null)
     {
         parent::__construct($timezone);
         $this->clock = $clock;
@@ -73,8 +73,8 @@ class ClockAwareSchedule extends Schedule
             $this->eventMutex,
             $command,
             $this->eventClock,
-            $this->timezone,
-            $this->defaultDispatcherType
+            $this->defaultDispatcherType,
+            $this->timezone
         );
 
         $this->events[] = $event;

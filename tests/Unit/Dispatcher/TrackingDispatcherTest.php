@@ -65,7 +65,7 @@ class TrackingDispatcherTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock);
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
     }
 
     private function createDispatcher(DispatchResultInterface $resultToReturn): TrackingDispatcher
@@ -486,7 +486,7 @@ class TrackingDispatcherTest extends TestCase
         $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
         $dispatcher = $this->createDispatcher($startedResult);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'echo test', $clock, null, 'stepfunctions');
+        $event = new ClockAwareEvent($this->mutex, 'echo test', $clock, 'stepfunctions');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         // Set lock acquisition to fail

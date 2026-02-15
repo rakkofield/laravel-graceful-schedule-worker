@@ -60,7 +60,7 @@ class LocalDispatcherTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock);
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
     }
 
     private function createSpyEvent(string $command): SpyCallbackEvent
@@ -574,7 +574,7 @@ class LocalDispatcherTest extends TestCase
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new LocalDispatcher(null, new NullLogger(), new NullSleeper(), $fixedClock);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock, 'local');
         $event->runInBackground = true;
 
         $result = $dispatcher->dispatchEvent($event, $this->app, $this->dueAt);

@@ -91,7 +91,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
      */
     private function createEvent(string $command): ClockAwareEvent
     {
-        return new ClockAwareEvent($this->eventMutex, $command, $this->clock);
+        return new ClockAwareEvent($this->eventMutex, $command, $this->clock, 'local');
     }
 
     /**

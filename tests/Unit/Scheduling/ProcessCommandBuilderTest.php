@@ -34,7 +34,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testScheduleFinishReturnedByBuildFinishCommand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
         $event->appendOutputTo('/tmp/test.log');
 
@@ -56,7 +56,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testMainCommandUsesExecPrefix(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
         $event->appendOutputTo('/tmp/test.log');
 
@@ -77,7 +77,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testNoTrailingAmpersand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
 
         $command = $this->builder->buildCommand($event);
@@ -91,7 +91,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testWorksWithDefaultOutput(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
 
         // buildCommand should NOT contain schedule:finish
@@ -114,7 +114,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testWrapsWithSudoWhenUserIsSet(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
         $event->user = 'www-data';
 
@@ -131,7 +131,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testBuildFinishCommandUsesAppendRedirectWithSendOutputTo(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
         $event->sendOutputTo('/tmp/test.log');
 
@@ -153,7 +153,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testUsesExecPrefixInsteadOfTrapPattern(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
         $event->appendOutputTo('/tmp/test.log');
 
@@ -172,7 +172,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testBuildFinishCommandReturnsFinishCommandTemplate(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
 
         $template = $this->builder->buildFinishCommand($event);
@@ -191,7 +191,7 @@ class ProcessCommandBuilderTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
 
         // With sendOutputTo (overwrite mode)
-        $event1 = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event1 = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event1->runInBackground = true;
         $event1->sendOutputTo('/tmp/test.log');
 
@@ -201,7 +201,7 @@ class ProcessCommandBuilderTest extends TestCase
         $this->assertStringContainsString('>> ' . $output1, $command1);
 
         // With appendOutputTo (append mode)
-        $event2 = new ClockAwareEvent($this->mutex, 'php artisan test2', $clock);
+        $event2 = new ClockAwareEvent($this->mutex, 'php artisan test2', $clock, 'local');
         $event2->runInBackground = true;
         $event2->appendOutputTo('/tmp/test2.log');
 
@@ -217,7 +217,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testEnsureCorrectUserAddsExecInsideSudo(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
         $event->user = 'www-data';
 
@@ -233,7 +233,7 @@ class ProcessCommandBuilderTest extends TestCase
     public function testBuildFinishCommandHandlesPercentInOutputPath(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock);
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
         $event->runInBackground = true;
         $event->appendOutputTo('/tmp/100%done.log');
 
