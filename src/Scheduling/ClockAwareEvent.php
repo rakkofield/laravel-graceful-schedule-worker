@@ -10,6 +10,7 @@ use Cron\FieldFactory;
 use DateInterval;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
+use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 class ClockAwareEvent extends Event
@@ -213,6 +214,29 @@ class ClockAwareEvent extends Event
     {
         $parts = explode(':', $timeString);
         return $date->setTime((int) $parts[0], (int) ($parts[1] ?? 0), (int) ($parts[2] ?? 0));
+    }
+
+    /**
+     * Call after callbacks with exit code (backward-compatible).
+     *
+     * Provides compatibility with Laravel 6 which does not have
+     * callAfterCallbacksWithExitCode on the Event class.
+     *
+     * @param Container $container
+     * @param int $exitCode
+     * @return void
+     */
+    public function callAfterCallbacksWithExitCode(Container $container, $exitCode)
+    {
+        // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists(Event::class, 'callAfterCallbacksWithExitCode')) {
+            parent::callAfterCallbacksWithExitCode($container, $exitCode);
+            return;
+        }
+
+        // Laravel 6 fallback: set exitCode and call afterCallbacks
+        $this->exitCode = (int) $exitCode;
+        parent::callAfterCallbacks($container);
     }
 
     /**
