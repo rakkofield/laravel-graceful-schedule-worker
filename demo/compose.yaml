@@ -51,10 +51,10 @@ services:
     <<: *build
     command: >
       /bin/sh -c "
-        sleep $$(( 60 - $$(date +%%S) ));
+        now_sec=$$(date +%S | sed 's/^0//'); sleep $$(( 60 - now_sec ));
         while true; do
           php artisan schedule:run --no-ansi --no-interaction 2>&1;
-          sleep $$(( 60 - $$(date +%%S) ));
+          now_sec=$$(date +%S | sed 's/^0//'); sleep $$(( 60 - now_sec ));
         done
       "
     volumes: *volumes
