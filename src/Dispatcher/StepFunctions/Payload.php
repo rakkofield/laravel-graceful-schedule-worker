@@ -29,7 +29,7 @@ final class Payload
 
     /**
      * @return string JSON string
-     * @throws \RuntimeException if encoding fails
+     * @throws StepFunctionsException if encoding fails
      */
     public function toJson(): string
     {
@@ -39,7 +39,7 @@ final class Payload
             'dueAt' => $this->dueAt->format(DateTimeInterface::ATOM),
         ]);
         if ($encoded === false) {
-            throw new \RuntimeException('Failed to encode input JSON: ' . json_last_error_msg());
+            throw new StepFunctionsException('Failed to encode input JSON: ' . json_last_error_msg());
         }
         return $encoded;
     }

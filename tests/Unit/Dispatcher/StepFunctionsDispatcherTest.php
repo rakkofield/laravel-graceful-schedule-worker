@@ -276,18 +276,18 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.14 RuntimeException propagates on json_encode failure
+     * @testdox SFD.14 json_encode failure returns FailedStepFunctionsDispatchResult
      */
-    public function testRuntimeExceptionPropagatesOnJsonEncodeFailure(): void
+    public function testJsonEncodeFailureReturnsFailedResult(): void
     {
         $dispatcher = $this->createDispatcher();
         // Force json_encode failure with invalid UTF-8 string
         $event = $this->createEvent("\xFF\xFE");
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Failed to encode input JSON');
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
+        $this->assertStringContainsString('Failed to encode input JSON', $result->getError());
     }
 
     /**

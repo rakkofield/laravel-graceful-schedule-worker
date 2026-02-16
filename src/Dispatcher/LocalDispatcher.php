@@ -177,23 +177,24 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     public function cleanup(): void
     {
-        $stillRunning = [];
-        foreach ($this->runningProcesses as $result) {
+        $pending = $this->runningProcesses;
+        $this->runningProcesses = [];
+
+        foreach ($pending as $result) {
             if ($result->isRunning()) {
-                $stillRunning[] = $result;
-            } else {
-                try {
-                    $this->runAfterCallbacksForResult($result);
-                } catch (\Exception $e) {
-                    $this->logger->warning('afterCallback failed during cleanup', [
-                        'event' => $result->getEventIdentifier(),
-                        'error' => $e->getMessage(),
-                        'exception' => $e,
-                    ]);
-                }
+                $this->runningProcesses[] = $result;
+                continue;
+            }
+            try {
+                $this->runAfterCallbacksForResult($result);
+            } catch (\Exception $e) {
+                $this->logger->warning('afterCallback failed during cleanup', [
+                    'event' => $result->getEventIdentifier(),
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
             }
         }
-        $this->runningProcesses = $stillRunning;
     }
 
     /**
@@ -204,8 +205,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $this->sendSignalToAll(SIGTERM, 'SIGTERM', 'warning');
         $this->waitForTermination();
         $this->sendSignalToAll(SIGKILL, 'SIGKILL', 'error');
-        $this->runAfterCallbacksForAll();
+        // Capture and clear before running callbacks to prevent double
+        // execution if an \Error occurs during callback processing.
+        $processes = $this->runningProcesses;
         $this->runningProcesses = [];
+        $this->runAfterCallbacksFor($processes);
     }
 
     /**
@@ -258,13 +262,14 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * Run afterCallbacks for all processes.
+     * Run afterCallbacks for the given processes.
      *
+     * @param array<StartedLocalDispatchResult> $processes
      * @return void
      */
-    private function runAfterCallbacksForAll(): void
+    private function runAfterCallbacksFor(array $processes): void
     {
-        foreach ($this->runningProcesses as $result) {
+        foreach ($processes as $result) {
             try {
                 $this->runAfterCallbacksForResult($result);
             } catch (\Exception $e) {
