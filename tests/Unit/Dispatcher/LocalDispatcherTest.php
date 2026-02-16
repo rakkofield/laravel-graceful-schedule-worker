@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
@@ -22,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ThrowingOnForgetEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 class LocalDispatcherTest extends TestCase
 {
@@ -934,11 +934,7 @@ class LocalDispatcherTest extends TestCase
      */
     public function testWithoutOverlappingMutexReleaseFailureLoggedWhenBeforeCallbacksThrow(): void
     {
-        $logMessages = [];
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->method('warning')->willReturnCallback(function ($message, $context) use (&$logMessages) {
-            $logMessages[] = ['message' => $message, 'context' => $context];
-        });
+        $logger = new SpyLogger();
 
         $throwingMutex = new ThrowingOnForgetEventMutex(new \RuntimeException('mutex forget failed'));
         $this->app->bind(EventMutex::class, function () use ($throwingMutex) {
@@ -959,10 +955,7 @@ class LocalDispatcherTest extends TestCase
         // mutex->forget() was attempted
         $this->assertSame(1, $throwingMutex->getForgetCount($event->mutexName()));
         // Warning was logged about the mutex release failure
-        $mutexWarnings = array_filter($logMessages, function ($msg) {
-            return strpos($msg['message'], 'Failed to release EventMutex') !== false;
-        });
-        $this->assertCount(1, $mutexWarnings);
+        $this->assertTrue($logger->hasLogContaining('warning', 'Failed to release EventMutex'));
     }
 
     /**

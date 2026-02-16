@@ -314,4 +314,107 @@ class ClockAwareEventTest extends TestCase
 
         $this->assertSame('stepfunctions', $event->getDispatcherType());
     }
+
+    /**
+     * @testdox CE.22 constructor validates string timezone and stores as DateTimeZone
+     */
+    public function testConstructorValidatesStringTimezoneAndStoresAsDateTimeZone(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
+
+        $resolved = $event->getResolvedTimezone();
+        $this->assertInstanceOf(\DateTimeZone::class, $resolved);
+        $this->assertSame('Asia/Tokyo', $resolved->getName());
+    }
+
+    /**
+     * @testdox CE.23 constructor validates DateTimeZone object timezone
+     */
+    public function testConstructorValidatesDateTimeZoneObjectTimezone(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $tz = new \DateTimeZone('US/Eastern');
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', $tz);
+
+        $this->assertSame($tz, $event->getResolvedTimezone());
+    }
+
+    /**
+     * @testdox CE.24 constructor throws InvalidArgumentException for invalid timezone string
+     */
+    public function testConstructorThrowsInvalidArgumentExceptionForInvalidTimezoneString(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid timezone: Invalid/Zone');
+
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Invalid/Zone');
+    }
+
+    /**
+     * @testdox CE.25 getResolvedTimezone returns null when no timezone set
+     */
+    public function testGetResolvedTimezoneReturnsNullWhenNoTimezoneSet(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+
+        $this->assertNull($event->getResolvedTimezone());
+    }
+
+    /**
+     * @testdox CE.26 timezone fluent method validates and normalizes to DateTimeZone
+     */
+    public function testTimezoneFluentMethodValidatesAndNormalizesToDateTimeZone(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+
+        $event->timezone('America/New_York');
+
+        $resolved = $event->getResolvedTimezone();
+        $this->assertInstanceOf(\DateTimeZone::class, $resolved);
+        $this->assertSame('America/New_York', $resolved->getName());
+    }
+
+    /**
+     * @testdox CE.27 timezone fluent method throws InvalidArgumentException for invalid timezone
+     */
+    public function testTimezoneFluentMethodThrowsInvalidArgumentExceptionForInvalidTimezone(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid timezone: Bogus/TZ');
+
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+
+        $event->timezone('Bogus/TZ');
+    }
+
+    /**
+     * @testdox CE.28 timezone fluent method accepts DateTimeZone object
+     */
+    public function testTimezoneFluentMethodAcceptsDateTimeZoneObject(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+
+        $tz = new \DateTimeZone('Europe/London');
+        $event->timezone($tz);
+
+        $this->assertSame($tz, $event->getResolvedTimezone());
+    }
+
+    /**
+     * @testdox CE.29 constructor timezone is accessible via public property as DateTimeZone
+     */
+    public function testConstructorTimezoneIsAccessibleViaPublicPropertyAsDateTimeZone(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
+
+        $this->assertInstanceOf(\DateTimeZone::class, $event->timezone);
+        $this->assertSame('Asia/Tokyo', $event->timezone->getName());
+    }
 }

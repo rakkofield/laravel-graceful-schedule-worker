@@ -93,7 +93,8 @@ class UsesClockAwareScheduleTest extends TestCase
         $schedule = $this->container->make(ClockAwareSchedule::class);
 
         $event = $schedule->exec('echo test');
-        $this->assertSame('Asia/Tokyo', $event->timezone);
+        $this->assertInstanceOf(\DateTimeZone::class, $event->timezone);
+        $this->assertSame('Asia/Tokyo', $event->timezone->getName());
     }
 
     /**

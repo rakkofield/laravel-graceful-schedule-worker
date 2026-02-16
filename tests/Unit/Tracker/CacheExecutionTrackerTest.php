@@ -7,12 +7,12 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 class CacheExecutionTrackerTest extends TestCase
 {
@@ -169,11 +169,7 @@ class CacheExecutionTrackerTest extends TestCase
      */
     public function testGetMissedDueIfRecoverableReturnsNullWhenGracePeriodExceeded(): void
     {
-        $logMessages = [];
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->method('warning')->willReturnCallback(function ($message, $context) use (&$logMessages) {
-            $logMessages[] = ['message' => $message, 'context' => $context];
-        });
+        $logger = new SpyLogger();
 
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 14:35:00'));
         $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $logger);
@@ -189,8 +185,7 @@ class CacheExecutionTrackerTest extends TestCase
         $result = $tracker->getMissedDueIfRecoverable($event, $now);
 
         $this->assertNull($result);
-        $this->assertNotEmpty($logMessages);
-        $this->assertStringContainsString('grace period exceeded', $logMessages[0]['message']);
+        $this->assertTrue($logger->hasLogContaining('warning', 'grace period exceeded'));
     }
 
     /**
@@ -484,7 +479,7 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
-     * @testdox CT.22 releaseLock works correctly after implementation change
+     * @testdox CT.22 releaseLock releases lock so it can be re-acquired
      */
     public function testReleaseLockWorksCorrectlyAfterImplementationChange(): void
     {

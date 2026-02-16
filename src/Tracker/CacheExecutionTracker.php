@@ -9,7 +9,6 @@ use Cron\FieldFactory;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository;
 use InvalidArgumentException;
@@ -88,14 +87,12 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
         // Calculate the previous run date from the cron expression
         // (invalid expressions are wrapped in InvalidArgumentException)
+        $evalNow = $now;
+        $tz = $event->getResolvedTimezone();
+        if ($tz !== null) {
+            $evalNow = (new DateTimeImmutable('@' . $now->getTimestamp()))->setTimezone($tz);
+        }
         try {
-            $evalNow = $now;
-            if ($event->timezone) {
-                $tz = $event->timezone instanceof DateTimeZone
-                    ? $event->timezone
-                    : new DateTimeZone($event->timezone);
-                $evalNow = (new DateTimeImmutable('@' . $now->getTimestamp()))->setTimezone($tz);
-            }
             $cron = new CronExpression($event->expression, new FieldFactory());
             $previousRunDate = $cron->getPreviousRunDate($evalNow);
         } catch (\Exception $e) {

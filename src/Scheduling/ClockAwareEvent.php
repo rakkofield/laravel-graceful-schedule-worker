@@ -11,6 +11,7 @@ use DateInterval;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Contracts\Container\Container;
+use InvalidArgumentException;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 
 class ClockAwareEvent extends Event
@@ -41,6 +42,7 @@ class ClockAwareEvent extends Event
      * @param ClockInterface $clock
      * @param string $defaultDispatcherType
      * @param \DateTimeZone|string|null $timezone
+     * @throws InvalidArgumentException If timezone string is invalid
      */
     public function __construct(
         EventMutex $mutex,
@@ -49,9 +51,59 @@ class ClockAwareEvent extends Event
         string $defaultDispatcherType,
         $timezone = null
     ) {
-        parent::__construct($mutex, $command, $timezone);
+        parent::__construct($mutex, $command, self::resolveTimezone($timezone));
         $this->clock = $clock;
         $this->dispatcherType = $defaultDispatcherType;
+    }
+
+    /**
+     * @param \DateTimeZone|string|null $timezone
+     * @return \DateTimeZone|null
+     * @throws InvalidArgumentException
+     */
+    private static function resolveTimezone($timezone): ?\DateTimeZone
+    {
+        if ($timezone === null) {
+            return null;
+        }
+        if ($timezone instanceof \DateTimeZone) {
+            return $timezone;
+        }
+        try {
+            return new \DateTimeZone($timezone);
+        } catch (\Exception $e) {
+            throw new InvalidArgumentException(
+                sprintf('Invalid timezone: %s', $timezone),
+                0,
+                $e
+            );
+        }
+    }
+
+    /**
+     * @return \DateTimeZone|null
+     */
+    public function getResolvedTimezone(): ?\DateTimeZone
+    {
+        if ($this->timezone instanceof \DateTimeZone) {
+            return $this->timezone;
+        }
+        if ($this->timezone !== null) {
+            return self::resolveTimezone($this->timezone);
+        }
+        return null;
+    }
+
+    /**
+     * @param \DateTimeZone|string $timezone
+     * @return $this
+     * @throws InvalidArgumentException
+     */
+    public function timezone($timezone)
+    {
+        /** @var \DateTimeZone $resolved resolveTimezone never returns null for non-null input */
+        $resolved = self::resolveTimezone($timezone);
+        return parent::timezone($resolved);
     }
 
     /**
@@ -197,8 +249,8 @@ class ClockAwareEvent extends Event
     {
         $now = $this->clock->now();
 
-        if ($this->timezone) {
-            $tz = $this->timezone instanceof \DateTimeZone ? $this->timezone : new \DateTimeZone($this->timezone);
+        $tz = $this->getResolvedTimezone();
+        if ($tz !== null) {
             $now = $now->setTimezone($tz);
         }
 
