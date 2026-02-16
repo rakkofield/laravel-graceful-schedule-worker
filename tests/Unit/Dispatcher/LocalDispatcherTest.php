@@ -738,9 +738,9 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.34 stopAll runs afterCallbacks for all processes
+     * @testdox LD.34 stopAll does not run afterCallbacks for killed processes
      */
-    public function testStopAllRunsAfterCallbacksForAllProcesses(): void
+    public function testStopAllDoesNotRunAfterCallbacks(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TestableLocalDispatcher(
@@ -751,7 +751,6 @@ class LocalDispatcherTest extends TestCase
             $fixedClock,
             0.05
         );
-
 
         $proc1 = new StubProcess(true);
         $proc1->setTerminateOnSignal(true);
@@ -768,11 +767,9 @@ class LocalDispatcherTest extends TestCase
 
         $dispatcher->stopAll();
 
-        // Both processes got afterCallbacks with exit code 143
-        $this->assertTrue($event1->wasAfterCallbacksWithExitCodeCalled());
-        $this->assertSame(LocalDispatcher::EXIT_CODE_SIGTERM, $event1->getAfterCallbacksExitCode());
-        $this->assertTrue($event2->wasAfterCallbacksWithExitCodeCalled());
-        $this->assertSame(LocalDispatcher::EXIT_CODE_SIGTERM, $event2->getAfterCallbacksExitCode());
+        // afterCallbacks are NOT called for killed processes
+        $this->assertFalse($event1->wasAfterCallbacksWithExitCodeCalled());
+        $this->assertFalse($event2->wasAfterCallbacksWithExitCodeCalled());
     }
 
     /**
@@ -804,9 +801,9 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox LD.36 stopAll: first afterCallbacks exception does not prevent second from running
+     * @testdox LD.36 stopAll releases withoutOverlapping mutexes for killed processes
      */
-    public function testStopAllAfterCallbacksExceptionDoesNotStopOtherCallbacks(): void
+    public function testStopAllReleasesWithoutOverlappingMutexes(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TestableLocalDispatcher(
@@ -818,32 +815,36 @@ class LocalDispatcherTest extends TestCase
             0.05
         );
 
-
         $proc1 = new StubProcess(true);
         $proc1->setTerminateOnSignal(true);
-        $event1 = $this->createSpyEvent('echo test');
-        $event1->throwOnAfterCallback(new \RuntimeException('afterCallback failed'));
-        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test', new DateTimeImmutable(), $event1);
+        $event1 = $this->createSpyEvent('echo test1');
+        $event1->withoutOverlapping();
+        // Simulate mutex acquired state
+        $this->mutex->create($event1);
+        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test1', new DateTimeImmutable(), $event1);
 
         $proc2 = new StubProcess(true);
         $proc2->setTerminateOnSignal(true);
-        $event2 = $this->createSpyEvent('echo test');
-        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test', new DateTimeImmutable(), $event2);
+        $event2 = $this->createSpyEvent('echo test2');
+        // event2 does NOT have withoutOverlapping
+        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test2', new DateTimeImmutable(), $event2);
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
 
         $dispatcher->stopAll();
 
-        // Both afterCallbacks were attempted despite first one throwing
-        $this->assertTrue($event1->wasAfterCallbacksWithExitCodeCalled());
-        $this->assertTrue($event2->wasAfterCallbacksWithExitCodeCalled());
+        // Mutex released for withoutOverlapping event
+        $this->assertSame(1, $this->mutex->getForgetCount($event1->mutexName()));
+        $this->assertFalse($this->mutex->exists($event1));
+        // No mutex interaction for non-withoutOverlapping event
+        $this->assertSame(0, $this->mutex->getForgetCount($event2->mutexName()));
     }
 
     /**
-     * @testdox LD.37 afterCallbacks uses exit code 143 when process exit code is null
+     * @testdox LD.37 stopAll mutex release failure does not prevent other mutex releases
      */
-    public function testAfterCallbacksUsesExitCode143WhenProcessExitCodeIsNull(): void
+    public function testStopAllMutexReleaseFailureDoesNotPreventOtherReleases(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TestableLocalDispatcher(
@@ -855,19 +856,33 @@ class LocalDispatcherTest extends TestCase
             0.05
         );
 
+        // event1: withoutOverlapping + mutex that throws on forget
+        $throwingMutex = new ThrowingOnForgetEventMutex(new \RuntimeException('mutex forget failed'));
+        $proc1 = new StubProcess(true);
+        $proc1->setTerminateOnSignal(true);
+        $event1 = new SpyCallbackEvent($throwingMutex, 'echo test1', $fixedClock);
+        $event1->withoutOverlapping();
+        $throwingMutex->create($event1);
+        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test1', new DateTimeImmutable(), $event1);
 
-        // Process with null exit code (terminated but exit code not captured)
-        $proc = new StubProcess(true);
-        $proc->setTerminateOnSignal(true);
-        $event = $this->createSpyEvent('echo test');
-        $result = new StartedLocalDispatchResult($proc, 'event1', 'echo test', new DateTimeImmutable(), $event);
+        // event2: withoutOverlapping + normal mutex
+        $proc2 = new StubProcess(true);
+        $proc2->setTerminateOnSignal(true);
+        $event2 = $this->createSpyEvent('echo test2');
+        $event2->withoutOverlapping();
+        $this->mutex->create($event2);
+        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test2', new DateTimeImmutable(), $event2);
 
-        $dispatcher->addRunningProcess($result);
+        $dispatcher->addRunningProcess($result1);
+        $dispatcher->addRunningProcess($result2);
 
         $dispatcher->stopAll();
 
-        $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
-        $this->assertSame(LocalDispatcher::EXIT_CODE_SIGTERM, $event->getAfterCallbacksExitCode());
+        // event1's mutex forget was attempted (but threw)
+        $this->assertSame(1, $throwingMutex->getForgetCount($event1->mutexName()));
+        // event2's mutex was still released despite event1's failure
+        $this->assertSame(1, $this->mutex->getForgetCount($event2->mutexName()));
+        $this->assertFalse($this->mutex->exists($event2));
     }
 
     /**

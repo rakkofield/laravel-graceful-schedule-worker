@@ -87,7 +87,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      * Respects the Event's runInBackground setting and selects the appropriate execution path.
      * - beforeCallbacks are executed synchronously in the parent process
      * - runInBackground = true: uses buildProcessCommand() with exec, runs async via Process::start()
-     *   (afterCallbacks are handled by cleanup/stopAll)
+     *   (afterCallbacks are handled by cleanup; stopAll only releases mutexes)
      * - runInBackground = false: runs synchronously via buildCommand() and calls afterCallbacks directly
      *
      * @param ClockAwareEvent $event The schedule event to execute
@@ -205,11 +205,9 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $this->sendSignalToAll(SIGTERM, 'SIGTERM', 'warning');
         $this->waitForTermination();
         $this->sendSignalToAll(SIGKILL, 'SIGKILL', 'error');
-        // Capture and clear before running callbacks to prevent double
-        // execution if an \Error occurs during callback processing.
         $processes = $this->runningProcesses;
         $this->runningProcesses = [];
-        $this->runAfterCallbacksFor($processes);
+        $this->releaseMutexes($processes);
     }
 
     /**
@@ -262,18 +260,26 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     }
 
     /**
-     * Run afterCallbacks for the given processes.
+     * Release withoutOverlapping mutexes for the given processes.
+     *
+     * During stopAll (shutdown), only mutex release is performed.
+     * User-registered afterCallbacks are not executed because the
+     * processes were forcefully terminated, not completed normally.
      *
      * @param array<StartedLocalDispatchResult> $processes
      * @return void
      */
-    private function runAfterCallbacksFor(array $processes): void
+    private function releaseMutexes(array $processes): void
     {
         foreach ($processes as $result) {
+            $event = $result->getEvent();
+            if ($event === null || !$event->withoutOverlapping) {
+                continue;
+            }
             try {
-                $this->runAfterCallbacksForResult($result);
+                $event->mutex->forget($event);
             } catch (\Exception $e) {
-                $this->logger->warning('afterCallback failed during stopAll', [
+                $this->logger->warning('Failed to release EventMutex during stopAll', [
                     'event' => $result->getEventIdentifier(),
                     'error' => $e->getMessage(),
                     'exception' => $e,
