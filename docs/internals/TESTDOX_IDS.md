@@ -36,7 +36,7 @@
 | Console/LegacyExceptionReporterTest | `LER` | 4 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
 | Console/UsesClockAwareScheduleTest | `UCS` | 11 |
-| Dispatcher/LocalDispatcherTest | `LD` | 37 |
+| Dispatcher/LocalDispatcherTest | `LD` | 41 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 20 |
 | Dispatcher/StepFunctionsDispatcherTest | `SFD` | 17 |
@@ -54,7 +54,7 @@
 | Logging/PrefixedLoggerTest | `PL` | 4 |
 | Providers/GracefulScheduleWorkerProviderTest | `GP` | 18 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 28 |
-| Tracker/CacheExecutionTrackerTest | `CT` | 18 |
+| Tracker/CacheExecutionTrackerTest | `CT` | 22 |
 | Tracker/NullExecutionTrackerTest | `NT` | 4 |
 
 ### Integration Tests

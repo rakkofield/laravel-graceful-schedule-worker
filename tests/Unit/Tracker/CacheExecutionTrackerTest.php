@@ -57,6 +57,21 @@ class CacheExecutionTrackerTest extends TestCase
     }
 
     /**
+     * @param string $command
+     * @param ClockInterface|null $clock
+     * @param \DateTimeZone|string|null $timezone
+     * @return ClockAwareEvent
+     */
+    private function createEventWithTimezone(
+        string $command,
+        ClockInterface $clock = null,
+        $timezone = null
+    ): ClockAwareEvent {
+        $defaultClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        return new ClockAwareEvent($this->mutex, $command, $clock ?? $defaultClock, 'local', $timezone);
+    }
+
+    /**
      * @testdox CT.1 markExecuted stores timestamp in cache
      */
     public function testMarkExecutedStoresTimestamp(): void
@@ -397,5 +412,99 @@ class CacheExecutionTrackerTest extends TestCase
 
         // Should be 172800 (86400 * 2) since it exceeds DEFAULT_TTL_SECONDS
         $this->assertSame(172800, $result);
+    }
+
+    /**
+     * @testdox CT.19 getMissedDueIfRecoverable evaluates cron expression in event timezone
+     */
+    public function testGetMissedDueIfRecoverableEvaluatesCronInEventTimezone(): void
+    {
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+
+        // Event scheduled at 09:00 Asia/Tokyo (= 00:00 UTC)
+        $event = $this->createEventWithTimezone('php artisan test:task', null, 'Asia/Tokyo');
+        $event->cron('0 9 * * *'); // 09:00 in Asia/Tokyo
+
+        // Mark yesterday's 09:00 JST as executed (= 2024-01-14 00:00 UTC)
+        $yesterdayDue = new DateTimeImmutable('2024-01-14 00:00:00', new \DateTimeZone('UTC'));
+        $tracker->markExecuted($event, $yesterdayDue);
+
+        // Now is 2024-01-15 01:00 UTC (= 2024-01-15 10:00 JST), so today's 09:00 JST was missed
+        $now = new DateTimeImmutable('2024-01-15 01:00:00', new \DateTimeZone('UTC'));
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
+
+        // Should detect 09:00 JST (= 00:00 UTC on 2024-01-15) as missed
+        $this->assertNotNull($result);
+        $this->assertSame('2024-01-15', $result->format('Y-m-d'));
+    }
+
+    /**
+     * @testdox CT.20 getMissedDueIfRecoverable does not false-positive when timezone shifts cron evaluation
+     */
+    public function testGetMissedDueIfRecoverableNoFalsePositiveWithTimezoneShift(): void
+    {
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+
+        // Event scheduled at 09:00 Asia/Tokyo
+        $event = $this->createEventWithTimezone('php artisan test:task', null, 'Asia/Tokyo');
+        $event->cron('0 9 * * *');
+
+        // Mark today's 09:00 JST as already executed (= 2024-01-15 00:00 UTC)
+        $todayDue = new DateTimeImmutable('2024-01-15 00:00:00', new \DateTimeZone('UTC'));
+        $tracker->markExecuted($event, $todayDue);
+
+        // Now is 2024-01-15 01:00 UTC (= 10:00 JST), today's run was already executed
+        $now = new DateTimeImmutable('2024-01-15 01:00:00', new \DateTimeZone('UTC'));
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * @testdox CT.21 getMissedDueIfRecoverable handles DateTimeZone object as event timezone
+     */
+    public function testGetMissedDueIfRecoverableHandlesDateTimeZoneObject(): void
+    {
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+
+        // Use DateTimeZone object instead of string
+        $event = $this->createEventWithTimezone('php artisan test:task', null, new \DateTimeZone('Asia/Tokyo'));
+        $event->cron('0 9 * * *');
+
+        // Mark yesterday's 09:00 JST as executed
+        $yesterdayDue = new DateTimeImmutable('2024-01-14 00:00:00', new \DateTimeZone('UTC'));
+        $tracker->markExecuted($event, $yesterdayDue);
+
+        // Now is 2024-01-15 01:00 UTC (= 10:00 JST)
+        $now = new DateTimeImmutable('2024-01-15 01:00:00', new \DateTimeZone('UTC'));
+        $result = $tracker->getMissedDueIfRecoverable($event, $now);
+
+        $this->assertNotNull($result);
+        $this->assertSame('2024-01-15', $result->format('Y-m-d'));
+    }
+
+    /**
+     * @testdox CT.22 releaseLock works correctly after implementation change
+     */
+    public function testReleaseLockWorksCorrectlyAfterImplementationChange(): void
+    {
+        $tracker = new CacheExecutionTracker($this->cache, $this->lockProvider, $this->logger);
+        $event = $this->createEvent('php artisan test:task');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        // Acquire lock
+        $this->assertTrue($tracker->acquireLock($event, $dueAt));
+
+        // Second acquire fails (lock held)
+        $this->assertFalse($tracker->acquireLock($event, $dueAt));
+
+        // Release lock
+        $tracker->releaseLock($event, $dueAt);
+
+        // Re-acquire succeeds (lock was actually released)
+        $this->assertTrue($tracker->acquireLock($event, $dueAt));
+
+        // And second acquire fails again
+        $this->assertFalse($tracker->acquireLock($event, $dueAt));
     }
 }

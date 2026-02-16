@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
@@ -20,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatc
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ThrowingOnForgetEventMutex;
 
 class LocalDispatcherTest extends TestCase
 {
@@ -905,5 +907,79 @@ class LocalDispatcherTest extends TestCase
         // mutex->forget() was called via the then() callback from withoutOverlapping()
         $this->assertSame(1, $this->mutex->getForgetCount($event->mutexName()));
         $this->assertFalse($this->mutex->exists($event));
+    }
+
+    /**
+     * @testdox LD.39 withoutOverlapping mutex is released when beforeCallbacks throw
+     */
+    public function testWithoutOverlappingMutexReleasedWhenBeforeCallbacksThrow(): void
+    {
+        $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $event = $this->createSpyEvent('echo test');
+        $event->withoutOverlapping();
+        $event->throwOnBeforeCallback(new \RuntimeException('beforeCallback failed'));
+
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        // Should return failed result
+        $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
+        // mutex->forget() should have been called to release the acquired mutex
+        $this->assertSame(1, $this->mutex->getForgetCount($event->mutexName()));
+        $this->assertFalse($this->mutex->exists($event));
+    }
+
+    /**
+     * @testdox LD.40 withoutOverlapping mutex release failure is logged when beforeCallbacks throw
+     */
+    public function testWithoutOverlappingMutexReleaseFailureLoggedWhenBeforeCallbacksThrow(): void
+    {
+        $logMessages = [];
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->method('warning')->willReturnCallback(function ($message, $context) use (&$logMessages) {
+            $logMessages[] = ['message' => $message, 'context' => $context];
+        });
+
+        $throwingMutex = new ThrowingOnForgetEventMutex(new \RuntimeException('mutex forget failed'));
+        $this->app->bind(EventMutex::class, function () use ($throwingMutex) {
+            return $throwingMutex;
+        });
+
+        $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $dispatcher = new LocalDispatcher($this->app, null, $logger, new NullSleeper(), $fixedClock);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $event = new SpyCallbackEvent($throwingMutex, 'echo test', $clock);
+        $event->withoutOverlapping();
+        $event->throwOnBeforeCallback(new \RuntimeException('beforeCallback failed'));
+
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        // Should still return failed result (not crash)
+        $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
+        // mutex->forget() was attempted
+        $this->assertSame(1, $throwingMutex->getForgetCount($event->mutexName()));
+        // Warning was logged about the mutex release failure
+        $mutexWarnings = array_filter($logMessages, function ($msg) {
+            return strpos($msg['message'], 'Failed to release EventMutex') !== false;
+        });
+        $this->assertCount(1, $mutexWarnings);
+    }
+
+    /**
+     * @testdox LD.41 mutex is not released when beforeCallbacks throw without withoutOverlapping
+     */
+    public function testMutexNotReleasedWhenBeforeCallbacksThrowWithoutOverlapping(): void
+    {
+        $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $event = $this->createSpyEvent('echo test');
+        // withoutOverlapping() is NOT called
+        $event->throwOnBeforeCallback(new \RuntimeException('beforeCallback failed'));
+
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
+        // forget() should NOT have been called since withoutOverlapping was not set
+        $this->assertSame(0, $this->mutex->getForgetCount($event->mutexName()));
     }
 }

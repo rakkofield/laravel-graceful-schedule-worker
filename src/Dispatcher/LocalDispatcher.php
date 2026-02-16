@@ -99,6 +99,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         $identifier = $event->mutexName();
+        $mutexAcquired = false;
 
         try {
             // Handle withoutOverlapping: atomically try to claim the mutex
@@ -111,6 +112,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     DispatcherType::LOCAL
                 );
             }
+            $mutexAcquired = $event->withoutOverlapping;
 
             $event->callBeforeCallbacks($this->container);
 
@@ -152,6 +154,18 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             return new StartedLocalDispatchResult($process, $identifier, $fullCommand, $this->clock->now());
         } catch (\Exception $e) {
             // Note: \Error is not caught (fatal errors propagate to the caller)
+            if ($mutexAcquired) {
+                try {
+                    $event->mutex->forget($event);
+                } catch (\Exception $mutexException) {
+                    $this->logger->warning('Failed to release EventMutex after dispatch failure', [
+                        'event' => $identifier,
+                        'error' => $mutexException->getMessage(),
+                        'exception' => $mutexException,
+                    ]);
+                }
+            }
+
             $error = ExceptionFormatter::format($e);
 
             return new FailedLocalDispatchResult($identifier, $event->command, $error, $e, $this->clock->now());

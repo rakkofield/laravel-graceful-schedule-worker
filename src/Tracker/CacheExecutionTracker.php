@@ -9,7 +9,7 @@ use Cron\FieldFactory;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
-use Illuminate\Contracts\Cache\Lock;
+use DateTimeZone;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository;
 use InvalidArgumentException;
@@ -43,11 +43,6 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
      * @var LoggerInterface
      */
     private $logger;
-
-    /**
-     * @var array<string, Lock>
-     */
-    private $acquiredLocks = [];
 
     /**
      * @param Repository $cache
@@ -94,8 +89,15 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         // Calculate the previous run date from the cron expression
         // (invalid expressions are wrapped in InvalidArgumentException)
         try {
+            $evalNow = $now;
+            if ($event->timezone) {
+                $tz = $event->timezone instanceof DateTimeZone
+                    ? $event->timezone
+                    : new DateTimeZone($event->timezone);
+                $evalNow = (new DateTimeImmutable('@' . $now->getTimestamp()))->setTimezone($tz);
+            }
             $cron = new CronExpression($event->expression, new FieldFactory());
-            $previousRunDate = $cron->getPreviousRunDate($now);
+            $previousRunDate = $cron->getPreviousRunDate($evalNow);
         } catch (\Exception $e) {
             throw new InvalidArgumentException(
                 sprintf('Invalid cron expression: %s', $event->expression),
@@ -135,12 +137,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         $key = $this->getLockKey($event, $dueAt);
         $lock = $this->lockProvider->lock($key, $this->lockTtl);
 
-        if ($lock->get()) {
-            $this->acquiredLocks[$key] = $lock;
-            return true;
-        }
-
-        return false;
+        return (bool) $lock->get();
     }
 
     /**
@@ -151,11 +148,8 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
     public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void
     {
         $key = $this->getLockKey($event, $dueAt);
-
-        if (isset($this->acquiredLocks[$key])) {
-            $this->acquiredLocks[$key]->release();
-            unset($this->acquiredLocks[$key]);
-        }
+        $lock = $this->lockProvider->lock($key, $this->lockTtl);
+        $lock->forceRelease();
     }
 
     /**
