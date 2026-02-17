@@ -1,13 +1,17 @@
 # https://php.watch/articles/composer-gitattributes
 
 # Exclude build/test files from archive
+/.claude          export-ignore
 /.github          export-ignore
 /demo             export-ignore
+/docs/internals   export-ignore
 /skeleton         export-ignore
 /tests            export-ignore
+/tools            export-ignore
 /.editorconfig    export-ignore
 /.gitattributes   export-ignore
 /.gitignore       export-ignore
+/compose.yml      export-ignore
 /phpunit.xml.dist export-ignore
 
 # Configure diff output for .php and .phar files.
