@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
+
+use DateTimeImmutable;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * @testdox AwsSfnClientAdapter
+ */
+class AwsSfnClientAdapterTest extends TestCase
+{
+    /**
+     * @testdox SCA.1 Returns StartExecutionResult on successful startExecution
+     */
+    public function testStartExecutionSuccess(): void
+    {
+        $startDate = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+        $executionArn = 'arn:aws:states:ap-northeast-1:123456789012:execution:TestStateMachine:test-exec';
+
+        $stubClient = new StubSfnClient([
+            'executionArn' => $executionArn,
+            'startDate' => $startDate,
+        ]);
+
+        $adapter = new AwsSfnClientAdapter($stubClient);
+
+        $result = $adapter->startExecution([
+            'stateMachineArn' => 'arn:aws:states:ap-northeast-1:123456789012:stateMachine:TestStateMachine',
+            'name' => 'test-exec',
+            'input' => '{}',
+        ]);
+
+        $this->assertInstanceOf(StartExecutionResult::class, $result);
+        $this->assertSame($executionArn, $result->getExecutionArn());
+        $this->assertEquals($startDate, $result->getStartDate());
+    }
+
+    /**
+     * @testdox SCA.2 Throws ExecutionAlreadyExistsException on ExecutionAlreadyExists error
+     */
+    public function testExecutionAlreadyExistsExceptionIsThrown(): void
+    {
+        $stubClient = new StubSfnClient(null, 'ExecutionAlreadyExists', 'Execution already exists');
+
+        $adapter = new AwsSfnClientAdapter($stubClient);
+
+        $this->expectException(ExecutionAlreadyExistsException::class);
+
+        $adapter->startExecution([
+            'stateMachineArn' => 'arn:aws:states:ap-northeast-1:123456789012:stateMachine:TestStateMachine',
+            'name' => 'test-exec',
+            'input' => '{}',
+        ]);
+    }
+
+    /**
+     * @testdox SCA.3 Throws StepFunctionsException on other AWS errors
+     */
+    public function testStepFunctionsExceptionIsThrownForOtherAwsErrors(): void
+    {
+        $stubClient = new StubSfnClient(null, 'InvalidArn', 'Invalid ARN format');
+
+        $adapter = new AwsSfnClientAdapter($stubClient);
+
+        $this->expectException(StepFunctionsException::class);
+
+        $adapter->startExecution([
+            'stateMachineArn' => 'invalid-arn',
+            'name' => 'test-exec',
+            'input' => '{}',
+        ]);
+    }
+}

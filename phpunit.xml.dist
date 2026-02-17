@@ -2,13 +2,30 @@
 <phpunit
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd"
-  bootstrap="vendor/autoload.php"
+  bootstrap="tests/bootstrap.php"
   cacheResultFile=".phpunit.result.cache"
 >
   <php>
     <ini name="error_reporting" value="-1"/>
+    <env name="SFN_ENDPOINT" value="http://localhost:5001"/>
+    <env name="AWS_SUPPRESS_PHP_DEPRECATION_WARNING" value="true"/>
+    <env name="REDIS_HOST" value="127.0.0.1"/>
+    <env name="REDIS_PORT" value="6379"/>
   </php>
-  <testsuite name="Integration">
-    <directory suffix="Test.php">./tests/Integration</directory>
-  </testsuite>
+  <testsuites>
+    <testsuite name="Unit">
+      <directory suffix="Test.php">./tests/Unit</directory>
+    </testsuite>
+    <testsuite name="Integration">
+      <directory suffix="Test.php">./tests/Integration</directory>
+    </testsuite>
+    <testsuite name="E2E">
+      <directory suffix="Test.php">./tests/E2E</directory>
+    </testsuite>
+  </testsuites>
+  <filter>
+    <whitelist processUncoveredFilesFromWhitelist="true">
+      <directory suffix=".php">./src</directory>
+    </whitelist>
+  </filter>
 </phpunit>

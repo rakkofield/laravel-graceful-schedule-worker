@@ -1,0 +1,10 @@
+{
+  "Comment": "Test state machine for scheduler",
+  "StartAt": "ExecuteTask",
+  "States": {
+    "ExecuteTask": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}

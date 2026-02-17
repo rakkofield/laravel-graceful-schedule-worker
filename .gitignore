@@ -2,3 +2,8 @@
 /composer.lock
 /phpunit.xml
 /.phpunit.result.cache
+/coverage/
+tools/vendor/
+.claude.local.md
+tests/tmp/*
+!tests/tmp/.gitkeep

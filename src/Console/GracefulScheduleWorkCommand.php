@@ -1,12 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
-use Illuminate\Console\Application;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\ProcessUtils;
-use Symfony\Component\Process\Process;
+use Illuminate\Contracts\Foundation\Application;
+use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class GracefulScheduleWorkCommand extends Command
 {
@@ -15,7 +16,7 @@ class GracefulScheduleWorkCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'schedule:graceful-work {--run-output-file= : The file to direct <info>schedule:run</info> output to}';
+    protected $signature = 'schedule:graceful-work';
 
     /**
      * The console command description.
@@ -30,70 +31,39 @@ class GracefulScheduleWorkCommand extends Command
     /**
      * Execute the console command.
      *
-     * @return void
+     * @param ScheduleOrchestratorInterface $orchestrator
+     * @param ClockAwareSchedule $schedule
+     * @param ExceptionReporterInterface $reporter
+     * @return int
      */
-    public function handle()
-    {
+    public function handle(
+        ScheduleOrchestratorInterface $orchestrator,
+        ClockAwareSchedule $schedule,
+        ExceptionReporterInterface $reporter
+    ) {
         $this->info('Running scheduled tasks.');
-
-        /** @var $executions array<Process> */
-        $lastExecutionStartedAt = Carbon::now()->subMinutes(10);
-        $executions = [];
-
-        $command = Application::formatCommandString('schedule:run');
-
-        if ($this->option('run-output-file')) {
-            $command .= ' >> ' . ProcessUtils::escapeArgument($this->option('run-output-file')) . ' 2>&1';
-        }
 
         $this->listenForSignal();
 
-        while ($this->running) {
-            usleep(100 * 1000);
+        /** @var Application $app */
+        $app = $this->laravel;
 
-            if (Carbon::now()->second === 0 &&
-                ! Carbon::now()->startOfMinute()->equalTo($lastExecutionStartedAt)) {
-                $execution = Process::fromShellCommandline($command);
-                $execution->setTimeout(null); // Disable timeout for cron-like behavior
-
-                try {
-                    $execution->start(function ($type, $buffer) {
-                        $this->output->write($buffer);
-                    });
-                    $executions[] = $execution;
-                    $lastExecutionStartedAt = Carbon::now()->startOfMinute();
-                } catch (\Exception $e) {
-                    $this->error('Failed to start scheduled task: ' . $e->getMessage());
+        try {
+            $orchestrator->run(
+                $schedule,
+                $app,
+                function () {
+                    return $this->running;
                 }
-            }
+            );
+        } catch (\Throwable $e) {
+            $this->error('Schedule worker terminated due to an error: ' . $e->getMessage());
+            $reporter->report($e);
 
-            // Process management with improved array cleanup
-            $completedKeys = [];
-            foreach ($executions as $key => $execution) {
-                if (! $execution->isRunning()) {
-                    $completedKeys[] = $key;
-                }
-            }
-
-            // Remove completed processes and rebuild array to prevent memory leaks
-            foreach ($completedKeys as $key) {
-                unset($executions[$key]);
-            }
-
-            if ($completedKeys !== []) {
-                $executions = array_values($executions); // Rebuild array indices
-            }
+            return 1;
         }
 
-        foreach ($executions as $execution) {
-            if ($execution->isRunning()) {
-                $code = $execution->stop();
-
-                $this->info(
-                    'Stop scheduled task command: ' . $execution->getCommandLine() . '. Exit code: ' . $code
-                );
-            }
-        }
+        return 0;
     }
 
     private function listenForSignal(): void
@@ -105,10 +75,16 @@ class GracefulScheduleWorkCommand extends Command
     }
 
     /**
+     * Handle shutdown signal.
+     *
+     * This method must be public because it is registered as a callback for pcntl_signal().
+     * When PHP receives a signal, it calls this method from external context,
+     * which requires public visibility.
+     *
      * @param int $signal
      * @param mixed $siginfo
      */
-    private function shutdown($signal, $siginfo): void
+    public function shutdown($signal, $siginfo): void
     {
         unset($siginfo);
 

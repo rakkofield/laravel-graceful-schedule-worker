@@ -2,14 +2,23 @@
 
 namespace App\Console;
 
+use App\Console\Commands\DemoLongTask;
+use App\Console\Commands\DemoReport;
+use App\Console\Commands\DemoReset;
+use App\Console\Commands\DemoSlowTask;
+use App\Console\Commands\DemoTick;
+use App\Console\Commands\DemoTracker;
 use App\Console\Commands\Hello;
 use App\Console\Commands\LoopHello;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
-use Illuminate\Support\Facades\Log;
+use RakkoInc\LaravelGracefulScheduleWorker\Console\UsesClockAwareSchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 class Kernel extends ConsoleKernel
 {
+    use UsesClockAwareSchedule;
+
     /**
      * The Artisan commands provided by your application.
      *
@@ -18,47 +27,72 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Hello::class,
         LoopHello::class,
+        DemoTick::class,
+        DemoLongTask::class,
+        DemoSlowTask::class,
+        DemoReport::class,
+        DemoReset::class,
+        DemoTracker::class,
     ];
 
     /**
-     * Define the application's command schedule.
+     * Define the application's standard command schedule.
      *
-     * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
+     * Tasks registered here run via schedule:run only (singleton separation).
+     *
+     * @param  Schedule  $schedule
      * @return void
      */
     protected function schedule(Schedule $schedule)
     {
-        $schedule->command('hello')->everyMinute()
-            ->appendOutputTo(storage_path('logs/scheduler.log'))
-            ->before(function () {
-                Log::info('hello start from Scheduler.');
-            })
-            ->onSuccess(function () {
-                Log::info('hello successful.');
-            })
-            ->onFailure(function () {
-                Log::error('hello failed.');
-            })
-            ->after(function () {
-                Log::info('hello finished.');
-            })
-            ->withoutOverlapping(10);
+        // cron tick — executed by schedule:run only
+        $schedule->command('demo:tick', ['--worker=cron'])->everyMinute()
+            ->appendOutputTo('/tmp/scheduler.log');
+    }
 
-        $schedule->command('loop-hello', ['--seconds=70'])->everyMinute()
-            ->appendOutputTo(storage_path('logs/scheduler.log'))
-            ->before(function () {
-                Log::info('loop-hello start from Scheduler.');
-            })
-            ->onSuccess(function () {
-                Log::info('loop-hello successful.');
-            })
-            ->onFailure(function () {
-                Log::error('loop-hello failed.');
-            })
-            ->after(function () {
-                Log::info('loop-hello finished.');
-            })
-            ->withoutOverlapping(10);
+    /**
+     * Define the application's graceful command schedule.
+     *
+     * Tasks registered here run via schedule:graceful-work only (singleton separation).
+     *
+     * @param  ClockAwareSchedule  $schedule
+     * @return void
+     */
+    protected function gracefulSchedule(ClockAwareSchedule $schedule)
+    {
+        $scenario = getenv('DEMO_SCENARIO');
+
+        if ($scenario === 'overlap') {
+            $schedule->command('demo:slow-task', ['--duration=90'])
+                ->everyMinute()
+                ->withoutOverlapping()
+                ->runInBackground()
+                ->appendOutputTo('/tmp/scheduler.log');
+            return;
+        }
+
+        if ($scenario === 'signal' || $scenario === 'stepfunctions') {
+            $schedule->command('demo:long-task')->everyMinute()
+                ->runInBackground()
+                ->appendOutputTo('/tmp/scheduler.log');
+
+            if ($scenario === 'stepfunctions' && config('graceful-scheduler.stepfunctions.endpoint')) {
+                $schedule->exec('echo "sfn-task-executed"')->everyMinute()
+                    ->dispatchVia('stepfunctions');
+            }
+            return;
+        }
+
+        // Default: existing behavior (deploy, compare, default)
+        $schedule->command('demo:tick', ['--worker=graceful'])->everyMinute()
+            ->runInBackground()
+            ->enableRecovery()
+            ->appendOutputTo('/tmp/scheduler.log');
+
+        if (config('graceful-scheduler.stepfunctions.endpoint')) {
+            $schedule->exec('echo "hello from stepfunctions"')->everyMinute()
+                ->dispatchVia('stepfunctions');
+        }
     }
 
     /**

@@ -1,78 +1,184 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# Laravel Graceful Schedule Worker — Demo
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/d/total.svg" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/v/stable.svg" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/license.svg" alt="License"></a>
-</p>
+This demo shows how `schedule:graceful-work` with `enableRecovery()` recovers missed task executions after a deployment or outage, compared to standard `schedule:run` (cron).
 
-## About Laravel
+## Prerequisites
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Docker and Docker Compose
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Quick Start
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Default mode runs `schedule:graceful-work` with moto (Step Functions mock) and Redis:
 
-## Learning Laravel
+```bash
+docker compose up --build
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+This starts:
+- **moto** — AWS Step Functions mock
+- **redis** — Cache and tracker store
+- **php** — `schedule:graceful-work` with demo:tick and Step Functions example
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Scenario 1: Deploy Simulation (~8 min)
 
-## Laravel Sponsors
+Demonstrates recovery after a simulated deployment:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+```bash
+bin/scenario-deploy.sh
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[British Software Development](https://www.britishsoftware.co)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- [UserInsights](https://userinsights.com)
-- [Fragrantica](https://www.fragrantica.com)
-- [SOFTonSOFA](https://softonsofa.com/)
-- [User10](https://user10.com)
-- [Soumettre.fr](https://soumettre.fr/)
-- [CodeBrisk](https://codebrisk.com)
-- [1Forge](https://1forge.com)
-- [TECPRESSO](https://tecpresso.co.jp/)
-- [Runtime Converter](http://runtimeconverter.com/)
-- [WebL'Agence](https://weblagence.com/)
-- [Invoice Ninja](https://www.invoiceninja.com)
-- [iMi digital](https://www.imi-digital.de/)
-- [Earthlink](https://www.earthlink.ro/)
-- [Steadfast Collective](https://steadfastcollective.com/)
-- [We Are The Robots Inc.](https://watr.mx/)
-- [Understand.io](https://www.understand.io/)
-- [Abdel Elrafa](https://abdelelrafa.com)
-- [Hyper Host](https://hyper.host)
-- [Appoly](https://www.appoly.co.uk)
-- [OP.GG](https://op.gg)
+**What happens:**
+1. Graceful worker runs normally for 3 minutes
+2. Worker receives SIGTERM (simulating deploy) and stops
+3. 3 minutes pass with no execution
+4. Worker restarts — recovery fires immediately
+5. Report shows the recovered tick
 
-## Contributing
+## Scenario 2: cron vs graceful Comparison (~8 min)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Runs both `schedule:run` (cron) and `schedule:graceful-work` side by side:
 
-## Code of Conduct
+```bash
+bin/scenario-compare.sh
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+**Expected output:**
 
-## Security Vulnerabilities
+```
+  Minute               cron           graceful
+  -----------------------------------------------
+  2026-02-14T10:01     OK             OK
+  2026-02-14T10:02     OK             OK
+  2026-02-14T10:03     MISSED         MISSED
+  2026-02-14T10:04     MISSED         MISSED
+  2026-02-14T10:05     MISSED         RECOVERED    ← recovery
+  2026-02-14T10:06     OK             OK
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The graceful worker executes 1 more tick than cron thanks to recovery.
 
-## License
+## Scenario 3: Signal Handling (~2 min)
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Visualizes graceful shutdown when a background process receives SIGTERM:
+
+```bash
+bin/scenario-signal.sh
+```
+
+**What happens:**
+1. Worker starts `demo:long-task` (8-step task, 1 second per step) in background
+2. After step 3, SIGTERM is sent to the worker
+3. Worker stops the loop and sends SIGTERM to the child process
+4. Child finishes its current step and exits gracefully
+5. Redis shows the final status (`stopped-gracefully`) and last completed step
+
+## Scenario 4: Step Functions Deployment Resilience (~2 min)
+
+Compares local process vs Step Functions behavior during a deployment (worker kill):
+
+```bash
+bin/scenario-stepfunctions.sh
+```
+
+**What happens:**
+1. Worker starts both `demo:long-task` (local) and a Step Functions execution
+2. After step 3, the worker is hard-killed (simulating deployment)
+3. Local task is interrupted mid-execution
+4. Step Functions execution completes independently on moto
+
+**Expected output:**
+- Local process: `INTERRUPTED at step 3/8`
+- Step Functions: `SUCCEEDED`
+
+## Scenario 5: Overlap Prevention (~5 min)
+
+Demonstrates `withoutOverlapping()` preventing concurrent execution of a slow task:
+
+```bash
+bin/scenario-overlap.sh
+```
+
+**What happens:**
+1. A 90-second task (`demo:slow-task`) is scheduled every minute with `withoutOverlapping()`
+2. While the first execution is running, the next scheduled run is skipped
+3. After the first execution completes, the next scheduled run executes normally
+4. Report shows which minutes executed and which were skipped
+
+**Expected output:**
+
+```
+  Minute               Status
+  --------------------------------
+  2026-02-15T10:01     EXECUTED
+  2026-02-15T10:02     SKIPPED (overlap)
+  2026-02-15T10:03     EXECUTED
+  2026-02-15T10:04     SKIPPED (overlap)
+  2026-02-15T10:05     EXECUTED
+
+3 executions, 2 skipped due to overlap
+```
+
+## Scenario 6: Execution Tracker Visualization (~7 min)
+
+Shows the execution tracker's Redis data across normal operation, downtime, and recovery:
+
+```bash
+bin/scenario-tracker.sh
+```
+
+**What happens:**
+1. **Phase 1 (Normal):** Worker runs for 2 minutes — tracker shows fresh data with small elapsed times
+2. **Phase 2 (Downtime):** Worker stopped for 2 minutes — tracker shows growing elapsed times
+3. **Phase 3 (Recovery):** Worker restarts — recovery fires, tracker data updates
+
+**Tracker dashboard shows:**
+- `[Last Executed Times]` — Unix timestamps, elapsed time, and TTL for each tracked task
+- `[Active Locks]` — Recovery locks that prevent duplicate recovery dispatches
+- `[Key Format Guide]` — Explanation of the key naming convention
+
+## Manual Operations
+
+```bash
+# Reset demo data (clear ticks + tracker keys + long-task keys)
+docker compose run --rm php php artisan demo:reset
+
+# View single worker report
+docker compose run --rm php php artisan demo:report --worker=graceful
+docker compose run --rm php php artisan demo:report --worker=cron
+
+# View comparison report
+docker compose run --rm php php artisan demo:report --worker=compare
+
+# View overlap report
+docker compose run --rm php php artisan demo:report --worker=overlap
+
+# View tracker dashboard
+docker compose run --rm php php artisan demo:tracker
+
+# Check Step Functions execution history
+docker compose run --rm -e SFN_ENDPOINT=http://moto:5000 php php bin/check-stepfunctions.php
+```
+
+## DEMO_SCENARIO Environment Variable
+
+The `DEMO_SCENARIO` variable controls which tasks are registered in `gracefulSchedule()`:
+
+| Value | Tasks |
+|-------|-------|
+| _(empty/default)_ | `demo:tick` with recovery + Step Functions echo |
+| `signal` | `demo:long-task` (SIGTERM handling demo) |
+| `overlap` | `demo:slow-task` with `withoutOverlapping()` |
+| `stepfunctions` | `demo:long-task` + Step Functions echo |
+
+## How Recovery Works
+
+1. `demo:tick --worker=graceful` is registered with `enableRecovery()` in `gracefulSchedule()`
+2. Each execution records its minute to Redis via `demo:tick`
+3. The `CacheExecutionTracker` also records the last executed due time
+4. When the worker restarts after downtime, `checkMissedExecutions()` compares:
+   - The previous scheduled run time (based on current time)
+   - The last executed due time from the tracker
+5. If they differ, the missed event is dispatched immediately (recovery)
+6. `demo:report` reads the Redis timeline and shows OK/MISSED for each minute
+
+Standard `schedule:run` (cron) has no tracker — it only checks "is this task due right now?" and cannot detect missed executions.

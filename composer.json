@@ -7,12 +7,23 @@
         "php": "^7.2.5 || ~8.0",
         "illuminate/console": "^6.0 || ^7.0",
         "illuminate/support": "^6.0 || ^7.0",
-        "symfony/process": "^4.4 || ^5.4",
+        "illuminate/cache": "^6.0 || ^7.0",
+        "symfony/process": "^4.4.2 || ^5.4",
         "symfony/console": "^4.4 || ^5.4",
+        "dragonmantank/cron-expression": "^2.3.1 || ^3.0",
+        "psr/log": "^1.0 || ^2.0 || ^3.0",
         "ext-pcntl": "*"
     },
     "require-dev": {
-        "phpunit/phpunit": "^8.5.40 || ^9.6.21"
+        "phpunit/phpunit": "^8.5.40 || ^9.6.21",
+        "illuminate/container": "^6.0 || ^7.0",
+        "illuminate/redis": "^6.0 || ^7.0",
+        "laravel/framework": "^6.18.7 || ^7.6.0",
+        "aws/aws-sdk-php": "^3.235.0",
+        "ext-redis": "*"
+    },
+    "suggest": {
+        "aws/aws-sdk-php": "Required for Step Functions dispatcher (^3.20.1)"
     },
     "autoload": {
         "psr-4": {
@@ -21,7 +32,39 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "RakkoInc\\LaravelGracefulScheduleWorker\\": ["tests"]
+            "RakkoInc\\LaravelGracefulScheduleWorker\\": [
+                "tests/Unit/",
+                "tests/Integration/",
+                "tests/Helper/"
+            ],
+            "RakkoInc\\LaravelGracefulScheduleWorker\\E2E\\": "tests/E2E/"
+        }
+    },
+    "config": {
+        "audit": {
+            "ignore": [
+                "PKSA-dxyf-6n16-t87m",
+                "PKSA-n3s6-289w-qtqb",
+                "PKSA-stsw-jsf7-f6vs",
+                "PKSA-8qx3-n5y5-vvnd",
+                "PKSA-w7xr-vk7n-rstm",
+                "PKSA-dpt9-7cmv-dk65",
+                "PKSA-7ywf-hktb-jkn9",
+                "PKSA-ckwp-rt7t-c46m",
+                "PKSA-4npr-btr6-zhny",
+                "PKSA-njrm-6dtg-m2pc",
+                "PKSA-vhvj-tvg4-96jj",
+                "PKSA-nrj3-r2wg-yt8b",
+                "PKSA-985r-hryy-555b",
+                "PKSA-rqc2-tcc6-nc79",
+                "PKSA-fndg-qryc-dyc9",
+                "PKSA-365x-2zjk-pt47",
+                "PKSA-b35n-565h-rs4q",
+                "PKSA-t4rz-hp2g-57t1",
+                "PKSA-9w98-4rwq-spxr",
+                "PKSA-rkkf-636k-qjb3",
+                "PKSA-wws7-mr54-jsny"
+            ]
         }
     },
     "extra": {
@@ -30,5 +73,24 @@
                 "RakkoInc\\LaravelGracefulScheduleWorker\\Providers\\GracefulScheduleWorkerProvider"
             ]
         }
+    },
+    "scripts": {
+        "test": [
+            "@stepfunctions:up",
+            "@redis:up",
+            "phpunit --testdox"
+        ],
+        "redis:up": "docker compose up redis -d --wait",
+        "redis:down": "docker compose stop redis",
+        "test:coverage": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-text",
+        "test:coverage-html": "XDEBUG_MODE=coverage php -dzend_extension=xdebug.so ./vendor/bin/phpunit --coverage-html coverage",
+        "stepfunctions:up": "docker compose up -d --wait",
+        "stepfunctions:down": "docker compose down",
+        "skeleton:update": "cd skeleton && rm -rf vendor/rakko-inc && composer install --no-interaction",
+        "demo:update": "cd demo && rm -rf vendor/rakko-inc && composer install --no-interaction",
+        "tools:install": "cd tools && composer install --no-interaction --ignore-platform-reqs",
+        "phpstan": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpstan analyse -c tools/phpstan.neon --memory-limit=512M",
+        "phpcs": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpcs --standard=tools/phpcs.xml",
+        "phpcbf": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpcbf --standard=tools/phpcs.xml"
     }
 }

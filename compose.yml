@@ -1,0 +1,25 @@
+services:
+  moto:
+    container_name: moto-stepfunctions
+    image: motoserver/moto:5.1.20
+    ports:
+      - "5001:5000"
+    environment:
+      - MOTO_PORT=5000
+      - MOTO_ACCOUNT_ID=000000000000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/moto-api/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    container_name: test-redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
