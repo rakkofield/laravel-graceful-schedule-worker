@@ -12,7 +12,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
  *
  * Used when ExecutionAlreadyExists occurs.
  */
-class AlreadyRunningStepFunctionsDispatchResult extends AbstractDispatchResult implements AlreadyRunningDispatchResultInterface
+class AlreadyRunningStepFunctionsDispatchResult extends AbstractDispatchResult implements
+    AlreadyRunningDispatchResultInterface
 {
     /** @var string */
     private $executionName;

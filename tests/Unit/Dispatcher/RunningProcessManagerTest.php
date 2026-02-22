@@ -57,8 +57,11 @@ class RunningProcessManagerTest extends TestCase
         return new SpyCallbackEvent($this->mutex, $command, $clock);
     }
 
-    private function createStubResult(StubProcess $process, string $identifier = 'test', ?SpyCallbackEvent $event = null): StartedLocalDispatchResult
-    {
+    private function createStubResult(
+        StubProcess $process,
+        string $identifier = 'test',
+        ?SpyCallbackEvent $event = null
+    ): StartedLocalDispatchResult {
         return new StartedLocalDispatchResult($process, $identifier, 'echo stub', new DateTimeImmutable(), $event);
     }
 

@@ -63,12 +63,3 @@ class AbstractDispatchResultTest extends TestCase
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
     }
 }
-
-/**
- * Concrete subclass for testing the abstract base class.
- *
- * @internal
- */
-class ConcreteDispatchResult extends AbstractDispatchResult
-{
-}
