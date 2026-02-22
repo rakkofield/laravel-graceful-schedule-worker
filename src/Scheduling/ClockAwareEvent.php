@@ -97,11 +97,10 @@ class ClockAwareEvent extends Event
     public function withGracePeriod($minutes = null)
     {
         $this->recoverable = true;
+        $this->gracePeriod = null;
 
         if ($minutes !== null && $minutes > 0) {
             $this->gracePeriod = new DateInterval("PT{$minutes}M");
-        } else {
-            $this->gracePeriod = null;
         }
 
         return $this;

@@ -14,6 +14,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -102,7 +103,13 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
     private function createOrchestrator(): DefaultScheduleOrchestrator
     {
         $tracker = $this->createTracker();
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $this->clock);
+        $trackingDispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $tracker,
+            $this->logger,
+            $this->clock,
+            SkippedDispatchResult::factory()
+        );
 
         return new DefaultScheduleOrchestrator(
             $trackingDispatcher,
@@ -283,7 +290,8 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             $this->innerDispatcher,
             $tracker,
             $this->logger,
-            $orchestratorClock
+            $orchestratorClock,
+            SkippedDispatchResult::factory()
         );
 
         $orchestrator = new DefaultScheduleOrchestrator(

@@ -28,17 +28,17 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
      */
     public function testFailedReturnsFailedDispatchResultInterface(): void
     {
+        $exception = new \RuntimeException('Connection refused');
         $result = FailedStepFunctionsDispatchResult::failed(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused',
-            null,
+            $exception,
             new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
-        $this->assertSame('Connection refused', $result->getError());
+        $this->assertStringContainsString('Connection refused', $result->getError());
     }
 
     /**
@@ -46,12 +46,12 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
      */
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
+        $exception = new \RuntimeException('Connection refused');
         $result = FailedStepFunctionsDispatchResult::failed(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused',
-            null,
+            $exception,
             new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
@@ -63,12 +63,12 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
      */
     public function testFailedWithNullCommandReturnsEmptyString(): void
     {
+        $exception = new \RuntimeException('Connection refused');
         $result = FailedStepFunctionsDispatchResult::failed(
             'exec-1',
             'framework/schedule-mutex',
             null,
-            'Connection refused',
-            null,
+            $exception,
             new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
@@ -85,7 +85,6 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'RuntimeException: Connection refused',
             $exception,
             new DateTimeImmutable('2024-01-15 10:00:00')
         );
@@ -94,34 +93,17 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     }
 
     /**
-     * @testdox FSR.5 getException() returns null when no exception is provided
-     */
-    public function testFailedWithoutExceptionReturnsNull(): void
-    {
-        $result = FailedStepFunctionsDispatchResult::failed(
-            'exec-1',
-            'framework/schedule-mutex',
-            'php artisan schedule:run',
-            'Connection refused',
-            null,
-            new DateTimeImmutable('2024-01-15 10:00:00')
-        );
-
-        $this->assertNull($result->getException());
-    }
-
-    /**
      * @testdox FSR.6 getDispatchedAt() returns DateTimeImmutable
      */
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
         $dispatchedAt = new DateTimeImmutable('2024-01-15 10:00:00');
+        $exception = new \RuntimeException('Connection refused');
         $result = FailedStepFunctionsDispatchResult::failed(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused',
-            null,
+            $exception,
             $dispatchedAt
         );
 
@@ -134,12 +116,12 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
      */
     public function testGetExecutionNameReturnsExecutionName(): void
     {
+        $exception = new \RuntimeException('Connection refused');
         $result = FailedStepFunctionsDispatchResult::failed(
             'my-execution',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused',
-            null,
+            $exception,
             new DateTimeImmutable('2024-01-15 10:00:00')
         );
 
@@ -151,12 +133,12 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
      */
     public function testGetEventIdentifierReturnsIdentifier(): void
     {
+        $exception = new \RuntimeException('Connection refused');
         $result = FailedStepFunctionsDispatchResult::failed(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            'Connection refused',
-            null,
+            $exception,
             new DateTimeImmutable('2024-01-15 10:00:00')
         );
 

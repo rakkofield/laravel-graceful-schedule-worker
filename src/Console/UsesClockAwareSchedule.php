@@ -28,6 +28,8 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
      *
      * @param ClockAwareSchedule $schedule
      * @return void
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      */
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {

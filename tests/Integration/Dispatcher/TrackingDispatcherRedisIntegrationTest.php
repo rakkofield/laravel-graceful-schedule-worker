@@ -14,6 +14,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResul
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeAlreadyRunningDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeFailedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -71,7 +72,13 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
         $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->innerDispatcher = new FakeDispatcher($defaultResult);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $this->dispatcher = new TrackingDispatcher($this->innerDispatcher, $this->tracker, $this->logger, $clock);
+        $this->dispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $this->tracker,
+            $this->logger,
+            $clock,
+            SkippedDispatchResult::factory()
+        );
     }
 
     protected function tearDown(): void

@@ -76,4 +76,15 @@ abstract class AbstractDispatchResult implements DispatchResultInterface
     {
         return $this->dispatchedAt;
     }
+
+    /**
+     * Format an exception into a human-readable error string.
+     *
+     * @param \Throwable $e
+     * @return string
+     */
+    protected static function formatException(\Throwable $e): string
+    {
+        return get_class($e) . ': ' . $e->getMessage();
+    }
 }

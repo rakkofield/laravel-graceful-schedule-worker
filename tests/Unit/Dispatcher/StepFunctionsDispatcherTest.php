@@ -18,7 +18,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FakeStepFunctionsClient;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 
@@ -75,7 +74,6 @@ class StepFunctionsDispatcherTest extends TestCase
             $this->stateMachineArn,
             new ExecutionNameGenerator(),
             $clock,
-            new LockKeyGenerator(),
             3600
         );
     }
@@ -311,7 +309,6 @@ class StepFunctionsDispatcherTest extends TestCase
             '',
             new ExecutionNameGenerator(),
             $clock,
-            new LockKeyGenerator(),
             3600
         );
     }

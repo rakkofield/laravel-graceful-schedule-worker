@@ -18,28 +18,26 @@ class FailedStepFunctionsDispatchResult extends AbstractDispatchResult implement
     /** @var string */
     private $error;
 
-    /** @var \Throwable|null */
+    /** @var \Throwable */
     private $exception;
 
     /**
      * @param string $executionName
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param string $error
-     * @param \Throwable|null $exception
+     * @param \Throwable $exception
      * @param DateTimeImmutable $dispatchedAt
      */
     private function __construct(
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
-        string $error,
-        ?\Throwable $exception,
+        \Throwable $exception,
         DateTimeImmutable $dispatchedAt
     ) {
         parent::__construct($eventIdentifier, $eventCommand, DispatcherType::STEP_FUNCTIONS, $dispatchedAt);
         $this->executionName = $executionName;
-        $this->error = $error;
+        $this->error = self::formatException($exception);
         $this->exception = $exception;
     }
 
@@ -49,8 +47,7 @@ class FailedStepFunctionsDispatchResult extends AbstractDispatchResult implement
      * @param string $executionName
      * @param string $identifier
      * @param string|null $command
-     * @param string $error
-     * @param \Throwable|null $exception
+     * @param \Throwable $exception
      * @param DateTimeImmutable $dispatchedAt
      * @return self
      */
@@ -58,15 +55,13 @@ class FailedStepFunctionsDispatchResult extends AbstractDispatchResult implement
         string $executionName,
         string $identifier,
         ?string $command,
-        string $error,
-        ?\Throwable $exception,
+        \Throwable $exception,
         DateTimeImmutable $dispatchedAt
     ): self {
         return new self(
             $executionName,
             $identifier,
             $command ?? '',
-            $error,
             $exception,
             $dispatchedAt
         );

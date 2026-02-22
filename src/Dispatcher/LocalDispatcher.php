@@ -12,7 +12,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInter
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\ExceptionFormatter;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Symfony\Component\Process\Process;
 
@@ -89,12 +88,10 @@ class LocalDispatcher implements ScheduleDispatcherInterface
 
         try {
             if ($event->withoutOverlapping && !$event->mutex->create($event)) {
-                return new SkippedDispatchResult(
+                return SkippedDispatchResult::forOverlapping(
                     $identifier,
                     (string) $event->command,
-                    'withoutOverlapping',
-                    $this->clock->now(),
-                    DispatcherType::LOCAL
+                    $this->clock->now()
                 );
             }
             $mutexAcquired = $event->withoutOverlapping;
@@ -149,9 +146,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 }
             }
 
-            $error = ExceptionFormatter::format($e);
-
-            return new FailedLocalDispatchResult($identifier, $event->command, $error, $e, $this->clock->now());
+            return new FailedLocalDispatchResult($identifier, $event->command, $e, $this->clock->now());
         }
     }
 

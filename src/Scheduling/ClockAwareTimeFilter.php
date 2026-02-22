@@ -53,12 +53,11 @@ class ClockAwareTimeFilter
             $start = self::applyTimeString($now, $startTime);
             $end = self::applyTimeString($now, $endTime);
 
-            if ($end < $start) {
-                if ($start > $now) {
-                    $start = $start->modify('-1 day');
-                } else {
-                    $end = $end->modify('+1 day');
-                }
+            if ($end < $start && $start > $now) {
+                $start = $start->modify('-1 day');
+            }
+            if ($end < $start && $start <= $now) {
+                $end = $end->modify('+1 day');
             }
 
             return $now >= $start && $now <= $end;
