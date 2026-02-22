@@ -197,4 +197,43 @@ class ClockAwareScheduleTest extends TestCase
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
         $this->assertSame('local', $event->getDispatcherType());
     }
+
+    /**
+     * @testdox CS.16 command() sets rawCommand to the artisan command name
+     */
+    public function testCommandSetsRawCommandToArtisanCommandName(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->command('report:daily');
+
+        $this->assertSame('report:daily', $event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.17 command() with parameters includes compiled parameters in rawCommand
+     */
+    public function testCommandWithParametersIncludesCompiledParametersInRawCommand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->command('report:daily', ['--verbose' => 'yes']);
+
+        $this->assertSame("report:daily --verbose='yes'", $event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.18 exec() does not set rawCommand
+     */
+    public function testExecDoesNotSetRawCommand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock);
+
+        $event = $schedule->exec('echo test');
+
+        $this->assertNull($event->getRawCommand());
+    }
 }

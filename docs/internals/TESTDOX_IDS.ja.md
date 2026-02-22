@@ -39,7 +39,7 @@
 | Dispatcher/LocalDispatcherTest | `LD` | 32 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 17 |
-| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 14 |
+| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 20 |
 | Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 11 |
 | Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 8 |
 | Dispatcher/Result/SkippedDispatchResultTest | `SD` | 9 |
@@ -48,6 +48,9 @@
 | Dispatcher/Result/AlreadyRunningStepFunctionsDispatchResultTest | `ARR` | 7 |
 | Dispatcher/StepFunctions/AwsSfnClientAdapterTest | `SCA` | 3 |
 | Dispatcher/StepFunctions/ExecutionNameGeneratorTest | `ENG` | 9 |
+| Dispatcher/StepFunctions/MutexNameSanitizerTest | `MNS` | 7 |
+| Dispatcher/StepFunctions/LockKeyGeneratorTest | `LKG` | 9 |
+| Dispatcher/StepFunctions/PayloadTest | `PY` | 4 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
 | Providers/GracefulScheduleWorkerProviderTest | `GP` | 16 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 23 |

@@ -12,6 +12,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedStepFunctions
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\Payload;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
@@ -37,17 +38,27 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /** @var ClockInterface */
     private $clock;
 
+    /** @var LockKeyGenerator */
+    private $lockKeyGenerator;
+
+    /** @var int */
+    private $lockTtlSeconds;
+
     /**
      * @param StepFunctionsClientInterface $client
      * @param string $stateMachineArn
      * @param ExecutionNameGeneratorInterface $nameGenerator
      * @param ClockInterface $clock
+     * @param LockKeyGenerator $lockKeyGenerator
+     * @param int $lockTtlSeconds
      */
     public function __construct(
         StepFunctionsClientInterface $client,
         string $stateMachineArn,
         ExecutionNameGeneratorInterface $nameGenerator,
-        ClockInterface $clock
+        ClockInterface $clock,
+        LockKeyGenerator $lockKeyGenerator,
+        int $lockTtlSeconds
     ) {
         if ($stateMachineArn === '') {
             throw new \InvalidArgumentException(
@@ -59,6 +70,8 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         $this->stateMachineArn = $stateMachineArn;
         $this->nameGenerator = $nameGenerator;
         $this->clock = $clock;
+        $this->lockKeyGenerator = $lockKeyGenerator;
+        $this->lockTtlSeconds = $lockTtlSeconds;
     }
 
     /**
@@ -69,11 +82,13 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();
-        $command = $event->command;
+        $command = $event->getRawCommand() ?? $event->command;
         $executionName = $this->nameGenerator->generate($event, $dueAt);
+        $lockKey = $this->lockKeyGenerator->generate($mutexName, $dueAt);
+        $ttl = $dueAt->getTimestamp() + $this->lockTtlSeconds;
 
         try {
-            $input = (new Payload($command, $mutexName, $dueAt))->toJson();
+            $input = (new Payload($command, $mutexName, $dueAt, $lockKey, $ttl))->toJson();
 
             $result = $this->client->startExecution([
                 'stateMachineArn' => $this->stateMachineArn,
@@ -85,14 +100,14 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
                 $result->getExecutionArn(),
                 $executionName,
                 $mutexName,
-                (string) $command,
+                $command,
                 $this->clock->now()
             );
         } catch (ExecutionAlreadyExistsException $e) {
             return new AlreadyRunningStepFunctionsDispatchResult(
                 $executionName,
                 $mutexName,
-                (string) $command,
+                $command,
                 $this->clock->now()
             );
         } catch (StepFunctionsException $e) {

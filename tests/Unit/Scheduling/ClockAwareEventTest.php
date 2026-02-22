@@ -417,4 +417,28 @@ class ClockAwareEventTest extends TestCase
         $this->assertInstanceOf(\DateTimeZone::class, $event->timezone);
         $this->assertSame('Asia/Tokyo', $event->timezone->getName());
     }
+
+    /**
+     * @testdox CE.30 getRawCommand returns null by default
+     */
+    public function testGetRawCommandReturnsNullByDefault(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+
+        $this->assertNull($event->getRawCommand());
+    }
+
+    /**
+     * @testdox CE.31 setRawCommand stores value retrievable by getRawCommand
+     */
+    public function testSetRawCommandStoresValueRetrievableByGetRawCommand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+
+        $event->setRawCommand('report:daily');
+
+        $this->assertSame('report:daily', $event->getRawCommand());
+    }
 }

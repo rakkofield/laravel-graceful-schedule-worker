@@ -25,6 +25,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterfac
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
@@ -256,7 +257,20 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
-            return new StepFunctionsDispatcher($client, $stateMachineArn, $nameGenerator, $clock);
+            $lockKeyGenerator = new LockKeyGenerator();
+
+            /** @var int|string $lockTtl */
+            $lockTtl = $config->get('graceful-scheduler.stepfunctions.lock_ttl', 3600);
+            $lockTtl = (int) $lockTtl;
+
+            return new StepFunctionsDispatcher(
+                $client,
+                $stateMachineArn,
+                $nameGenerator,
+                $clock,
+                $lockKeyGenerator,
+                $lockTtl
+            );
         });
     }
 

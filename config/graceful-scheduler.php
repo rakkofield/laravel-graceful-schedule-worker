@@ -29,6 +29,7 @@ return [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
         ],
+        'lock_ttl' => env('SCHEDULE_SF_LOCK_TTL', 3600),
     ],
 
     /*

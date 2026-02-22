@@ -50,10 +50,19 @@ class ClockAwareSchedule extends Schedule
             $command = $resolved->getName();
         }
 
-        return $this->exec(
+        $rawCommand = (string) $command;
+        if (count($parameters)) {
+            $rawCommand .= ' ' . $this->compileParameters($parameters);
+        }
+
+        $event = $this->exec(
             Application::formatCommandString((string) $command),
             $parameters
         );
+
+        $event->setRawCommand($rawCommand);
+
+        return $event;
     }
 
     /**

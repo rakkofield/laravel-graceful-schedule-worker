@@ -36,6 +36,9 @@ class ClockAwareEvent extends Event
      */
     protected $dispatcherType;
 
+    /** @var string|null */
+    protected $rawCommand = null;
+
     /**
      * @param EventMutex $mutex
      * @param string $command
@@ -177,6 +180,27 @@ class ClockAwareEvent extends Event
     public function getGracePeriod()
     {
         return $this->gracePeriod;
+    }
+
+    /**
+     * Get the raw artisan command string (without php/artisan prefix).
+     *
+     * @return string|null
+     */
+    public function getRawCommand(): ?string
+    {
+        return $this->rawCommand;
+    }
+
+    /**
+     * Set the raw artisan command string (without php/artisan prefix).
+     *
+     * @param string $rawCommand
+     * @return void
+     */
+    public function setRawCommand(string $rawCommand): void
+    {
+        $this->rawCommand = $rawCommand;
     }
 
     /**

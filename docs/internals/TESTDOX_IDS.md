@@ -27,8 +27,8 @@
 | Clock/SystemClockTest | `SC` | 2 |
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
-| Scheduling/ClockAwareScheduleTest | `CS` | 10 |
-| Scheduling/ClockAwareEventTest | `CE` | 29 |
+| Scheduling/ClockAwareScheduleTest | `CS` | 13 |
+| Scheduling/ClockAwareEventTest | `CE` | 31 |
 | Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
@@ -39,7 +39,7 @@
 | Dispatcher/LocalDispatcherTest | `LD` | 41 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 20 |
-| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 17 |
+| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 20 |
 | Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 16 |
 | Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 8 |
 | Dispatcher/Result/SkippedDispatchResultTest | `SD` | 9 |
@@ -48,7 +48,9 @@
 | Dispatcher/Result/AlreadyRunningStepFunctionsDispatchResultTest | `ARR` | 7 |
 | Dispatcher/StepFunctions/AwsSfnClientAdapterTest | `SCA` | 3 |
 | Dispatcher/StepFunctions/ExecutionNameGeneratorTest | `ENG` | 9 |
-| Dispatcher/StepFunctions/PayloadTest | `PY` | 3 |
+| Dispatcher/StepFunctions/MutexNameSanitizerTest | `MNS` | 12 |
+| Dispatcher/StepFunctions/LockKeyGeneratorTest | `LKG` | 9 |
+| Dispatcher/StepFunctions/PayloadTest | `PY` | 4 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
 | ExceptionFormatterTest | `EF` | 3 |
 | Logging/PrefixedLoggerTest | `PL` | 4 |
