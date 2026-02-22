@@ -28,7 +28,7 @@ class LockKeyGeneratorTest extends TestCase
     {
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $result = $this->generator->generate('framework/schedule-abc123', $dueAt);
+        $result = $this->generator->generate('framework/schedule-abc123', $dueAt, false);
 
         $this->assertStringContainsString('framework-schedule-abc123', $result);
         $this->assertStringContainsString((string) $dueAt->getTimestamp(), $result);
@@ -41,7 +41,7 @@ class LockKeyGeneratorTest extends TestCase
     {
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result = $this->generator->generate('framework/schedule:run', $dueAt);
+        $result = $this->generator->generate('framework/schedule:run', $dueAt, false);
 
         $this->assertStringNotContainsString('/', $result);
         $this->assertStringNotContainsString(':', $result);
@@ -55,7 +55,7 @@ class LockKeyGeneratorTest extends TestCase
         $longMutex = str_repeat('abcdefghij', 10); // 100 characters
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result = $this->generator->generate($longMutex, $dueAt);
+        $result = $this->generator->generate($longMutex, $dueAt, false);
 
         $this->assertLessThanOrEqual(80, strlen($result));
     }
@@ -67,8 +67,8 @@ class LockKeyGeneratorTest extends TestCase
     {
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result1 = $this->generator->generate('my-task', $dueAt);
-        $result2 = $this->generator->generate('my-task', $dueAt);
+        $result1 = $this->generator->generate('my-task', $dueAt, false);
+        $result2 = $this->generator->generate('my-task', $dueAt, false);
 
         $this->assertSame($result1, $result2);
     }
@@ -80,7 +80,7 @@ class LockKeyGeneratorTest extends TestCase
     {
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result = $this->generator->generate('short', $dueAt);
+        $result = $this->generator->generate('short', $dueAt, false);
 
         $this->assertLessThanOrEqual(80, strlen($result));
         $this->assertStringContainsString((string) $dueAt->getTimestamp(), $result);
@@ -94,7 +94,7 @@ class LockKeyGeneratorTest extends TestCase
         $longMutex = str_repeat('abcdefghij', 10); // 100 characters
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result = $this->generator->generate($longMutex, $dueAt);
+        $result = $this->generator->generate($longMutex, $dueAt, false);
 
         $parts = explode('_', $result);
         $lastPart = end($parts);
@@ -109,7 +109,7 @@ class LockKeyGeneratorTest extends TestCase
     {
         $dueAt = new DateTimeImmutable('2024-06-15 14:30:00');
 
-        $result = $this->generator->generate('php artisan report:daily --force', $dueAt);
+        $result = $this->generator->generate('php artisan report:daily --force', $dueAt, false);
 
         $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
     }
@@ -121,8 +121,8 @@ class LockKeyGeneratorTest extends TestCase
     {
         $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
 
-        $result1 = $this->generator->generate('task-a', $dueAt);
-        $result2 = $this->generator->generate('task-b', $dueAt);
+        $result1 = $this->generator->generate('task-a', $dueAt, false);
+        $result2 = $this->generator->generate('task-b', $dueAt, false);
 
         $this->assertNotSame($result1, $result2);
     }
@@ -135,9 +135,61 @@ class LockKeyGeneratorTest extends TestCase
         $dueAt1 = new DateTimeImmutable('2024-01-01 00:00:00');
         $dueAt2 = new DateTimeImmutable('2024-01-02 00:00:00');
 
-        $result1 = $this->generator->generate('task', $dueAt1);
-        $result2 = $this->generator->generate('task', $dueAt2);
+        $result1 = $this->generator->generate('task', $dueAt1, false);
+        $result2 = $this->generator->generate('task', $dueAt2, false);
 
         $this->assertNotSame($result1, $result2);
+    }
+
+    /**
+     * @testdox LKG.10 withoutOverlapping returns key without timestamp
+     */
+    public function testWithoutOverlappingReturnsKeyWithoutTimestamp(): void
+    {
+        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+
+        $result = $this->generator->generate('framework/schedule-abc123', $dueAt, true);
+
+        $this->assertSame('framework-schedule-abc123', $result);
+        $this->assertStringNotContainsString((string) $dueAt->getTimestamp(), $result);
+    }
+
+    /**
+     * @testdox LKG.11 withoutOverlapping produces same key for different dueAt
+     */
+    public function testWithoutOverlappingProducesSameKeyForDifferentDueAt(): void
+    {
+        $dueAt1 = new DateTimeImmutable('2024-01-01 00:00:00');
+        $dueAt2 = new DateTimeImmutable('2024-01-02 00:00:00');
+
+        $result1 = $this->generator->generate('task', $dueAt1, true);
+        $result2 = $this->generator->generate('task', $dueAt2, true);
+
+        $this->assertSame($result1, $result2);
+    }
+
+    /**
+     * @testdox LKG.12 withoutOverlapping key respects 80 character limit
+     */
+    public function testWithoutOverlappingKeyRespectsLengthLimit(): void
+    {
+        $longMutex = str_repeat('abcdefghij', 10); // 100 characters
+        $dueAt = new DateTimeImmutable('2024-01-01 00:00:00');
+
+        $result = $this->generator->generate($longMutex, $dueAt, true);
+
+        $this->assertLessThanOrEqual(80, strlen($result));
+    }
+
+    /**
+     * @testdox LKG.13 withoutOverlapping key contains only valid characters
+     */
+    public function testWithoutOverlappingKeyContainsOnlyValidCharacters(): void
+    {
+        $dueAt = new DateTimeImmutable('2024-06-15 14:30:00');
+
+        $result = $this->generator->generate('php artisan report:daily --force', $dueAt, true);
+
+        $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
     }
 }

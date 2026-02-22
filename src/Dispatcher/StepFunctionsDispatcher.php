@@ -84,7 +84,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         $mutexName = $event->mutexName();
         $command = $event->getRawCommand() ?? $event->command;
         $executionName = $this->nameGenerator->generate($event, $dueAt);
-        $lockKey = $this->lockKeyGenerator->generate($mutexName, $dueAt);
+        $lockKey = $this->lockKeyGenerator->generate($mutexName, $dueAt, $event->withoutOverlapping);
         $ttl = $dueAt->getTimestamp() + $this->lockTtlSeconds;
 
         try {

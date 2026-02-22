@@ -47,4 +47,26 @@ final class MutexNameSanitizer
 
         return $identifier;
     }
+
+    /**
+     * Build a sanitized stable key from mutexName only (no timestamp).
+     *
+     * Used for withoutOverlapping jobs where the lock must persist
+     * across different dueAt times.
+     *
+     * @param string $mutexName Raw mutex name (before sanitization)
+     * @return string Key guaranteed to be at most MAX_LENGTH characters
+     */
+    public static function buildStableKey(string $mutexName): string
+    {
+        $sanitized = self::sanitize($mutexName);
+
+        if (strlen($sanitized) > self::MAX_LENGTH) {
+            $hash = substr(md5($mutexName), 0, 16);
+            $maxLength = self::MAX_LENGTH - strlen($hash) - 1;
+            $sanitized = substr($sanitized, 0, $maxLength) . '_' . $hash;
+        }
+
+        return $sanitized;
+    }
 }

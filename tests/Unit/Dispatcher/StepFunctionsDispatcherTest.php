@@ -407,4 +407,58 @@ class StepFunctionsDispatcherTest extends TestCase
         // lockKey should contain the dueAt timestamp
         $this->assertStringContainsString((string) $this->dueAt->getTimestamp(), $input['lockKey']);
     }
+
+    /**
+     * @testdox SFD.21 withoutOverlapping event produces lockKey without timestamp
+     */
+    public function testWithoutOverlappingEventProducesLockKeyWithoutTimestamp(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+        $event->withoutOverlapping();
+
+        $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        $execution = $this->client->getLastExecution();
+        $this->assertNotNull($execution);
+
+        $input = json_decode($execution['input'], true);
+        $this->assertArrayHasKey('lockKey', $input);
+        $this->assertNotEmpty($input['lockKey']);
+        $this->assertStringNotContainsString((string) $this->dueAt->getTimestamp(), $input['lockKey']);
+    }
+
+    /**
+     * @testdox SFD.22 withoutOverlapping event produces same lockKey for different dueAt
+     */
+    public function testWithoutOverlappingEventProducesSameLockKeyForDifferentDueAt(): void
+    {
+        $dispatcher = $this->createDispatcher();
+
+        $event1 = $this->createEvent('php artisan report:daily');
+        $event1->withoutOverlapping();
+        $dueAt1 = new DateTimeImmutable('2024-01-15T10:00:00+09:00');
+
+        $event2 = $this->createEvent('php artisan report:daily');
+        $event2->withoutOverlapping();
+        $dueAt2 = new DateTimeImmutable('2024-01-15T11:00:00+09:00');
+
+        $dispatcher->dispatchEvent($event1, $dueAt1);
+        $executions1 = $this->client->getLastExecution();
+
+        // Reset client for second dispatch
+        $this->client = new FakeStepFunctionsClient();
+        $dispatcher = $this->createDispatcher();
+
+        $dispatcher->dispatchEvent($event2, $dueAt2);
+        $executions2 = $this->client->getLastExecution();
+
+        $this->assertNotNull($executions1);
+        $this->assertNotNull($executions2);
+
+        $input1 = json_decode($executions1['input'], true);
+        $input2 = json_decode($executions2['input'], true);
+
+        $this->assertSame($input1['lockKey'], $input2['lockKey']);
+    }
 }

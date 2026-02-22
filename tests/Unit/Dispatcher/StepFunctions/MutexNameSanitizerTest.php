@@ -136,4 +136,72 @@ class MutexNameSanitizerTest extends TestCase
 
         $this->assertSame($result1, $result2);
     }
+
+    /**
+     * @testdox MNS.13 buildStableKey returns sanitized key without timestamp
+     */
+    public function testBuildStableKeyReturnsSanitizedKeyWithoutTimestamp(): void
+    {
+        $result = MutexNameSanitizer::buildStableKey('framework/schedule-abc123');
+
+        $this->assertSame('framework-schedule-abc123', $result);
+    }
+
+    /**
+     * @testdox MNS.14 buildStableKey truncates with hash when exceeding 80 characters
+     */
+    public function testBuildStableKeyTruncatesWithHashWhenExceeding80Characters(): void
+    {
+        $longMutex = str_repeat('abcdefghij', 10); // 100 characters
+
+        $result = MutexNameSanitizer::buildStableKey($longMutex);
+
+        $this->assertLessThanOrEqual(80, strlen($result));
+    }
+
+    /**
+     * @testdox MNS.15 buildStableKey does not truncate keys within 80 characters
+     */
+    public function testBuildStableKeyDoesNotTruncateShortKeys(): void
+    {
+        $result = MutexNameSanitizer::buildStableKey('short-task');
+
+        $this->assertSame('short-task', $result);
+    }
+
+    /**
+     * @testdox MNS.16 buildStableKey is deterministic
+     */
+    public function testBuildStableKeyIsDeterministic(): void
+    {
+        $result1 = MutexNameSanitizer::buildStableKey('my-task');
+        $result2 = MutexNameSanitizer::buildStableKey('my-task');
+
+        $this->assertSame($result1, $result2);
+    }
+
+    /**
+     * @testdox MNS.17 buildStableKey result contains only valid characters
+     */
+    public function testBuildStableKeyResultContainsOnlyValidCharacters(): void
+    {
+        $result = MutexNameSanitizer::buildStableKey('php artisan report:daily --force');
+
+        $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
+    }
+
+    /**
+     * @testdox MNS.18 buildStableKey truncated result contains 16-char hex hash suffix
+     */
+    public function testBuildStableKeyTruncatedResultContainsHashSuffix(): void
+    {
+        $longMutex = str_repeat('abcdefghij', 10); // 100 characters
+
+        $result = MutexNameSanitizer::buildStableKey($longMutex);
+
+        $parts = explode('_', $result);
+        $lastPart = end($parts);
+        $this->assertEquals(16, strlen($lastPart));
+        $this->assertTrue(ctype_xdigit($lastPart));
+    }
 }
