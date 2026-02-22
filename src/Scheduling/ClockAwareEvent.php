@@ -41,12 +41,16 @@ class ClockAwareEvent extends Event
     /** @var ClockAwareTimeFilter */
     private $timeFilter;
 
+    /** @var TimezoneResolver */
+    private $timezoneResolver;
+
     /**
      * @param EventMutex $mutex
      * @param string $command
      * @param ClockInterface $clock
      * @param string $defaultDispatcherType
      * @param \DateTimeZone|string|null $timezone
+     * @param TimezoneResolver $timezoneResolver
      * @throws InvalidArgumentException If timezone string is invalid
      */
     public function __construct(
@@ -54,12 +58,14 @@ class ClockAwareEvent extends Event
         $command,
         ClockInterface $clock,
         string $defaultDispatcherType,
-        $timezone = null
+        $timezone,
+        TimezoneResolver $timezoneResolver
     ) {
-        $resolvedTz = TimezoneResolver::resolve($timezone);
+        $resolvedTz = $timezoneResolver->resolve($timezone);
         parent::__construct($mutex, $command, $resolvedTz);
         $this->clock = $clock;
         $this->dispatcherType = $defaultDispatcherType;
+        $this->timezoneResolver = $timezoneResolver;
         $this->timeFilter = new ClockAwareTimeFilter($clock, $resolvedTz);
     }
 
@@ -72,7 +78,7 @@ class ClockAwareEvent extends Event
             return $this->timezone;
         }
         if ($this->timezone !== null) {
-            return TimezoneResolver::resolve($this->timezone);
+            return $this->timezoneResolver->resolve($this->timezone);
         }
         return null;
     }
@@ -85,7 +91,7 @@ class ClockAwareEvent extends Event
     public function timezone($timezone)
     {
         /** @var \DateTimeZone $resolved TimezoneResolver::resolve never returns null for non-null input */
-        $resolved = TimezoneResolver::resolve($timezone);
+        $resolved = $this->timezoneResolver->resolve($timezone);
         $this->timeFilter = new ClockAwareTimeFilter($this->clock, $resolved);
         return parent::timezone($resolved);
     }

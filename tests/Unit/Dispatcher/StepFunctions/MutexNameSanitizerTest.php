@@ -16,7 +16,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testReplacesSlashesWithHyphens(): void
     {
-        $result = MutexNameSanitizer::sanitize('framework/schedule-abc123');
+        $result = (new MutexNameSanitizer())->sanitize('framework/schedule-abc123');
 
         $this->assertSame('framework-schedule-abc123', $result);
     }
@@ -26,7 +26,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testReplacesColonsWithHyphens(): void
     {
-        $result = MutexNameSanitizer::sanitize('report:daily');
+        $result = (new MutexNameSanitizer())->sanitize('report:daily');
 
         $this->assertSame('report-daily', $result);
     }
@@ -36,7 +36,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testPreservesAllowedCharacters(): void
     {
-        $result = MutexNameSanitizer::sanitize('my_task-123');
+        $result = (new MutexNameSanitizer())->sanitize('my_task-123');
 
         $this->assertSame('my_task-123', $result);
     }
@@ -46,7 +46,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testReplacesSpacesWithHyphens(): void
     {
-        $result = MutexNameSanitizer::sanitize('my task name');
+        $result = (new MutexNameSanitizer())->sanitize('my task name');
 
         $this->assertSame('my-task-name', $result);
     }
@@ -56,7 +56,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testReplacesMultipleInvalidCharacters(): void
     {
-        $result = MutexNameSanitizer::sanitize('php artisan report:daily --force');
+        $result = (new MutexNameSanitizer())->sanitize('php artisan report:daily --force');
 
         $this->assertSame('php-artisan-report-daily---force', $result);
     }
@@ -66,7 +66,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testReturnsEmptyStringForEmptyInput(): void
     {
-        $result = MutexNameSanitizer::sanitize('');
+        $result = (new MutexNameSanitizer())->sanitize('');
 
         $this->assertSame('', $result);
     }
@@ -76,7 +76,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testResultContainsOnlyValidCharacters(): void
     {
-        $result = MutexNameSanitizer::sanitize("a/b:c d\te!f@g#h");
+        $result = (new MutexNameSanitizer())->sanitize("a/b:c d\te!f@g#h");
 
         $this->assertRegExp('/^[a-zA-Z0-9_-]*$/', $result);
     }
@@ -86,7 +86,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testBuildIdentifierCombinesSanitizedMutexAndTimestamp(): void
     {
-        $result = MutexNameSanitizer::buildIdentifier('framework/schedule', '1704067200');
+        $result = (new MutexNameSanitizer())->buildIdentifier('framework/schedule', '1704067200');
 
         $this->assertSame('framework-schedule_1704067200', $result);
     }
@@ -97,7 +97,7 @@ class MutexNameSanitizerTest extends TestCase
     public function testBuildIdentifierTruncatesWithHashWhenExceeding80Characters(): void
     {
         $longMutex = str_repeat('abcdefghij', 10); // 100 characters
-        $result = MutexNameSanitizer::buildIdentifier($longMutex, '1704067200');
+        $result = (new MutexNameSanitizer())->buildIdentifier($longMutex, '1704067200');
 
         $this->assertLessThanOrEqual(80, strlen($result));
     }
@@ -108,7 +108,7 @@ class MutexNameSanitizerTest extends TestCase
     public function testBuildIdentifierTruncatedResultContainsHashSuffix(): void
     {
         $longMutex = str_repeat('abcdefghij', 10); // 100 characters
-        $result = MutexNameSanitizer::buildIdentifier($longMutex, '1704067200');
+        $result = (new MutexNameSanitizer())->buildIdentifier($longMutex, '1704067200');
 
         $parts = explode('_', $result);
         $lastPart = end($parts);
@@ -121,7 +121,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testBuildIdentifierDoesNotTruncateShortIdentifiers(): void
     {
-        $result = MutexNameSanitizer::buildIdentifier('short-task', '1704067200');
+        $result = (new MutexNameSanitizer())->buildIdentifier('short-task', '1704067200');
 
         $this->assertSame('short-task_1704067200', $result);
     }
@@ -131,8 +131,8 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testBuildIdentifierIsDeterministic(): void
     {
-        $result1 = MutexNameSanitizer::buildIdentifier('my-task', '1704067200');
-        $result2 = MutexNameSanitizer::buildIdentifier('my-task', '1704067200');
+        $result1 = (new MutexNameSanitizer())->buildIdentifier('my-task', '1704067200');
+        $result2 = (new MutexNameSanitizer())->buildIdentifier('my-task', '1704067200');
 
         $this->assertSame($result1, $result2);
     }
@@ -142,7 +142,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testBuildStableKeyReturnsSanitizedKeyWithoutTimestamp(): void
     {
-        $result = MutexNameSanitizer::buildStableKey('framework/schedule-abc123');
+        $result = (new MutexNameSanitizer())->buildStableKey('framework/schedule-abc123');
 
         $this->assertSame('framework-schedule-abc123', $result);
     }
@@ -154,7 +154,7 @@ class MutexNameSanitizerTest extends TestCase
     {
         $longMutex = str_repeat('abcdefghij', 10); // 100 characters
 
-        $result = MutexNameSanitizer::buildStableKey($longMutex);
+        $result = (new MutexNameSanitizer())->buildStableKey($longMutex);
 
         $this->assertLessThanOrEqual(80, strlen($result));
     }
@@ -164,7 +164,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testBuildStableKeyDoesNotTruncateShortKeys(): void
     {
-        $result = MutexNameSanitizer::buildStableKey('short-task');
+        $result = (new MutexNameSanitizer())->buildStableKey('short-task');
 
         $this->assertSame('short-task', $result);
     }
@@ -174,8 +174,8 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testBuildStableKeyIsDeterministic(): void
     {
-        $result1 = MutexNameSanitizer::buildStableKey('my-task');
-        $result2 = MutexNameSanitizer::buildStableKey('my-task');
+        $result1 = (new MutexNameSanitizer())->buildStableKey('my-task');
+        $result2 = (new MutexNameSanitizer())->buildStableKey('my-task');
 
         $this->assertSame($result1, $result2);
     }
@@ -185,7 +185,7 @@ class MutexNameSanitizerTest extends TestCase
      */
     public function testBuildStableKeyResultContainsOnlyValidCharacters(): void
     {
-        $result = MutexNameSanitizer::buildStableKey('php artisan report:daily --force');
+        $result = (new MutexNameSanitizer())->buildStableKey('php artisan report:daily --force');
 
         $this->assertRegExp('/^[a-zA-Z0-9_-]+$/', $result);
     }
@@ -197,7 +197,7 @@ class MutexNameSanitizerTest extends TestCase
     {
         $longMutex = str_repeat('abcdefghij', 10); // 100 characters
 
-        $result = MutexNameSanitizer::buildStableKey($longMutex);
+        $result = (new MutexNameSanitizer())->buildStableKey($longMutex);
 
         $parts = explode('_', $result);
         $lastPart = end($parts);

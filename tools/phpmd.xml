@@ -27,6 +27,7 @@
     <rule ref="rulesets/codesize.xml/ExcessivePublicCount"/>
     <rule ref="rulesets/codesize.xml/TooManyFields"/>
     <rule ref="rulesets/codesize.xml/TooManyMethods"/>
+    <rule ref="rulesets/codesize.xml/TooManyPublicMethods"/>
     <!--design-->
     <rule ref="rulesets/design.xml/EvalExpression"/>
     <rule ref="rulesets/design.xml/ExitExpression"/>
@@ -34,6 +35,9 @@
     <rule ref="rulesets/design.xml/NumberOfChildren"/>
     <rule ref="rulesets/design.xml/DepthOfInheritance"/>
     <rule ref="rulesets/design.xml/CouplingBetweenObjects" />
+    <rule ref="rulesets/design.xml/DevelopmentCodeFragment"/>
+    <rule ref="rulesets/design.xml/EmptyCatchBlock"/>
+    <rule ref="rulesets/design.xml/CountInLoopExpression"/>
     <!--naming-->
     <rule ref="rulesets/naming.xml/ConstantNamingConventions"/>
     <rule ref="rulesets/naming.xml/BooleanGetMethodName"/>
@@ -49,4 +53,10 @@
     <!--cleancode-->
     <rule ref="rulesets/cleancode.xml/BooleanArgumentFlag"/>
     <rule ref="rulesets/cleancode.xml/ElseExpression" />
+    <rule ref="rulesets/cleancode.xml/IfStatementAssignment"/>
+    <rule ref="rulesets/cleancode.xml/StaticAccess"/>
+    <rule ref="rulesets/cleancode.xml/DuplicatedArrayKey"/>
+    <rule ref="rulesets/cleancode.xml/ErrorControlOperator"/>
+    <rule ref="rulesets/cleancode.xml/MissingImport"/>
+    <rule ref="rulesets/cleancode.xml/UndefinedVariable"/>
 </ruleset>

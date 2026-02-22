@@ -14,13 +14,13 @@ use ReflectionMethod;
 class FailedStepFunctionsDispatchResultTest extends TestCase
 {
     /**
-     * @testdox FSR.9 constructor is private, enforcing use of failed() factory
+     * @testdox FSR.9 constructor is public
      */
-    public function testConstructorIsPrivate(): void
+    public function testConstructorIsPublic(): void
     {
         $constructor = new ReflectionMethod(FailedStepFunctionsDispatchResult::class, '__construct');
 
-        $this->assertTrue($constructor->isPrivate());
+        $this->assertTrue($constructor->isPublic());
     }
 
     /**
@@ -29,7 +29,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     public function testFailedReturnsFailedDispatchResultInterface(): void
     {
         $exception = new \RuntimeException('Connection refused');
-        $result = FailedStepFunctionsDispatchResult::failed(
+        $result = new FailedStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -47,7 +47,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     public function testGetDispatcherTypeReturnsStepfunctions(): void
     {
         $exception = new \RuntimeException('Connection refused');
-        $result = FailedStepFunctionsDispatchResult::failed(
+        $result = new FailedStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -64,10 +64,10 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     public function testFailedWithNullCommandReturnsEmptyString(): void
     {
         $exception = new \RuntimeException('Connection refused');
-        $result = FailedStepFunctionsDispatchResult::failed(
+        $result = new FailedStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
-            null,
+            '',
             $exception,
             new DateTimeImmutable('2024-01-15 10:00:00')
         );
@@ -81,7 +81,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     public function testFailedReturnsException(): void
     {
         $exception = new \RuntimeException('Connection refused');
-        $result = FailedStepFunctionsDispatchResult::failed(
+        $result = new FailedStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -99,7 +99,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     {
         $dispatchedAt = new DateTimeImmutable('2024-01-15 10:00:00');
         $exception = new \RuntimeException('Connection refused');
-        $result = FailedStepFunctionsDispatchResult::failed(
+        $result = new FailedStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -117,7 +117,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     public function testGetExecutionNameReturnsExecutionName(): void
     {
         $exception = new \RuntimeException('Connection refused');
-        $result = FailedStepFunctionsDispatchResult::failed(
+        $result = new FailedStepFunctionsDispatchResult(
             'my-execution',
             'framework/schedule-mutex',
             'php artisan schedule:run',
@@ -134,7 +134,7 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
     public function testGetEventIdentifierReturnsIdentifier(): void
     {
         $exception = new \RuntimeException('Connection refused');
-        $result = FailedStepFunctionsDispatchResult::failed(
+        $result = new FailedStepFunctionsDispatchResult(
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',

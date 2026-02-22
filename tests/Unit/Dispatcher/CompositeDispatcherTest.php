@@ -14,6 +14,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatch
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 class CompositeDispatcherTest extends TestCase
@@ -56,7 +57,7 @@ class CompositeDispatcherTest extends TestCase
     private function createClockAwareEvent(string $command, ?string $dispatcherType = null): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        $event = new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
         if ($dispatcherType !== null) {
             $event->dispatchVia($dispatcherType);
         }

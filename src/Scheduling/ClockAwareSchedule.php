@@ -22,17 +22,26 @@ class ClockAwareSchedule extends Schedule
     /** @var string */
     protected $defaultDispatcherType;
 
+    /** @var TimezoneResolver */
+    private $timezoneResolver;
+
     /**
      * @param ClockInterface $clock
      * @param string $defaultDispatcherType
      * @param \DateTimeZone|string|null $timezone
+     * @param TimezoneResolver $timezoneResolver
      */
-    public function __construct(ClockInterface $clock, string $defaultDispatcherType = 'local', $timezone = null)
-    {
+    public function __construct(
+        ClockInterface $clock,
+        string $defaultDispatcherType,
+        $timezone,
+        TimezoneResolver $timezoneResolver
+    ) {
         parent::__construct($timezone);
         $this->clock = $clock;
         $this->eventClock = new FreezableClock($clock);
         $this->defaultDispatcherType = $defaultDispatcherType;
+        $this->timezoneResolver = $timezoneResolver;
     }
 
     /**
@@ -41,6 +50,9 @@ class ClockAwareSchedule extends Schedule
      * @param string $command
      * @param array<string, mixed> $parameters
      * @return ClockAwareEvent
+     *
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     *     Container::getInstance and Application::formatCommandString are framework APIs
      */
     public function command($command, array $parameters = [])
     {
@@ -83,7 +95,8 @@ class ClockAwareSchedule extends Schedule
             $command,
             $this->eventClock,
             $this->defaultDispatcherType,
-            $this->timezone
+            $this->timezone,
+            $this->timezoneResolver
         );
 
         $this->events[] = $event;

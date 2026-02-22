@@ -28,7 +28,7 @@ class FailedStepFunctionsDispatchResult extends AbstractDispatchResult implement
      * @param \Throwable $exception
      * @param DateTimeImmutable $dispatchedAt
      */
-    private function __construct(
+    public function __construct(
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
@@ -39,32 +39,6 @@ class FailedStepFunctionsDispatchResult extends AbstractDispatchResult implement
         $this->executionName = $executionName;
         $this->error = self::formatException($exception);
         $this->exception = $exception;
-    }
-
-    /**
-     * Create a result for a failed dispatch.
-     *
-     * @param string $executionName
-     * @param string $identifier
-     * @param string|null $command
-     * @param \Throwable $exception
-     * @param DateTimeImmutable $dispatchedAt
-     * @return self
-     */
-    public static function failed(
-        string $executionName,
-        string $identifier,
-        ?string $command,
-        \Throwable $exception,
-        DateTimeImmutable $dispatchedAt
-    ): self {
-        return new self(
-            $executionName,
-            $identifier,
-            $command ?? '',
-            $exception,
-            $dispatchedAt
-        );
     }
 
     /**

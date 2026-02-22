@@ -15,7 +15,7 @@ class TimezoneResolverTest extends TestCase
      */
     public function testResolveReturnsNullForNullInput(): void
     {
-        $this->assertNull(TimezoneResolver::resolve(null));
+        $this->assertNull((new TimezoneResolver())->resolve(null));
     }
 
     /**
@@ -25,7 +25,7 @@ class TimezoneResolverTest extends TestCase
     {
         $tz = new DateTimeZone('Asia/Tokyo');
 
-        $this->assertSame($tz, TimezoneResolver::resolve($tz));
+        $this->assertSame($tz, (new TimezoneResolver())->resolve($tz));
     }
 
     /**
@@ -33,7 +33,7 @@ class TimezoneResolverTest extends TestCase
      */
     public function testResolveCreatesDateTimeZoneFromValidString(): void
     {
-        $result = TimezoneResolver::resolve('America/New_York');
+        $result = (new TimezoneResolver())->resolve('America/New_York');
 
         $this->assertInstanceOf(DateTimeZone::class, $result);
         $this->assertSame('America/New_York', $result->getName());
@@ -44,7 +44,7 @@ class TimezoneResolverTest extends TestCase
      */
     public function testResolveCreatesDateTimeZoneFromUtcString(): void
     {
-        $result = TimezoneResolver::resolve('UTC');
+        $result = (new TimezoneResolver())->resolve('UTC');
 
         $this->assertInstanceOf(DateTimeZone::class, $result);
         $this->assertSame('UTC', $result->getName());
@@ -58,7 +58,7 @@ class TimezoneResolverTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid timezone: Invalid/Zone');
 
-        TimezoneResolver::resolve('Invalid/Zone');
+        (new TimezoneResolver())->resolve('Invalid/Zone');
     }
 
     /**
@@ -67,7 +67,7 @@ class TimezoneResolverTest extends TestCase
     public function testResolveThrowsWithOriginalExceptionAsPrevious(): void
     {
         try {
-            TimezoneResolver::resolve('Bogus/TZ');
+            (new TimezoneResolver())->resolve('Bogus/TZ');
             $this->fail('Expected InvalidArgumentException');
         } catch (InvalidArgumentException $e) {
             $this->assertNotNull($e->getPrevious());

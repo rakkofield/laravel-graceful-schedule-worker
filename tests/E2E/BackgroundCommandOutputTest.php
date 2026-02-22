@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use Symfony\Component\Process\Process;
 
 /**
@@ -43,7 +44,9 @@ final class BackgroundCommandOutputTest extends TestCase
             new FakeEventMutex(),
             Application::formatCommandString('hello'),
             new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00')),
-            'local'
+            'local',
+            null,
+            new TimezoneResolver()
         );
         $event->runInBackground = true;
         $event->sendOutputTo($outputFile);
@@ -72,7 +75,9 @@ final class BackgroundCommandOutputTest extends TestCase
             new FakeEventMutex(),
             'php -r \'echo "STARTED\n"; sleep(60);\'',
             new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00')),
-            'local'
+            'local',
+            null,
+            new TimezoneResolver()
         );
         $event->runInBackground = true;
         $event->sendOutputTo($outputFile);

@@ -21,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
@@ -108,7 +109,21 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             $tracker,
             $this->logger,
             $this->clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
 
         return new DefaultScheduleOrchestrator(
@@ -137,7 +152,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testRealScheduleWithFiltersPass(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
         $schedule->exec('echo filtered')
             ->everyMinute()
             ->when(function () {
@@ -156,7 +171,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testWithoutOverlappingBlocksViaMutex(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
         $event = $schedule->exec('echo overlapping')
             ->everyMinute()
             ->withoutOverlapping();
@@ -176,7 +191,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testMixedConstraintsThroughPipeline(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
 
         $schedule->exec('echo pass')
             ->everyMinute()
@@ -212,7 +227,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testEnvironmentsFilterThroughPipeline(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
         $schedule->exec('echo env-test')
             ->everyMinute()
             ->environments(['production']);
@@ -233,7 +248,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
     {
         $this->app->setIsDownForMaintenance(true);
 
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
 
         $schedule->exec('echo maintenance-ok')
             ->everyMinute()
@@ -263,7 +278,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             1
         );
 
-        $schedule = new ClockAwareSchedule($advancingClock);
+        $schedule = new ClockAwareSchedule($advancingClock, 'local', null, new TimezoneResolver());
 
         // between('11:59', '12:01') -> 12:00:00 is within range
         // Without freeze, AdvancingClock could advance during between evaluation
@@ -291,7 +306,21 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             $tracker,
             $this->logger,
             $orchestratorClock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
 
         $orchestrator = new DefaultScheduleOrchestrator(

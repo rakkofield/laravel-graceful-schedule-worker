@@ -18,6 +18,8 @@ class ProcessCommandBuilder extends CommandBuilder
      *
      * @param Event $event
      * @return string
+     *
+     * @SuppressWarnings("PHPMD.StaticAccess") ProcessUtils::escapeArgument is a Symfony utility API
      */
     protected function buildBackgroundCommand(Event $event)
     {

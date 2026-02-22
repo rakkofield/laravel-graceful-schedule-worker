@@ -12,6 +12,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 class CacheExecutionTrackerTest extends TestCase
@@ -53,7 +54,14 @@ class CacheExecutionTrackerTest extends TestCase
     private function createEvent(string $command, ClockInterface $clock = null): ClockAwareEvent
     {
         $defaultClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock ?? $defaultClock, 'local');
+        return new ClockAwareEvent(
+            $this->mutex,
+            $command,
+            $clock ?? $defaultClock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
     }
 
     /**
@@ -68,7 +76,14 @@ class CacheExecutionTrackerTest extends TestCase
         $timezone = null
     ): ClockAwareEvent {
         $defaultClock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock ?? $defaultClock, 'local', $timezone);
+        return new ClockAwareEvent(
+            $this->mutex,
+            $command,
+            $clock ?? $defaultClock,
+            'local',
+            $timezone,
+            new TimezoneResolver()
+        );
     }
 
     /**

@@ -16,11 +16,22 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
  */
 class ExecutionNameGenerator implements ExecutionNameGeneratorInterface
 {
+    /** @var MutexNameSanitizer */
+    private $sanitizer;
+
+    /**
+     * @param MutexNameSanitizer $sanitizer
+     */
+    public function __construct(MutexNameSanitizer $sanitizer)
+    {
+        $this->sanitizer = $sanitizer;
+    }
+
     /**
      * {@inheritdoc}
      */
     public function generate(ClockAwareEvent $event, DateTimeInterface $dueAt): string
     {
-        return MutexNameSanitizer::buildIdentifier($event->mutexName(), (string) $dueAt->getTimestamp());
+        return $this->sanitizer->buildIdentifier($event->mutexName(), (string) $dueAt->getTimestamp());
     }
 }

@@ -50,7 +50,7 @@ class SpyCallbackEvent extends ClockAwareEvent
      */
     public function __construct(EventMutex $mutex, string $command, ClockInterface $clock)
     {
-        parent::__construct($mutex, $command, $clock, 'local');
+        parent::__construct($mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     /**

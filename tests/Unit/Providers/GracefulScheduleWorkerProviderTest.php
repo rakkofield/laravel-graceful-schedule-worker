@@ -26,6 +26,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInte
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
@@ -200,6 +201,13 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     public function testClockAwareScheduleReceivesClockInterface(): void
     {
         $this->provider->register();
+
+        // ClockAwareSchedule requires explicit binding (not auto-wirable due to scalar params)
+        $this->app->singleton(ClockAwareSchedule::class, function (Container $app) {
+            /** @var ClockInterface $clock */
+            $clock = $app->make(ClockInterface::class);
+            return new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+        });
 
         $schedule = $this->app->make(ClockAwareSchedule::class);
         $clock = $this->app->make(ClockInterface::class);

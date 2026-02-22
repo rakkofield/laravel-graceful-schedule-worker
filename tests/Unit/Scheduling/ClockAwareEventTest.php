@@ -29,7 +29,14 @@ class ClockAwareEventTest extends TestCase
     public function testCanInjectClock(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
     }
@@ -40,7 +47,14 @@ class ClockAwareEventTest extends TestCase
     public function testCanSetGracePeriod(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $result = $event->withGracePeriod(30);
 
@@ -53,7 +67,14 @@ class ClockAwareEventTest extends TestCase
     public function testCanEnableRecovery(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $result = $event->enableRecovery();
 
@@ -66,7 +87,14 @@ class ClockAwareEventTest extends TestCase
     public function testRecoverableIsFalseByDefault(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $this->assertFalse($event->isRecoverable());
         $this->assertNull($event->getGracePeriod());
@@ -78,7 +106,14 @@ class ClockAwareEventTest extends TestCase
     public function testWithGracePeriodSetsRecoverableToTrue(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->withGracePeriod(30);
 
@@ -91,7 +126,14 @@ class ClockAwareEventTest extends TestCase
     public function testWithGracePeriodSetsCorrectInterval(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->withGracePeriod(30);
 
@@ -112,7 +154,14 @@ class ClockAwareEventTest extends TestCase
     public function testWithGracePeriodWithNullSetsUnlimited(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->withGracePeriod(null);
 
@@ -126,7 +175,14 @@ class ClockAwareEventTest extends TestCase
     public function testWithGracePeriodZeroSetsRecoverableWithoutGracePeriod(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->withGracePeriod(0);
 
@@ -140,7 +196,14 @@ class ClockAwareEventTest extends TestCase
     public function testEnableRecoverySetsRecoverableWithUnlimitedGrace(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->enableRecovery();
 
@@ -154,7 +217,14 @@ class ClockAwareEventTest extends TestCase
     public function testDispatchViaReturnsSelfForMethodChaining(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $result = $event->dispatchVia('local');
 
@@ -167,7 +237,14 @@ class ClockAwareEventTest extends TestCase
     public function testGetDispatcherTypeReturnsLocalByDefault(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $this->assertSame('local', $event->getDispatcherType());
     }
@@ -178,7 +255,14 @@ class ClockAwareEventTest extends TestCase
     public function testDispatchViaSetsDispatcherType(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->dispatchVia('stepfunctions');
 
@@ -191,7 +275,14 @@ class ClockAwareEventTest extends TestCase
     public function testBuildProcessCommandUsesExecPrefix(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
         $event->runInBackground = true;
 
         $command = $event->buildProcessCommand();
@@ -206,7 +297,14 @@ class ClockAwareEventTest extends TestCase
     public function testBuildProcessCommandDoesNotEndWithAmpersand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
         $event->runInBackground = true;
 
         $command = $event->buildProcessCommand();
@@ -221,7 +319,14 @@ class ClockAwareEventTest extends TestCase
     {
         // UTC 03:00 = Asia/Tokyo 12:00
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            'Asia/Tokyo',
+            new TimezoneResolver()
+        );
 
         // Between 11:00-13:00 in Tokyo time (12:00 is within range)
         $event->between('11:00', '13:00');
@@ -237,7 +342,14 @@ class ClockAwareEventTest extends TestCase
     {
         // UTC 03:00 = Asia/Tokyo 12:00
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            'Asia/Tokyo',
+            new TimezoneResolver()
+        );
 
         // Between 13:00-15:00 in Tokyo time (12:00 is out of range)
         $event->between('13:00', '15:00');
@@ -253,7 +365,14 @@ class ClockAwareEventTest extends TestCase
     {
         // Running at 00:30. between('23:00', '01:00') -> start(23:00) > now(00:30), so shift start to previous day
         $clock = new FixedClock(new DateTimeImmutable('2024-01-02 00:30:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->between('23:00', '01:00');
 
@@ -269,7 +388,14 @@ class ClockAwareEventTest extends TestCase
         // Running at 23:30. between('23:00', '01:00') -> end(01:00) < start(23:00) and start(23:00) <= now(23:30)
         // -> shift end to next day
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 23:30:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->between('23:00', '01:00');
 
@@ -284,7 +410,14 @@ class ClockAwareEventTest extends TestCase
     {
         // UTC 03:00 = Asia/Tokyo 12:00
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 03:00:00', new \DateTimeZone('UTC')));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            'Asia/Tokyo',
+            new TimezoneResolver()
+        );
 
         // Between 11:00-13:00 in Tokyo time (12:00 is within range, so skipped)
         $event->unlessBetween('11:00', '13:00');
@@ -299,7 +432,14 @@ class ClockAwareEventTest extends TestCase
     public function testGetDispatcherTypeReturnsDefaultValueFromConstructor(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $this->assertSame('local', $event->getDispatcherType());
     }
@@ -310,7 +450,14 @@ class ClockAwareEventTest extends TestCase
     public function testGetDispatcherTypeReturnsCustomDefaultFromConstructor(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'stepfunctions');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'stepfunctions',
+            null,
+            new TimezoneResolver()
+        );
 
         $this->assertSame('stepfunctions', $event->getDispatcherType());
     }
@@ -321,7 +468,14 @@ class ClockAwareEventTest extends TestCase
     public function testConstructorValidatesStringTimezoneAndStoresAsDateTimeZone(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            'Asia/Tokyo',
+            new TimezoneResolver()
+        );
 
         $resolved = $event->getResolvedTimezone();
         $this->assertInstanceOf(\DateTimeZone::class, $resolved);
@@ -335,7 +489,14 @@ class ClockAwareEventTest extends TestCase
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $tz = new \DateTimeZone('US/Eastern');
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', $tz);
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            $tz,
+            new TimezoneResolver()
+        );
 
         $this->assertSame($tz, $event->getResolvedTimezone());
     }
@@ -349,7 +510,14 @@ class ClockAwareEventTest extends TestCase
         $this->expectExceptionMessage('Invalid timezone: Invalid/Zone');
 
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Invalid/Zone');
+        new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            'Invalid/Zone',
+            new TimezoneResolver()
+        );
     }
 
     /**
@@ -358,7 +526,14 @@ class ClockAwareEventTest extends TestCase
     public function testGetResolvedTimezoneReturnsNullWhenNoTimezoneSet(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $this->assertNull($event->getResolvedTimezone());
     }
@@ -369,7 +544,14 @@ class ClockAwareEventTest extends TestCase
     public function testTimezoneFluentMethodValidatesAndNormalizesToDateTimeZone(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->timezone('America/New_York');
 
@@ -387,7 +569,14 @@ class ClockAwareEventTest extends TestCase
         $this->expectExceptionMessage('Invalid timezone: Bogus/TZ');
 
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->timezone('Bogus/TZ');
     }
@@ -398,7 +587,14 @@ class ClockAwareEventTest extends TestCase
     public function testTimezoneFluentMethodAcceptsDateTimeZoneObject(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $tz = new \DateTimeZone('Europe/London');
         $event->timezone($tz);
@@ -412,7 +608,14 @@ class ClockAwareEventTest extends TestCase
     public function testConstructorTimezoneIsAccessibleViaPublicPropertyAsDateTimeZone(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local', 'Asia/Tokyo');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            'Asia/Tokyo',
+            new TimezoneResolver()
+        );
 
         $this->assertInstanceOf(\DateTimeZone::class, $event->timezone);
         $this->assertSame('Asia/Tokyo', $event->timezone->getName());
@@ -424,7 +627,14 @@ class ClockAwareEventTest extends TestCase
     public function testGetRawCommandReturnsNullByDefault(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $this->assertNull($event->getRawCommand());
     }
@@ -435,7 +645,14 @@ class ClockAwareEventTest extends TestCase
     public function testSetRawCommandStoresValueRetrievableByGetRawCommand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'php artisan test', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
 
         $event->setRawCommand('report:daily');
 

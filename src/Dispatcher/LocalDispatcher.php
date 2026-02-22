@@ -10,7 +10,6 @@ use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedLocalDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Symfony\Component\Process\Process;
@@ -46,24 +45,32 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $processManager;
 
     /**
+     * @var callable(string, string, \DateTimeImmutable): DispatchResultInterface
+     */
+    private $skippedResultFactory;
+
+    /**
      * @param Container $container Laravel container instance
      * @param string|null $basePath Working directory for processes (null uses the current directory)
      * @param LoggerInterface $logger Logger
      * @param ClockInterface $clock Clock
      * @param RunningProcessManager $processManager Process lifecycle manager
+     * @param callable(string, string, \DateTimeImmutable): DispatchResultInterface $skippedResultFactory
      */
     public function __construct(
         Container $container,
         ?string $basePath,
         LoggerInterface $logger,
         ClockInterface $clock,
-        RunningProcessManager $processManager
+        RunningProcessManager $processManager,
+        callable $skippedResultFactory
     ) {
         $this->container = $container;
         $this->basePath = $basePath;
         $this->logger = $logger;
         $this->clock = $clock;
         $this->processManager = $processManager;
+        $this->skippedResultFactory = $skippedResultFactory;
     }
 
     /**
@@ -88,7 +95,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
 
         try {
             if ($event->withoutOverlapping && !$event->mutex->create($event)) {
-                return SkippedDispatchResult::forOverlapping(
+                return ($this->skippedResultFactory)(
                     $identifier,
                     (string) $event->command,
                     $this->clock->now()
@@ -169,6 +176,8 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     /**
      * @param string $command Shell command string
      * @return Process
+     *
+     * @SuppressWarnings("PHPMD.StaticAccess") Process::fromShellCommandline is a Symfony factory API
      */
     private function createProcess(string $command): Process
     {

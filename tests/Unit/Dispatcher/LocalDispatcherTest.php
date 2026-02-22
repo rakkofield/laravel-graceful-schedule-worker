@@ -22,6 +22,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ThrowingOnForgetEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 class LocalDispatcherTest extends TestCase
@@ -62,7 +63,7 @@ class LocalDispatcherTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     private function createSpyEvent(string $command): SpyCallbackEvent
@@ -82,7 +83,24 @@ class LocalDispatcherTest extends TestCase
     {
         $logger = $logger ?? new NullLogger();
         $processManager = new RunningProcessManager($this->app, $logger, new NullSleeper(), 10.0);
-        return new LocalDispatcher($this->app, null, $logger, $clock, $processManager);
+        return new LocalDispatcher(
+            $this->app,
+            null,
+            $logger,
+            $clock,
+            $processManager,
+            $this->createSkippedResultFactory()
+        );
+    }
+
+    /**
+     * @return callable(string, string, \DateTimeImmutable): SkippedDispatchResult
+     */
+    private function createSkippedResultFactory(): callable
+    {
+        return function (string $id, string $cmd, \DateTimeImmutable $at): SkippedDispatchResult {
+            return new SkippedDispatchResult($id, $cmd, 'withoutOverlapping', $at, DispatcherType::LOCAL);
+        };
     }
 
     /**
@@ -625,7 +643,7 @@ class LocalDispatcherTest extends TestCase
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = $this->createDispatcher($fixedClock);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock, 'local');
+        $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock, 'local', null, new TimezoneResolver());
         $event->runInBackground = true;
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -973,7 +991,14 @@ class LocalDispatcherTest extends TestCase
 
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $processManager = new RunningProcessManager($this->app, $logger, new NullSleeper(), 10.0);
-        $dispatcher = new LocalDispatcher($this->app, null, $logger, $fixedClock, $processManager);
+        $dispatcher = new LocalDispatcher(
+            $this->app,
+            null,
+            $logger,
+            $fixedClock,
+            $processManager,
+            $this->createSkippedResultFactory()
+        );
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $event = new SpyCallbackEvent($throwingMutex, 'echo test', $clock);
         $event->withoutOverlapping();

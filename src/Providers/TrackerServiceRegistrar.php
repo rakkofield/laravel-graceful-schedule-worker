@@ -11,6 +11,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Logging\PrefixedLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
+use RuntimeException;
 
 /**
  * Registers ExecutionTrackerInterface binding with cache store validation.
@@ -57,7 +58,7 @@ class TrackerServiceRegistrar
 
             $store = $cache->getStore();
             if (!$store instanceof LockProvider) {
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     'ExecutionTracker requires a cache driver that implements LockProvider (e.g., Redis, Memcached). ' .
                     'Current driver does not support distributed locking.'
                 );

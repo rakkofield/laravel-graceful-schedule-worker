@@ -19,6 +19,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpySchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeExecutionTracker;
@@ -91,7 +92,7 @@ class DefaultScheduleOrchestratorTest extends TestCase
      */
     private function createEvent(string $command): ClockAwareEvent
     {
-        return new ClockAwareEvent($this->eventMutex, $command, $this->clock, 'local');
+        return new ClockAwareEvent($this->eventMutex, $command, $this->clock, 'local', null, new TimezoneResolver());
     }
 
     /**

@@ -8,6 +8,7 @@ use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
 
 /**
@@ -42,7 +43,20 @@ class TestableLocalDispatcher extends LocalDispatcher
         float $stopTimeout = 10.0
     ) {
         $processManager = new RunningProcessManager($container, $logger, $sleeper, $stopTimeout);
-        parent::__construct($container, $basePath, $logger, $clock, $processManager);
+        $skippedResultFactory = function (
+            string $eventIdentifier,
+            string $eventCommand,
+            \DateTimeImmutable $dispatchedAt
+        ) {
+            return new SkippedDispatchResult(
+                $eventIdentifier,
+                $eventCommand,
+                'withoutOverlapping',
+                $dispatchedAt,
+                DispatcherType::LOCAL
+            );
+        };
+        parent::__construct($container, $basePath, $logger, $clock, $processManager, $skippedResultFactory);
         $this->testProcessManager = $processManager;
     }
 

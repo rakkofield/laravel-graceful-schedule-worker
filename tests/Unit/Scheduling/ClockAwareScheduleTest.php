@@ -42,7 +42,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testReturnsClockAwareEventFromCommand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->command('php artisan test');
 
@@ -55,7 +55,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testReturnsClockAwareEventFromExec(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('ls -la');
 
@@ -69,7 +69,7 @@ class ClockAwareScheduleTest extends TestCase
     {
         $fixedTime = new DateTimeImmutable('2024-01-01 12:00:00');
         $clock = new FixedClock($fixedTime);
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event1 = $schedule->command('php artisan test1');
         $event2 = $schedule->command('php artisan test2');
@@ -86,7 +86,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testExecHandlesParametersCorrectly(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('command', ['--foo' => 'bar', '--baz']);
 
@@ -99,7 +99,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testCommandHandlesParametersCorrectly(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->command('php artisan test', ['--option' => 'value']);
 
@@ -114,7 +114,7 @@ class ClockAwareScheduleTest extends TestCase
         $innerTime = new DateTimeImmutable('2024-01-15 12:00:00');
         $frozenTime = new DateTimeImmutable('2024-01-15 10:30:00');
         $clock = new FixedClock($innerTime);
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -137,7 +137,7 @@ class ClockAwareScheduleTest extends TestCase
         $innerTime = new DateTimeImmutable('2024-01-15 12:00:00');
         $frozenTime = new DateTimeImmutable('2024-01-15 10:30:00');
         $clock = new FixedClock($innerTime);
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -159,7 +159,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testExecPassesFreezableClockToEvent(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -176,7 +176,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testExecPassesDefaultDispatcherTypeToClockAwareEvent(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock, 'stepfunctions');
+        $schedule = new ClockAwareSchedule($clock, 'stepfunctions', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -190,7 +190,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testDefaultDispatcherTypeIsLocalWhenNotSpecified(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -204,7 +204,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testCommandSetsRawCommandToArtisanCommandName(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->command('report:daily');
 
@@ -217,7 +217,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testCommandWithParametersIncludesCompiledParametersInRawCommand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->command('report:daily', ['--verbose' => 'yes']);
 
@@ -230,7 +230,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testExecDoesNotSetRawCommand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 

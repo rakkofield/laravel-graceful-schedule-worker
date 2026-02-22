@@ -18,8 +18,10 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FakeStepFunctionsClient;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 /**
  * @testdox StepFunctionsDispatcher
@@ -63,18 +65,20 @@ class StepFunctionsDispatcherTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     private function createDispatcher(): StepFunctionsDispatcher
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $sanitizer = new MutexNameSanitizer();
         return new StepFunctionsDispatcher(
             $this->client,
             $this->stateMachineArn,
-            new ExecutionNameGenerator(),
+            new ExecutionNameGenerator($sanitizer),
             $clock,
-            3600
+            3600,
+            $sanitizer
         );
     }
 
@@ -304,12 +308,14 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->expectExceptionMessage('stateMachineArn cannot be empty');
 
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $sanitizer = new MutexNameSanitizer();
         new StepFunctionsDispatcher(
             $this->client,
             '',
-            new ExecutionNameGenerator(),
+            new ExecutionNameGenerator($sanitizer),
             $clock,
-            3600
+            3600,
+            $sanitizer
         );
     }
 

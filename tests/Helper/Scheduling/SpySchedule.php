@@ -34,7 +34,7 @@ class SpySchedule extends ClockAwareSchedule
         $container->instance(EventMutex::class, $eventMutex);
         $container->instance(SchedulingMutex::class, $schedulingMutex);
 
-        parent::__construct($clock);
+        parent::__construct($clock, 'local', null, new TimezoneResolver());
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Providers;
 
+use DateTimeImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
@@ -21,6 +22,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 
 /**
  * Registers dispatcher bindings: LocalDispatcher, CompositeDispatcher, TrackingDispatcher.
+ *
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Service registrar necessarily references many classes
  */
 class DispatcherServiceRegistrar
 {
@@ -64,7 +67,21 @@ class DispatcherServiceRegistrar
 
             $processManager = new RunningProcessManager($app, $logger, new Sleeper(10000), 10.0);
 
-            return new LocalDispatcher($app, $basePath, $logger, $clock, $processManager);
+            $skippedResultFactory = function (
+                string $eventIdentifier,
+                string $eventCommand,
+                DateTimeImmutable $dispatchedAt
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    'withoutOverlapping',
+                    $dispatchedAt,
+                    DispatcherType::LOCAL
+                );
+            };
+
+            return new LocalDispatcher($app, $basePath, $logger, $clock, $processManager, $skippedResultFactory);
         });
     }
 
@@ -112,12 +129,28 @@ class DispatcherServiceRegistrar
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
+            $skippedResultFactory = function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            };
+
             return new TrackingDispatcher(
                 $compositeDispatcher,
                 $tracker,
                 $logger,
                 $clock,
-                SkippedDispatchResult::factory()
+                $skippedResultFactory
             );
         });
     }

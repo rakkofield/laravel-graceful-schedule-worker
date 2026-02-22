@@ -19,6 +19,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\RedisTestTrait;
@@ -77,7 +78,21 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
             $this->tracker,
             $this->logger,
             $clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
     }
 
@@ -97,7 +112,7 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     /**

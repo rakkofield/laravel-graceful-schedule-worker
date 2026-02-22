@@ -6,6 +6,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 /**
  * Trait for Kernel that registers ClockAwareSchedule as a separate singleton.
@@ -55,7 +56,8 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
             $schedule = new ClockAwareSchedule(
                 $clock,
                 config('graceful-scheduler.dispatch', 'local'),
-                $this->scheduleTimezone()
+                $this->scheduleTimezone(),
+                new TimezoneResolver()
             );
             $schedule->useCache($this->scheduleCache());
             $this->gracefulSchedule($schedule);

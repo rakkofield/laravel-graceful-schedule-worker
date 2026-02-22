@@ -12,6 +12,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 
@@ -29,6 +30,7 @@ class StepFunctionsServiceProvider extends ServiceProvider
         }
 
         $this->registerClient();
+        $this->registerSanitizer();
         $this->registerNameGenerator();
         $this->registerDispatcher();
     }
@@ -64,9 +66,20 @@ class StepFunctionsServiceProvider extends ServiceProvider
         });
     }
 
+    protected function registerSanitizer(): void
+    {
+        $this->app->singleton(MutexNameSanitizer::class, function () {
+            return new MutexNameSanitizer();
+        });
+    }
+
     protected function registerNameGenerator(): void
     {
-        $this->app->singleton(ExecutionNameGeneratorInterface::class, ExecutionNameGenerator::class);
+        $this->app->singleton(ExecutionNameGeneratorInterface::class, function (Container $app) {
+            /** @var MutexNameSanitizer $sanitizer */
+            $sanitizer = $app->make(MutexNameSanitizer::class);
+            return new ExecutionNameGenerator($sanitizer);
+        });
     }
 
     protected function registerDispatcher(): void
@@ -91,12 +104,16 @@ class StepFunctionsServiceProvider extends ServiceProvider
             $lockTtl = $config->get('graceful-scheduler.stepfunctions.lock_ttl', 3600);
             $lockTtl = (int) $lockTtl;
 
+            /** @var MutexNameSanitizer $sanitizer */
+            $sanitizer = $app->make(MutexNameSanitizer::class);
+
             return new StepFunctionsDispatcher(
                 $client,
                 $stateMachineArn,
                 $nameGenerator,
                 $clock,
-                $lockTtl
+                $lockTtl,
+                $sanitizer
             );
         });
     }

@@ -18,8 +18,10 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClient
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FixedExecutionNameGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 /**
  * StepFunctionsDispatcher integration test using moto
@@ -112,7 +114,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     private function createDispatcher(
@@ -120,12 +122,14 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     ): StepFunctionsDispatcher {
         $adapter = new AwsSfnClientAdapter($this->sfnClient);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $sanitizer = new MutexNameSanitizer();
         return new StepFunctionsDispatcher(
             $adapter,
             self::$stateMachineArn,
-            $nameGenerator ?? new ExecutionNameGenerator(),
+            $nameGenerator ?? new ExecutionNameGenerator($sanitizer),
             $clock,
-            3600
+            3600,
+            $sanitizer
         );
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
+use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -23,12 +24,12 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
     /**
      * @param array<string, ScheduleDispatcherInterface> $dispatchers
      * @param LoggerInterface $logger Logger
-     * @throws \InvalidArgumentException If dispatchers is empty
+     * @throws InvalidArgumentException If dispatchers is empty
      */
     public function __construct(array $dispatchers, LoggerInterface $logger)
     {
         if (empty($dispatchers)) {
-            throw new \InvalidArgumentException('Dispatchers array cannot be empty');
+            throw new InvalidArgumentException('Dispatchers array cannot be empty');
         }
 
         $this->dispatchers = $dispatchers;
@@ -50,7 +51,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
 
         if (!isset($this->dispatchers[$type])) {
             $availableTypes = implode(', ', array_keys($this->dispatchers));
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 "Unknown dispatcher type: {$type}. Available types: {$availableTypes}"
             );
         }

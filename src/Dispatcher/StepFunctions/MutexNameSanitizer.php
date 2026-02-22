@@ -19,7 +19,7 @@ final class MutexNameSanitizer
      * @param string $value
      * @return string
      */
-    public static function sanitize(string $value): string
+    public function sanitize(string $value): string
     {
         /** @var string $result */
         $result = preg_replace('/[^a-zA-Z0-9_-]/', '-', $value);
@@ -33,9 +33,9 @@ final class MutexNameSanitizer
      * @param string $timestamp Timestamp string to append
      * @return string Identifier guaranteed to be at most MAX_LENGTH characters
      */
-    public static function buildIdentifier(string $mutexName, string $timestamp): string
+    public function buildIdentifier(string $mutexName, string $timestamp): string
     {
-        $sanitizedMutex = self::sanitize($mutexName);
+        $sanitizedMutex = $this->sanitize($mutexName);
         $identifier = $sanitizedMutex . '_' . $timestamp;
 
         if (strlen($identifier) > self::MAX_LENGTH) {
@@ -57,9 +57,9 @@ final class MutexNameSanitizer
      * @param string $mutexName Raw mutex name (before sanitization)
      * @return string Key guaranteed to be at most MAX_LENGTH characters
      */
-    public static function buildStableKey(string $mutexName): string
+    public function buildStableKey(string $mutexName): string
     {
-        $sanitized = self::sanitize($mutexName);
+        $sanitized = $this->sanitize($mutexName);
 
         if (strlen($sanitized) > self::MAX_LENGTH) {
             $hash = substr(md5($mutexName), 0, 16);

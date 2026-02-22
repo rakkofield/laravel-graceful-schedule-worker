@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
+use Exception;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispatchResultInterface;
@@ -98,7 +99,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         // 4. Track based on result
         try {
             $this->handleResult($result, $event, $dueAt);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // markExecuted failure does not affect the dispatch itself, so continue with warning
             $this->logger->error('Failed to track execution result', [
                 'event' => $event->mutexName(),
@@ -189,7 +190,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
      * @param DispatchResultInterface $result
      * @param ClockAwareEvent $event
      * @return void
-     * @throws \Exception if the result type is unknown
+     * @throws Exception if the result type is unknown
      */
     private function assertKnownResultType(
         DispatchResultInterface $result,
@@ -204,7 +205,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             return;
         }
 
-        throw new \Exception(sprintf(
+        throw new Exception(sprintf(
             'Unexpected dispatch result type: %s (dispatcher: %s, event: %s)',
             get_class($result),
             $result->getDispatcherType(),
@@ -223,7 +224,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     {
         try {
             $this->tracker->releaseLock($event, $dueAt);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('Failed to release lock', [
                 'event' => $event->mutexName(),
                 'error' => $e->getMessage(),

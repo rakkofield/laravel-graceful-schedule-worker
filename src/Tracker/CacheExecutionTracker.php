@@ -75,6 +75,8 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @SuppressWarnings("PHPMD.StaticAccess")
      */
     public function getMissedDueIfRecoverable(ClockAwareEvent $event, DateTimeInterface $now): ?DateTimeInterface
     {

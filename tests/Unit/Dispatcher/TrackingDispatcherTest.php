@@ -18,6 +18,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\StubThrowingExecutionTracker;
@@ -65,7 +66,7 @@ class TrackingDispatcherTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     private function createDispatcher(DispatchResultInterface $resultToReturn): TrackingDispatcher
@@ -77,7 +78,21 @@ class TrackingDispatcherTest extends TestCase
             $this->tracker,
             $this->logger,
             $clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
     }
 
@@ -247,7 +262,21 @@ class TrackingDispatcherTest extends TestCase
             $this->tracker,
             $this->logger,
             $clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -340,7 +369,21 @@ class TrackingDispatcherTest extends TestCase
             $throwingTracker,
             $this->logger,
             $clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
 
         $event = $this->createEvent('echo test');
@@ -416,7 +459,21 @@ class TrackingDispatcherTest extends TestCase
             $throwingTracker,
             $this->logger,
             $clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
 
         $event = $this->createEvent('echo test');
@@ -447,7 +504,21 @@ class TrackingDispatcherTest extends TestCase
             $this->tracker,
             $this->logger,
             $clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -506,7 +577,7 @@ class TrackingDispatcherTest extends TestCase
         $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
         $dispatcher = $this->createDispatcher($startedResult);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'echo test', $clock, 'stepfunctions');
+        $event = new ClockAwareEvent($this->mutex, 'echo test', $clock, 'stepfunctions', null, new TimezoneResolver());
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
 
         // Set lock acquisition to fail
@@ -532,7 +603,21 @@ class TrackingDispatcherTest extends TestCase
             $this->tracker,
             $this->logger,
             $clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -569,7 +654,21 @@ class TrackingDispatcherTest extends TestCase
             $this->tracker,
             $this->logger,
             $clock,
-            SkippedDispatchResult::factory()
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');

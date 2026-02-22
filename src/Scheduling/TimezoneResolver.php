@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateTimeZone;
+use Exception;
 use InvalidArgumentException;
 
 /**
@@ -22,7 +23,7 @@ class TimezoneResolver
      * @return DateTimeZone|null
      * @throws InvalidArgumentException If timezone string is invalid
      */
-    public static function resolve($timezone): ?DateTimeZone
+    public function resolve($timezone): ?DateTimeZone
     {
         if ($timezone === null) {
             return null;
@@ -32,7 +33,7 @@ class TimezoneResolver
         }
         try {
             return new DateTimeZone($timezone);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new InvalidArgumentException(
                 sprintf('Invalid timezone: %s', $timezone),
                 0,

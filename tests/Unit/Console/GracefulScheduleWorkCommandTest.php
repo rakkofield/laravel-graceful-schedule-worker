@@ -23,6 +23,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\StubThrowingOrchestrator
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\NullExecutionTracker;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -63,7 +64,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
     public function testOutputsRunningMessageWhenStarted(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
         $fakeResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $dispatcher = new FakeDispatcher($fakeResult);
         $tracker = new NullExecutionTracker();
@@ -91,7 +92,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $orchestrator = new StubThrowingOrchestrator($exception);
         $reporter = new FakeExceptionReporter();
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $app = new FakeApplication();
 
@@ -120,7 +121,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $orchestrator = new StubThrowingOrchestrator($error);
         $reporter = new FakeExceptionReporter();
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $app = new FakeApplication();
 
@@ -149,7 +150,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
         $orchestrator = new StubThrowingOrchestrator($exception);
         $reporter = new FakeExceptionReporter();
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $app = new FakeApplication();
 
@@ -177,7 +178,7 @@ class GracefulScheduleWorkCommandTest extends TestCase
 
         $reporter = new FakeExceptionReporter();
         $clock = new FixedClock(new \DateTimeImmutable('2024-01-15 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $app = new FakeApplication();
 
