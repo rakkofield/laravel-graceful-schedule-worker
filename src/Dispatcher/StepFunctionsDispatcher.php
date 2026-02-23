@@ -11,9 +11,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInter
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilderInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInput;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactoryInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -22,45 +20,31 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
  * Event dispatcher using Step Functions.
  *
  * Calls the StartExecution API to execute tasks via a State Machine.
- *
- * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Necessary dependencies for StepFunctions integration
  */
 class StepFunctionsDispatcher implements ScheduleDispatcherInterface
 {
     /** @var StepFunctionsClientInterface */
     private $client;
 
-    /** @var ExecutionNameGeneratorInterface */
-    private $nameGenerator;
+    /** @var StartExecutionInputFactoryInterface */
+    private $inputFactory;
 
     /** @var ClockInterface */
     private $clock;
 
-    /** @var int */
-    private $lockTtlSeconds;
-
-    /** @var PayloadBuilderInterface */
-    private $payloadBuilder;
-
     /**
      * @param StepFunctionsClientInterface $client
-     * @param ExecutionNameGeneratorInterface $nameGenerator
+     * @param StartExecutionInputFactoryInterface $inputFactory
      * @param ClockInterface $clock
-     * @param int $lockTtlSeconds
-     * @param PayloadBuilderInterface $payloadBuilder
      */
     public function __construct(
         StepFunctionsClientInterface $client,
-        ExecutionNameGeneratorInterface $nameGenerator,
-        ClockInterface $clock,
-        int $lockTtlSeconds,
-        PayloadBuilderInterface $payloadBuilder
+        StartExecutionInputFactoryInterface $inputFactory,
+        ClockInterface $clock
     ) {
         $this->client = $client;
-        $this->nameGenerator = $nameGenerator;
+        $this->inputFactory = $inputFactory;
         $this->clock = $clock;
-        $this->lockTtlSeconds = $lockTtlSeconds;
-        $this->payloadBuilder = $payloadBuilder;
     }
 
     /**
@@ -71,14 +55,14 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();
-        $payload = $this->payloadBuilder->build($event, $dueAt, $this->lockTtlSeconds);
-        $command = $payload->getCommand();
-        $executionName = $this->nameGenerator->generate($event, $dueAt);
+        $command = $event->getEffectiveCommand();
+        $executionName = '';
 
         try {
-            $result = $this->client->startExecution(
-                new StartExecutionInput($executionName, $payload->toJson())
-            );
+            $input = $this->inputFactory->create($event, $dueAt);
+            $executionName = $input->getName();
+
+            $result = $this->client->startExecution($input);
 
             return new StartedStepFunctionsDispatchResult(
                 $result->getExecutionArn(),

@@ -16,6 +16,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGener
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilderInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactoryInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 
@@ -23,6 +25,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
  * Registers AWS Step Functions related bindings.
  *
  * Only active when the AWS SDK is installed.
+ *
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Wires all StepFunctions components into the container
  */
 class StepFunctionsServiceProvider extends ServiceProvider
 {
@@ -37,6 +41,7 @@ class StepFunctionsServiceProvider extends ServiceProvider
         $this->registerNameGenerator();
         $this->registerLockKeyGenerator();
         $this->registerPayloadBuilder();
+        $this->registerInputFactory();
         $this->registerDispatcher();
     }
 
@@ -108,35 +113,39 @@ class StepFunctionsServiceProvider extends ServiceProvider
         });
     }
 
-    protected function registerDispatcher(): void
+    protected function registerInputFactory(): void
     {
-        $this->app->singleton(StepFunctionsDispatcher::class, function (Container $app) {
+        $this->app->singleton(StartExecutionInputFactoryInterface::class, function (Container $app) {
             /** @var ConfigRepository $config */
             $config = $app->make('config');
-
-            /** @var StepFunctionsClientInterface $client */
-            $client = $app->make(StepFunctionsClientInterface::class);
 
             /** @var ExecutionNameGeneratorInterface $nameGenerator */
             $nameGenerator = $app->make(ExecutionNameGeneratorInterface::class);
 
-            /** @var ClockInterface $clock */
-            $clock = $app->make(ClockInterface::class);
+            /** @var PayloadBuilderInterface $payloadBuilder */
+            $payloadBuilder = $app->make(PayloadBuilderInterface::class);
 
             /** @var int|string $lockTtl */
             $lockTtl = $config->get('graceful-scheduler.stepfunctions.lock_ttl', 3600);
             $lockTtl = (int) $lockTtl;
 
-            /** @var PayloadBuilderInterface $payloadBuilder */
-            $payloadBuilder = $app->make(PayloadBuilderInterface::class);
+            return new StartExecutionInputFactory($nameGenerator, $payloadBuilder, $lockTtl);
+        });
+    }
 
-            return new StepFunctionsDispatcher(
-                $client,
-                $nameGenerator,
-                $clock,
-                $lockTtl,
-                $payloadBuilder
-            );
+    protected function registerDispatcher(): void
+    {
+        $this->app->singleton(StepFunctionsDispatcher::class, function (Container $app) {
+            /** @var StepFunctionsClientInterface $client */
+            $client = $app->make(StepFunctionsClientInterface::class);
+
+            /** @var StartExecutionInputFactoryInterface $inputFactory */
+            $inputFactory = $app->make(StartExecutionInputFactoryInterface::class);
+
+            /** @var ClockInterface $clock */
+            $clock = $app->make(ClockInterface::class);
+
+            return new StepFunctionsDispatcher($client, $inputFactory, $clock);
         });
     }
 }
