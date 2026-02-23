@@ -16,19 +16,10 @@ use Symfony\Component\Process\Process;
  *
  * Holds the Process object and enables process state management.
  */
-class StartedLocalDispatchResult implements StartedDispatchResultInterface
+class StartedLocalDispatchResult extends AbstractDispatchResult implements StartedDispatchResultInterface
 {
     /** @var Process */
     private $process;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var DateTimeImmutable */
-    private $dispatchedAt;
 
     /** @var ClockAwareEvent|null */
     private $event;
@@ -47,43 +38,9 @@ class StartedLocalDispatchResult implements StartedDispatchResultInterface
         DateTimeImmutable $dispatchedAt,
         ?ClockAwareEvent $event = null
     ) {
+        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::LOCAL, $dispatchedAt);
         $this->process = $process;
-        $this->eventIdentifier = $eventIdentifier;
-        $this->eventCommand = $eventCommand;
-        $this->dispatchedAt = $dispatchedAt;
         $this->event = $event;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventIdentifier(): string
-    {
-        return $this->eventIdentifier;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventCommand(): string
-    {
-        return $this->eventCommand;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatcherType(): string
-    {
-        return DispatcherType::LOCAL;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatchedAt(): DateTimeImmutable
-    {
-        return $this->dispatchedAt;
     }
 
     /**

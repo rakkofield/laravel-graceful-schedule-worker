@@ -8,7 +8,6 @@ use DateTimeInterface;
 use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\SleeperInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedLocalDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
@@ -33,24 +32,9 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $logger;
 
     /**
-     * @var array<StartedLocalDispatchResult>
-     */
-    protected $runningProcesses = [];
-
-    /**
-     * @var SleeperInterface
-     */
-    private $sleeper;
-
-    /**
      * @var ClockInterface
      */
     private $clock;
-
-    /**
-     * @var float
-     */
-    private $stopTimeout;
 
     /**
      * @var Container
@@ -58,27 +42,29 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $container;
 
     /**
+     * @var RunningProcessManager
+     */
+    private $processManager;
+
+    /**
      * @param Container $container Laravel container instance
      * @param string|null $basePath Working directory for processes (null uses the current directory)
      * @param LoggerInterface $logger Logger
-     * @param SleeperInterface $sleeper Sleeper (for polling in stopAll)
      * @param ClockInterface $clock Clock
-     * @param float $stopTimeout Timeout in seconds for SIGTERM->SIGKILL wait in stopAll()
+     * @param RunningProcessManager $processManager Process lifecycle manager
      */
     public function __construct(
         Container $container,
         ?string $basePath,
         LoggerInterface $logger,
-        SleeperInterface $sleeper,
         ClockInterface $clock,
-        float $stopTimeout = 10.0
+        RunningProcessManager $processManager
     ) {
         $this->container = $container;
         $this->basePath = $basePath;
         $this->logger = $logger;
-        $this->sleeper = $sleeper;
         $this->clock = $clock;
-        $this->stopTimeout = $stopTimeout;
+        $this->processManager = $processManager;
     }
 
     /**
@@ -102,7 +88,6 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $mutexAcquired = false;
 
         try {
-            // Handle withoutOverlapping: atomically try to claim the mutex
             if ($event->withoutOverlapping && !$event->mutex->create($event)) {
                 return new SkippedDispatchResult(
                     $identifier,
@@ -117,7 +102,6 @@ class LocalDispatcher implements ScheduleDispatcherInterface
             $event->callBeforeCallbacks($this->container);
 
             if ($event->runInBackground) {
-                // Background: generate exec command, run async
                 $fullCommand = $event->buildProcessCommand();
                 $process = $this->createProcess($fullCommand);
                 $process->start();
@@ -129,11 +113,10 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                     $this->clock->now(),
                     $event
                 );
-                $this->runningProcesses[] = $result;
+                $this->processManager->add($result);
                 return $result;
             }
 
-            // Foreground: run command synchronously and call afterCallbacks directly
             $fullCommand = $event->buildCommand();
             $process = $this->createProcess($fullCommand);
             $process->run();
@@ -177,24 +160,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     public function cleanup(): void
     {
-        $pending = $this->runningProcesses;
-        $this->runningProcesses = [];
-
-        foreach ($pending as $result) {
-            if ($result->isRunning()) {
-                $this->runningProcesses[] = $result;
-                continue;
-            }
-            try {
-                $this->runAfterCallbacksForResult($result);
-            } catch (\Exception $e) {
-                $this->logger->warning('afterCallback failed during cleanup', [
-                    'event' => $result->getEventIdentifier(),
-                    'error' => $e->getMessage(),
-                    'exception' => $e,
-                ]);
-            }
-        }
+        $this->processManager->cleanup();
     }
 
     /**
@@ -202,90 +168,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      */
     public function stopAll(): void
     {
-        $this->sendSignalToAll(SIGTERM, 'SIGTERM', 'warning');
-        $this->waitForTermination();
-        $this->sendSignalToAll(SIGKILL, 'SIGKILL', 'error');
-        $processes = $this->runningProcesses;
-        $this->runningProcesses = [];
-        $this->releaseMutexes($processes);
-    }
-
-    /**
-     * Send a signal to all running processes.
-     *
-     * @param int $signal Signal number
-     * @param string $signalName Signal name for logging
-     * @param string $logLevel PSR log level for failures
-     * @return void
-     */
-    private function sendSignalToAll(int $signal, string $signalName, string $logLevel): void
-    {
-        foreach ($this->runningProcesses as $result) {
-            try {
-                $process = $result->getProcess();
-                if ($process->isRunning()) {
-                    $process->signal($signal);
-                }
-            } catch (\Exception $e) {
-                $this->logger->log($logLevel, "Failed to send {$signalName}", [
-                    'event' => $result->getEventIdentifier(),
-                    'error' => $e->getMessage(),
-                    'exception' => $e,
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Poll and wait for all processes to terminate until timeout.
-     *
-     * @return void
-     */
-    private function waitForTermination(): void
-    {
-        $deadline = microtime(true) + $this->stopTimeout;
-        while (microtime(true) < $deadline) {
-            $allStopped = true;
-            foreach ($this->runningProcesses as $result) {
-                if ($result->isRunning()) {
-                    $allStopped = false;
-                    break;
-                }
-            }
-            if ($allStopped) {
-                break;
-            }
-            $this->sleeper->sleep();
-        }
-    }
-
-    /**
-     * Release withoutOverlapping mutexes for the given processes.
-     *
-     * During stopAll (shutdown), only mutex release is performed.
-     * User-registered afterCallbacks are not executed because the
-     * processes were forcefully terminated, not completed normally.
-     *
-     * @param array<StartedLocalDispatchResult> $processes
-     * @return void
-     */
-    private function releaseMutexes(array $processes): void
-    {
-        foreach ($processes as $result) {
-            $event = $result->getEvent();
-            if ($event === null || !$event->withoutOverlapping) {
-                continue;
-            }
-            try {
-                $event->mutex->forget($event);
-            } catch (\Exception $e) {
-                $this->logger->warning('Failed to release EventMutex during stopAll', [
-                    'event' => $result->getEventIdentifier(),
-                    'error' => $e->getMessage(),
-                    'exception' => $e,
-                ]);
-            }
-        }
+        $this->processManager->stopAll();
     }
 
     /**
@@ -298,16 +181,5 @@ class LocalDispatcher implements ScheduleDispatcherInterface
         $process->setTimeout(null);
 
         return $process;
-    }
-
-    /**
-     * Run afterCallbacks for a completed or terminated process.
-     *
-     * @param StartedLocalDispatchResult $result
-     * @return void
-     */
-    private function runAfterCallbacksForResult(StartedLocalDispatchResult $result): void
-    {
-        $result->runAfterCallbacks($this->container);
     }
 }

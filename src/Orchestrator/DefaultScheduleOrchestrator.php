@@ -92,11 +92,9 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                     $this->evaluateAndDispatch($schedule, $app, $now);
                 }
 
-                // Clean up completed processes
                 $this->dispatcher->cleanup();
             }
         } finally {
-            // Stop running processes on exit
             $this->dispatcher->stopAll();
         }
 
@@ -114,7 +112,7 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
     {
         foreach ($schedule->events() as $event) {
             try {
-                if (!$this->isRecoverableEvent($event)) {
+                if (!$event->isRecoverable()) {
                     continue;
                 }
 
@@ -137,17 +135,6 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 );
             }
         }
-    }
-
-    /**
-     * Check whether the event is recoverable.
-     *
-     * @param ClockAwareEvent $event
-     * @return bool
-     */
-    private function isRecoverableEvent(ClockAwareEvent $event): bool
-    {
-        return $event->isRecoverable();
     }
 
     /**

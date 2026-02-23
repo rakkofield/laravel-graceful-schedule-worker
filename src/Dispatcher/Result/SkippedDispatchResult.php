@@ -11,22 +11,10 @@ use DateTimeImmutable;
  *
  * Used when dispatch is skipped, such as lock acquisition failure.
  */
-class SkippedDispatchResult implements SkippedDispatchResultInterface
+class SkippedDispatchResult extends AbstractDispatchResult implements SkippedDispatchResultInterface
 {
     /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var string */
     private $reason;
-
-    /** @var DateTimeImmutable */
-    private $dispatchedAt;
-
-    /** @var string */
-    private $dispatcherType;
 
     /**
      * @param string $eventIdentifier
@@ -42,43 +30,8 @@ class SkippedDispatchResult implements SkippedDispatchResultInterface
         DateTimeImmutable $dispatchedAt,
         string $dispatcherType
     ) {
-        $this->eventIdentifier = $eventIdentifier;
-        $this->eventCommand = $eventCommand;
+        parent::__construct($eventIdentifier, $eventCommand, $dispatcherType, $dispatchedAt);
         $this->reason = $reason;
-        $this->dispatchedAt = $dispatchedAt;
-        $this->dispatcherType = $dispatcherType;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventIdentifier(): string
-    {
-        return $this->eventIdentifier;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventCommand(): string
-    {
-        return $this->eventCommand;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatcherType(): string
-    {
-        return $this->dispatcherType;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatchedAt(): DateTimeImmutable
-    {
-        return $this->dispatchedAt;
     }
 
     /**

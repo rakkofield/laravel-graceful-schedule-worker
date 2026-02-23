@@ -15,6 +15,7 @@ return [
         Illuminate\Foundation\Providers\ConsoleSupportServiceProvider::class,
         Illuminate\Foundation\Providers\FoundationServiceProvider::class,
         RakkoInc\LaravelGracefulScheduleWorker\Providers\GracefulScheduleWorkerProvider::class,
+        RakkoInc\LaravelGracefulScheduleWorker\Providers\StepFunctionsServiceProvider::class,
     ],
     'aliases' => [],
 ];

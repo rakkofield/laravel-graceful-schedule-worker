@@ -19,6 +19,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Console\SpyExceptionHandler;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Logging\PrefixedLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
@@ -164,6 +165,33 @@ class GracefulScheduleWorkerProviderTest extends TestCase
         $clock2 = $this->app->make(ClockInterface::class);
 
         $this->assertSame($clock1, $clock2);
+    }
+
+    /**
+     * @testdox GP.2a Registers PrefixedLogger singleton under graceful-scheduler.logger
+     */
+    public function testRegistersPrefixedLoggerAsSingleton(): void
+    {
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound('graceful-scheduler.logger'));
+        $this->assertTrue($this->app->isShared('graceful-scheduler.logger'));
+
+        $logger = $this->app->make('graceful-scheduler.logger');
+        $this->assertInstanceOf(PrefixedLogger::class, $logger);
+    }
+
+    /**
+     * @testdox GP.2b PrefixedLogger singleton returns the same instance
+     */
+    public function testPrefixedLoggerReturnsSameInstance(): void
+    {
+        $this->provider->register();
+
+        $logger1 = $this->app->make('graceful-scheduler.logger');
+        $logger2 = $this->app->make('graceful-scheduler.logger');
+
+        $this->assertSame($logger1, $logger2);
     }
 
     /**

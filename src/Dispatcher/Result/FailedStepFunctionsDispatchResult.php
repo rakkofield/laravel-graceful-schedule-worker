@@ -10,19 +10,10 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 /**
  * Failure result class for StepFunctionsDispatcher.
  */
-class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
+class FailedStepFunctionsDispatchResult extends AbstractDispatchResult implements FailedDispatchResultInterface
 {
     /** @var string */
     private $executionName;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var DateTimeImmutable */
-    private $dispatchedAt;
 
     /** @var string */
     private $error;
@@ -38,7 +29,7 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
      * @param \Throwable|null $exception
      * @param DateTimeImmutable $dispatchedAt
      */
-    public function __construct(
+    private function __construct(
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
@@ -46,12 +37,10 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
         ?\Throwable $exception,
         DateTimeImmutable $dispatchedAt
     ) {
+        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::STEP_FUNCTIONS, $dispatchedAt);
         $this->executionName = $executionName;
-        $this->eventIdentifier = $eventIdentifier;
-        $this->eventCommand = $eventCommand;
         $this->error = $error;
         $this->exception = $exception;
-        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**
@@ -89,38 +78,6 @@ class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
     public function getError(): string
     {
         return $this->error;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventIdentifier(): string
-    {
-        return $this->eventIdentifier;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventCommand(): string
-    {
-        return $this->eventCommand;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatcherType(): string
-    {
-        return DispatcherType::STEP_FUNCTIONS;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatchedAt(): DateTimeImmutable
-    {
-        return $this->dispatchedAt;
     }
 
     /**

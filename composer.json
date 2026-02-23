@@ -70,7 +70,8 @@
     "extra": {
         "laravel": {
             "providers": [
-                "RakkoInc\\LaravelGracefulScheduleWorker\\Providers\\GracefulScheduleWorkerProvider"
+                "RakkoInc\\LaravelGracefulScheduleWorker\\Providers\\GracefulScheduleWorkerProvider",
+                "RakkoInc\\LaravelGracefulScheduleWorker\\Providers\\StepFunctionsServiceProvider"
             ]
         }
     },

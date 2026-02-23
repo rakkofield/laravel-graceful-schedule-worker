@@ -6,12 +6,23 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 /**
  * @testdox FailedStepFunctionsDispatchResult
  */
 class FailedStepFunctionsDispatchResultTest extends TestCase
 {
+    /**
+     * @testdox FSR.9 constructor is private, enforcing use of failed() factory
+     */
+    public function testConstructorIsPrivate(): void
+    {
+        $constructor = new ReflectionMethod(FailedStepFunctionsDispatchResult::class, '__construct');
+
+        $this->assertTrue($constructor->isPrivate());
+    }
+
     /**
      * @testdox FSR.1 failed() returns FailedDispatchResultInterface
      */
