@@ -353,7 +353,7 @@ Information required as input to the State Machine:
   "mutexName": "schedule-reports:generate",
   "dueAt": "2024-01-01T03:00:00Z",
   "lockKey": "schedule-reports-generate-1704067200",
-  "ttl": 3600
+  "expiresAt": 1704070800
 }
 ```
 
@@ -361,7 +361,7 @@ Information required as input to the State Machine:
 - `mutexName`: Laravel event identifier
 - `dueAt`: The original due time (can be used for idempotency checks)
 - `lockKey`: DynamoDB lock key (generated from mutexName and dueAt)
-- `ttl`: Lock TTL in seconds
+- `expiresAt`: Lock expiration time (Unix timestamp, calculated as dueAt + lockTtlSeconds)
 
 ---
 
@@ -412,7 +412,7 @@ Attributes:
   - lockKey: "{mutexName}-{dueAtTimestamp}"
   - executionArn: Step Functions execution ARN
   - acquiredAt: Lock acquisition time (for TTL)
-  - ttl: Expiration time (Unix timestamp)
+  - expiresAt: Expiration time (Unix timestamp)
 ```
 
 #### AcquireLock State Implementation Example
@@ -428,7 +428,7 @@ Attributes:
         "lockKey": {"S.$": "$.mutexName"},
         "executionArn": {"S.$": "$$.Execution.Id"},
         "acquiredAt": {"S.$": "$$.State.EnteredTime"},
-        "ttl": {"N": "<calculated_ttl>"}
+        "expiresAt": {"N.$": "$.expiresAt"}
       },
       "ConditionExpression": "attribute_not_exists(lockKey)"
     },

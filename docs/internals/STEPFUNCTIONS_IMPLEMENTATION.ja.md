@@ -412,7 +412,7 @@ Exactly-once に近い実行保証が必要な場合、DynamoDB を使った分�
   - lockKey: "{mutexName}-{dueAtTimestamp}"
   - executionArn: Step Functions の実行 ARN
   - acquiredAt: ロック取得時刻（TTL 用）
-  - ttl: 有効期限（Unix timestamp）
+  - expiresAt: 有効期限（Unix timestamp）
 ```
 
 #### AcquireLock State の実装例
@@ -428,7 +428,7 @@ Exactly-once に近い実行保証が必要な場合、DynamoDB を使った分�
         "lockKey": {"S.$": "$.mutexName"},
         "executionArn": {"S.$": "$$.Execution.Id"},
         "acquiredAt": {"S.$": "$$.State.EnteredTime"},
-        "ttl": {"N": "<calculated_ttl>"}
+        "expiresAt": {"N.$": "$.expiresAt"}
       },
       "ConditionExpression": "attribute_not_exists(lockKey)"
     },
