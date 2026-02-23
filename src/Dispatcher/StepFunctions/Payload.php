@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 /**
  * Immutable DTO representing the Step Functions StartExecution input payload.
  */
-class Payload
+class Payload implements PayloadInterface
 {
     /** @var string */
     private $command;

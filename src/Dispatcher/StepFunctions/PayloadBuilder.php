@@ -29,9 +29,9 @@ class PayloadBuilder implements PayloadBuilderInterface
     /**
      * {@inheritdoc}
      */
-    public function build(ClockAwareEvent $event, DateTimeInterface $dueAt, int $lockTtlSeconds): Payload
+    public function build(ClockAwareEvent $event, DateTimeInterface $dueAt, int $lockTtlSeconds): PayloadInterface
     {
-        $command = $event->getRawCommand() ?? $event->command;
+        $command = $event->getEffectiveCommand();
         $mutexName = $event->mutexName();
         $lockKey = $this->lockKeyGenerator->generate($mutexName, $dueAt, $event->withoutOverlapping);
         $ttl = $dueAt->getTimestamp() + $lockTtlSeconds;

@@ -11,7 +11,10 @@ use DateTimeImmutable;
  */
 class FakeStepFunctionsClient implements StepFunctionsClientInterface
 {
-    /** @var array<int, array{stateMachineArn: string, name: string, input: string, executionArn: string, startDate: DateTimeImmutable}> */
+    /** @var string */
+    private $stateMachineArn;
+
+    /** @var array<int, array{name: string, input: string, executionArn: string, startDate: DateTimeImmutable}> */
     private $executions = [];
 
     /** @var array<string, true> */
@@ -21,9 +24,17 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
     private $nextError = null;
 
     /**
+     * @param string $stateMachineArn
+     */
+    public function __construct(string $stateMachineArn = '')
+    {
+        $this->stateMachineArn = $stateMachineArn;
+    }
+
+    /**
      * {@inheritdoc}
      */
-    public function startExecution(array $args): StartExecutionResult
+    public function startExecution(StartExecutionInput $input): StartExecutionResult
     {
         if ($this->nextError !== null) {
             $error = $this->nextError;
@@ -31,7 +42,7 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
             throw $error;
         }
 
-        $name = $args['name'] ?? 'unnamed-' . count($this->executions);
+        $name = $input->getName();
 
         if (isset($this->existingExecutions[$name])) {
             throw new ExecutionAlreadyExistsException($name);
@@ -44,9 +55,8 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
         $startDate = new DateTimeImmutable();
 
         $this->executions[] = [
-            'stateMachineArn' => $args['stateMachineArn'],
             'name' => $name,
-            'input' => $args['input'] ?? '{}',
+            'input' => $input->getInput(),
             'executionArn' => $executionArn,
             'startDate' => $startDate,
         ];
@@ -55,6 +65,14 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
         $this->existingExecutions[$name] = true;
 
         return new StartExecutionResult($executionArn, $startDate);
+    }
+
+    /**
+     * @return string
+     */
+    public function getStateMachineArn(): string
+    {
+        return $this->stateMachineArn;
     }
 
     /**
@@ -105,7 +123,6 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
      * Get the list of executed Executions
      *
      * @return array<int, array{
-     *     stateMachineArn: string,
      *     name: string,
      *     input: string,
      *     executionArn: string,
@@ -121,7 +138,6 @@ class FakeStepFunctionsClient implements StepFunctionsClientInterface
      * Get the last executed Execution
      *
      * @return array{
-     *     stateMachineArn: string,
      *     name: string,
      *     input: string,
      *     executionArn: string,

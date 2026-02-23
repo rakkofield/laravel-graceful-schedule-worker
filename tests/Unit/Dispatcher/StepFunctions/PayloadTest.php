@@ -47,6 +47,7 @@ class PayloadTest extends TestCase
             3600
         );
 
+        $this->assertInstanceOf(PayloadInterface::class, $payload);
         $this->assertSame('php artisan test', $payload->getCommand());
         $this->assertSame('my-mutex', $payload->getMutexName());
         $this->assertSame('2024-01-15T10:30:00+09:00', $payload->getDueAt());

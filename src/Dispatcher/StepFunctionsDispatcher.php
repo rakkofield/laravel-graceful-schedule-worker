@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use InvalidArgumentException;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
@@ -14,6 +13,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunction
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilderInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInput;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -30,9 +30,6 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /** @var StepFunctionsClientInterface */
     private $client;
 
-    /** @var string */
-    private $stateMachineArn;
-
     /** @var ExecutionNameGeneratorInterface */
     private $nameGenerator;
 
@@ -47,7 +44,6 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
 
     /**
      * @param StepFunctionsClientInterface $client
-     * @param string $stateMachineArn
      * @param ExecutionNameGeneratorInterface $nameGenerator
      * @param ClockInterface $clock
      * @param int $lockTtlSeconds
@@ -55,20 +51,12 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
      */
     public function __construct(
         StepFunctionsClientInterface $client,
-        string $stateMachineArn,
         ExecutionNameGeneratorInterface $nameGenerator,
         ClockInterface $clock,
         int $lockTtlSeconds,
         PayloadBuilderInterface $payloadBuilder
     ) {
-        if ($stateMachineArn === '') {
-            throw new InvalidArgumentException(
-                'stateMachineArn cannot be empty.'
-                . ' Please set graceful-scheduler.stepfunctions.state_machine_arn in your config.'
-            );
-        }
         $this->client = $client;
-        $this->stateMachineArn = $stateMachineArn;
         $this->nameGenerator = $nameGenerator;
         $this->clock = $clock;
         $this->lockTtlSeconds = $lockTtlSeconds;
@@ -83,17 +71,14 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();
-        $command = $event->getRawCommand() ?? $event->command;
+        $payload = $this->payloadBuilder->build($event, $dueAt, $this->lockTtlSeconds);
+        $command = $payload->getCommand();
         $executionName = $this->nameGenerator->generate($event, $dueAt);
 
         try {
-            $payload = $this->payloadBuilder->build($event, $dueAt, $this->lockTtlSeconds);
-
-            $result = $this->client->startExecution([
-                'stateMachineArn' => $this->stateMachineArn,
-                'name' => $executionName,
-                'input' => $payload->toJson(),
-            ]);
+            $result = $this->client->startExecution(
+                new StartExecutionInput($executionName, $payload->toJson())
+            );
 
             return new StartedStepFunctionsDispatchResult(
                 $result->getExecutionArn(),

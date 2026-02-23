@@ -46,7 +46,7 @@ class StepFunctionsServiceProvider extends ServiceProvider
             /** @var ConfigRepository $config */
             $config = $app->make('config');
 
-            /** @var array{region?: string, version?: string, credentials?: array{key?: string, secret?: string}, endpoint?: string} $sfConfig */
+            /** @var array{region?: string, version?: string, credentials?: array{key?: string, secret?: string}, endpoint?: string, state_machine_arn?: string} $sfConfig */
             $sfConfig = $config->get('graceful-scheduler.stepfunctions', []);
 
             $clientConfig = [
@@ -67,7 +67,10 @@ class StepFunctionsServiceProvider extends ServiceProvider
 
             $client = new SfnClient($clientConfig);
 
-            return new AwsSfnClientAdapter($client);
+            /** @var string $stateMachineArn */
+            $stateMachineArn = $config->get('graceful-scheduler.stepfunctions.state_machine_arn', '');
+
+            return new AwsSfnClientAdapter($client, $stateMachineArn);
         });
     }
 
@@ -111,9 +114,6 @@ class StepFunctionsServiceProvider extends ServiceProvider
             /** @var ConfigRepository $config */
             $config = $app->make('config');
 
-            /** @var string $stateMachineArn */
-            $stateMachineArn = $config->get('graceful-scheduler.stepfunctions.state_machine_arn', '');
-
             /** @var StepFunctionsClientInterface $client */
             $client = $app->make(StepFunctionsClientInterface::class);
 
@@ -132,7 +132,6 @@ class StepFunctionsServiceProvider extends ServiceProvider
 
             return new StepFunctionsDispatcher(
                 $client,
-                $stateMachineArn,
                 $nameGenerator,
                 $clock,
                 $lockTtl,

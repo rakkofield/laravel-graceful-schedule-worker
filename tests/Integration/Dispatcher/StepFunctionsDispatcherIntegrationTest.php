@@ -122,13 +122,12 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     private function createDispatcher(
         ExecutionNameGeneratorInterface $nameGenerator = null
     ): StepFunctionsDispatcher {
-        $adapter = new AwsSfnClientAdapter($this->sfnClient);
+        $adapter = new AwsSfnClientAdapter($this->sfnClient, self::$stateMachineArn);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $sanitizer = new MutexNameSanitizer();
         $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
         return new StepFunctionsDispatcher(
             $adapter,
-            self::$stateMachineArn,
             $nameGenerator ?? new ExecutionNameGenerator($sanitizer),
             $clock,
             3600,

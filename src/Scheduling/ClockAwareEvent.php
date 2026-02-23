@@ -165,6 +165,18 @@ class ClockAwareEvent extends Event
     }
 
     /**
+     * Get the effective command string for this event.
+     *
+     * Returns rawCommand if set, otherwise falls back to the command property.
+     *
+     * @return string
+     */
+    public function getEffectiveCommand(): string
+    {
+        return $this->rawCommand ?? $this->command;
+    }
+
+    /**
      * @param string $rawCommand
      * @return void
      */

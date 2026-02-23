@@ -57,7 +57,7 @@ class PayloadBuilderTest extends TestCase
     }
 
     /**
-     * @testdox PB.1 build returns Payload with correct command
+     * @testdox PB.1 build returns PayloadInterface with correct command
      */
     public function testBuildReturnsPayloadWithCorrectCommand(): void
     {
@@ -66,6 +66,7 @@ class PayloadBuilderTest extends TestCase
 
         $payload = $this->builder->build($event, $dueAt, 3600);
 
+        $this->assertInstanceOf(PayloadInterface::class, $payload);
         $this->assertSame('php artisan report:daily', $payload->getCommand());
     }
 

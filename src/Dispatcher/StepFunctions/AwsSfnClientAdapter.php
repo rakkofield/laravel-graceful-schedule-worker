@@ -7,6 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 use Aws\Exception\AwsException;
 use Aws\Sfn\SfnClient;
 use DateTimeInterface;
+use InvalidArgumentException;
 
 /**
  * Adapter for the AWS SDK SfnClient.
@@ -18,21 +19,36 @@ class AwsSfnClientAdapter implements StepFunctionsClientInterface
     /** @var SfnClient */
     private $client;
 
+    /** @var string */
+    private $stateMachineArn;
+
     /**
      * @param SfnClient $client
+     * @param string $stateMachineArn
      */
-    public function __construct(SfnClient $client)
+    public function __construct(SfnClient $client, string $stateMachineArn)
     {
+        if ($stateMachineArn === '') {
+            throw new InvalidArgumentException(
+                'stateMachineArn cannot be empty.'
+                . ' Please set graceful-scheduler.stepfunctions.state_machine_arn in your config.'
+            );
+        }
         $this->client = $client;
+        $this->stateMachineArn = $stateMachineArn;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function startExecution(array $args): StartExecutionResult
+    public function startExecution(StartExecutionInput $input): StartExecutionResult
     {
         try {
-            $result = $this->client->startExecution($args);
+            $result = $this->client->startExecution([
+                'stateMachineArn' => $this->stateMachineArn,
+                'name' => $input->getName(),
+                'input' => $input->getInput(),
+            ]);
 
             /** @var string $executionArn */
             $executionArn = $result['executionArn'];
@@ -42,8 +58,7 @@ class AwsSfnClientAdapter implements StepFunctionsClientInterface
             return new StartExecutionResult($executionArn, $startDate);
         } catch (AwsException $e) {
             if ($e->getAwsErrorCode() === 'ExecutionAlreadyExists') {
-                $name = $args['name'] ?? 'unknown';
-                throw new ExecutionAlreadyExistsException($name, $e->getMessage());
+                throw new ExecutionAlreadyExistsException($input->getName(), $e->getMessage());
             }
 
             throw new StepFunctionsException($e->getMessage(), (int) $e->getCode(), $e);

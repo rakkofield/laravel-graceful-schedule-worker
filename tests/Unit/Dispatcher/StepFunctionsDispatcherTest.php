@@ -54,7 +54,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->app->bind(EventMutex::class, function () {
             return $this->mutex;
         });
-        $this->client = new FakeStepFunctionsClient();
+        $this->client = new FakeStepFunctionsClient($this->stateMachineArn);
         $this->dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
     }
 
@@ -77,7 +77,6 @@ class StepFunctionsDispatcherTest extends TestCase
         $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
         return new StepFunctionsDispatcher(
             $this->client,
-            $this->stateMachineArn,
             new ExecutionNameGenerator($sanitizer),
             $clock,
             3600,
@@ -189,18 +188,11 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.7 Correct stateMachineArn is used
+     * @testdox SFD.7 Correct stateMachineArn is passed to client
      */
     public function testUsesCorrectStateMachineArn(): void
     {
-        $dispatcher = $this->createDispatcher();
-        $event = $this->createEvent('php artisan report:daily');
-
-        $dispatcher->dispatchEvent($event, $this->dueAt);
-
-        $execution = $this->client->getLastExecution();
-        $this->assertNotNull($execution);
-        $this->assertSame($this->stateMachineArn, $execution['stateMachineArn']);
+        $this->assertSame($this->stateMachineArn, $this->client->getStateMachineArn());
     }
 
     /**
@@ -300,27 +292,6 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
         $this->assertStringContainsString('Failed to encode input JSON', $result->getError());
-    }
-
-    /**
-     * @testdox SFD.15 Constructor throws InvalidArgumentException for empty stateMachineArn
-     */
-    public function testConstructorThrowsForEmptyStateMachineArn(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('stateMachineArn cannot be empty');
-
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $sanitizer = new MutexNameSanitizer();
-        $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
-        new StepFunctionsDispatcher(
-            $this->client,
-            '',
-            new ExecutionNameGenerator($sanitizer),
-            $clock,
-            3600,
-            $payloadBuilder
-        );
     }
 
     /**
@@ -454,7 +425,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $executions1 = $this->client->getLastExecution();
 
         // Reset client for second dispatch
-        $this->client = new FakeStepFunctionsClient();
+        $this->client = new FakeStepFunctionsClient($this->stateMachineArn);
         $dispatcher = $this->createDispatcher();
 
         $dispatcher->dispatchEvent($event2, $dueAt2);

@@ -658,4 +658,42 @@ class ClockAwareEventTest extends TestCase
 
         $this->assertSame('report:daily', $event->getRawCommand());
     }
+
+    /**
+     * @testdox CE.32 getEffectiveCommand returns rawCommand when set
+     */
+    public function testGetEffectiveCommandReturnsRawCommandWhenSet(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+
+        $event->setRawCommand('report:daily');
+
+        $this->assertSame('report:daily', $event->getEffectiveCommand());
+    }
+
+    /**
+     * @testdox CE.33 getEffectiveCommand falls back to command when rawCommand is null
+     */
+    public function testGetEffectiveCommandFallsBackToCommand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+
+        $this->assertSame('php artisan test', $event->getEffectiveCommand());
+    }
 }

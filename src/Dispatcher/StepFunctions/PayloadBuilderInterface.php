@@ -22,7 +22,7 @@ interface PayloadBuilderInterface
      * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
      * @param int $lockTtlSeconds
-     * @return Payload
+     * @return PayloadInterface
      */
-    public function build(ClockAwareEvent $event, DateTimeInterface $dueAt, int $lockTtlSeconds): Payload;
+    public function build(ClockAwareEvent $event, DateTimeInterface $dueAt, int $lockTtlSeconds): PayloadInterface;
 }
