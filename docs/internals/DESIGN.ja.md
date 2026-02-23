@@ -336,10 +336,47 @@ classDiagram
     }
 
     class StepFunctionsDispatcher {
-        -client SfnClient
-        -stateMachineArn string
-        -tracker ExecutionTrackerInterface
+        -client StepFunctionsClientInterface
+        -inputFactory StartExecutionInputFactoryInterface
+        -clock ClockInterface
         +dispatchEvent(event, container) DispatchResultInterface
+    }
+
+    class StepFunctionsClientInterface {
+        <<interface>>
+        +startExecution(input) StartExecutionResult
+    }
+
+    class StartExecutionInputFactoryInterface {
+        <<interface>>
+        +create(event, dueAt) StartExecutionInput
+    }
+
+    class StartExecutionInputFactory {
+        -nameGenerator ExecutionNameGeneratorInterface
+        -payloadBuilder PayloadBuilderInterface
+        -lockTtlSeconds int
+        +create(event, dueAt) StartExecutionInput
+    }
+
+    class PayloadBuilderInterface {
+        <<interface>>
+        +build(event, dueAt, lockTtlSeconds) PayloadInterface
+    }
+
+    class PayloadBuilder {
+        -lockKeyGenerator LockKeyGenerator
+        +build(event, dueAt, lockTtlSeconds) PayloadInterface
+    }
+
+    class LockKeyGenerator {
+        -sanitizer MutexNameSanitizer
+        +generate(mutexName, dueAt, withoutOverlapping) string
+    }
+
+    class MutexNameSanitizer {
+        +buildIdentifier(mutexName, timestamp) string
+        +buildStableKey(mutexName) string
     }
 
     %% Tracker パターン
@@ -415,8 +452,13 @@ classDiagram
     CompositeDispatcher --> ScheduleDispatcherInterface : 委譲
 
     LocalDispatcher --> Schedule : 使用
-    StepFunctionsDispatcher --> Schedule : 使用
-    StepFunctionsDispatcher --> ExecutionTrackerInterface : 使用（オプション）
+    StepFunctionsDispatcher --> StepFunctionsClientInterface : 使用
+    StepFunctionsDispatcher --> StartExecutionInputFactoryInterface : 使用
+    StartExecutionInputFactory ..|> StartExecutionInputFactoryInterface
+    StartExecutionInputFactory --> PayloadBuilderInterface : 使用
+    PayloadBuilder ..|> PayloadBuilderInterface
+    PayloadBuilder --> LockKeyGenerator : 使用
+    LockKeyGenerator --> MutexNameSanitizer : 使用
 
     CacheExecutionTracker --> Event : 使用
 
@@ -445,7 +487,6 @@ sequenceDiagram
     participant TDisp as TrackingDispatcher
     participant Track as ExecutionTrackerInterface
     participant Comp as CompositeDispatcher
-    participant Event as ClockAwareEvent
     participant Local as LocalDispatcher
 
     Cmd->>Orch: run(schedule, app, shouldContinue)
@@ -582,69 +623,69 @@ sequenceDiagram
 #### データフロー概要
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Kernel.php                                  │
-│  use UsesClockAwareSchedule;  // trait が自動登録を担当             │
-│                                                                     │
-│  protected function gracefulSchedule(ClockAwareSchedule $schedule)  │
-│  {                                                                  │
-│      $schedule->command('report:daily')                             │
-│          ->dailyAt('03:00')                                         │
-│          ->withGracePeriod(120)                                     │
-│          ->dispatchVia('stepfunctions');  // ← Dispatcher指定      │
-│  }                                                                  │
-└─────────────────────┬───────────────────────────────────────────────┘
-                      │
-                      │ ClockAwareSchedule は ClockAwareEvent を生成
-                      ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│              GracefulScheduleWorkCommand                            │
-│  - ScheduleOrchestratorInterface を注入                             │
-│  - ClockAwareSchedule を注入                                        │
-└─────────────────────┬───────────────────────────────────────────────┘
-                      │
-                      │ Orchestrator に処理を委譲
-                      ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│                 ScheduleOrchestratorInterface                       │
-│  - CompositeDispatcher を使用                                       │
-│  - ExecutionTrackerInterface を使用（オプション）                   │
-│  - 毎分のループ制御                                                 │
-│  - イベントごとに dispatcher.dispatchEvent() を呼び出し             │
-│  - 取りこぼしチェック・リカバリ                                     │
-└─────────────────────┬───────────────────────────────────────────────┘
-                      │
-                      │ CompositeDispatcher がイベントから type を解決
-                      ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│               CompositeDispatcher                                   │
-│  - event.getDispatcherType() で type を取得                         │
-│  - dispatchers[type] にディスパッチ                                 │
-│  - dispatchers[type].dispatchEvent() に委譲                         │
-└─────────────────────┬───────────────────────────────────────────────┘
-                      │
-                      │ 適切な Dispatcher に委譲
-                      ↓
-        ┌─────────────┴─────────────┐
-        │                           │
-        ↓                           ↓
-┌───────────────┐          ┌──────────────────────┐
-│LocalDispatcher│          │StepFunctionsDispatcher│
-│               │          │                      │
-│ イベントを    │          │ ExecutionTrackerInterface│
-│ ローカルで    │          │ ├─ markExecuted()    │
-│ 実行          │          │ ├─ wasMissed()       │
-│               │          │ └─ acquireLock()     │
-│               │          │ （オプション）       │
-└───────────────┘          └──────────┬───────────┘
-                                      │
-                                      │ SfnClient::startExecution()
-                                      ↓
-                           ┌─────────────────────┐
-                           │ AWS Step Functions  │
-                           │ - State Machine     │
-                           │ - Execute Command   │
-                           └─────────────────────┘
++---------------------------------------------------------------------+
+|                         Kernel.php                                    |
+|  use UsesClockAwareSchedule;  // trait が自動登録を担当              |
+|                                                                       |
+|  protected function gracefulSchedule(ClockAwareSchedule $schedule)    |
+|  {                                                                    |
+|      $schedule->command('report:daily')                               |
+|          ->dailyAt('03:00')                                           |
+|          ->withGracePeriod(120)                                       |
+|          ->dispatchVia('stepfunctions');  // <- Dispatcher指定        |
+|  }                                                                    |
++---------------------+---------------------------------------------+
+                      |
+                      | ClockAwareSchedule は ClockAwareEvent を生成
+                      v
++---------------------------------------------------------------------+
+|              GracefulScheduleWorkCommand                              |
+|  - ScheduleOrchestratorInterface を注入                               |
+|  - ClockAwareSchedule を注入                                         |
++---------------------+---------------------------------------------+
+                      |
+                      | Orchestrator に処理を委譲
+                      v
++---------------------------------------------------------------------+
+|                 ScheduleOrchestratorInterface                         |
+|  - CompositeDispatcher を使用                                        |
+|  - ExecutionTrackerInterface を使用（オプション）                     |
+|  - 毎分のループ制御                                                  |
+|  - イベントごとに dispatcher.dispatchEvent() を呼び出し              |
+|  - 取りこぼしチェック・リカバリ                                      |
++---------------------+---------------------------------------------+
+                      |
+                      | CompositeDispatcher がイベントから type を解決
+                      v
++---------------------------------------------------------------------+
+|               CompositeDispatcher                                     |
+|  - event.getDispatcherType() で type を取得                          |
+|  - dispatchers[type] にディスパッチ                                  |
+|  - dispatchers[type].dispatchEvent() に委譲                          |
++---------------------+---------------------------------------------+
+                      |
+                      | 適切な Dispatcher に委譲
+                      v
+        +-------------+-------------+
+        |                           |
+        v                           v
++---------------+          +----------------------+
+|LocalDispatcher|          |StepFunctionsDispatcher|
+|               |          |                      |
+| イベントを    |          | ExecutionTrackerInterface|
+| ローカルで    |          | +-- markExecuted()   |
+| 実行          |          | +-- wasMissed()      |
+|               |          | +-- acquireLock()    |
+|               |          | （オプション）       |
++---------------+          +----------+-----------+
+                                      |
+                                      | SfnClient::startExecution()
+                                      v
+                           +---------------------+
+                           | AWS Step Functions  |
+                           | - State Machine     |
+                           | - Execute Command   |
+                           +---------------------+
 ```
 
 **重要なポイント**:
@@ -660,23 +701,15 @@ sequenceDiagram
 
 ### ClockInterface
 
-時刻を抽出するインターフェースです。テスト時に時刻を固定できます。
+時刻を抽象化するインターフェースです。テスト時に時刻を固定できます。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `now` | — | `DateTimeImmutable` | 現在時刻を取得する |
 
-interface ClockInterface
-{
-    /**
-     * 現在時刻を取得する
-     *
-     * @return \DateTimeImmutable 現在時刻
-     */
-    public function now(): \DateTimeImmutable;
-}
-```
+→ ソース: `src/Clock/ClockInterface.php`
 
 **実装**:
 
@@ -685,608 +718,114 @@ interface ClockInterface
 
 ### ClockAwareEvent
 
-拡張メソッドを提供する Event クラスです。
+拡張メソッドを提供する Event クラスです。`Illuminate\Console\Scheduling\Event` を継承し、Clock 対応、リカバリ設定、Dispatcher タイプ選択機能を追加します。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `withGracePeriod` | `(?int $minutes = null)` | `$this` | リカバリを有効化（猶予期間を設定）。`null` で無制限 |
+| `enableRecovery` | — | `$this` | リカバリを有効化（猶予期間なし = 無制限） |
+| `dispatchVia` | `(string $type)` | `$this` | Dispatcher タイプを指定（`'local'` または `'stepfunctions'`） |
+| `getDispatcherType` | — | `?string` | 指定された Dispatcher タイプを取得（未指定の場合は `null`） |
 
-use Illuminate\Console\Scheduling\Event;
-
-class ClockAwareEvent extends Event
-{
-    /** @var ClockInterface */
-    protected $clock;
-
-    /** @var \DateInterval|null */
-    protected $gracePeriod = null;
-
-    /** @var bool */
-    protected $recoverable = false;  // デフォルトはリカバリしない（安全性優先）
-
-    /** @var string|null */
-    protected $dispatcherType = null;  // 'local' | 'stepfunctions' | null（デフォルト使用）
-
-    /**
-     * コンストラクタ
-     *
-     * @param \Illuminate\Console\Scheduling\Mutex $mutex
-     * @param string $command
-     * @param ClockInterface $clock
-     * @param \DateTimeZone|string|null $timezone
-     */
-    public function __construct($mutex, $command, ClockInterface $clock, $timezone = null)
-    {
-        parent::__construct($mutex, $command, $timezone);
-        $this->clock = $clock;
-    }
-
-    /**
-     * リカバリを有効化（猶予期間を設定）
-     *
-     * @param int|null $minutes 猶予期間（分）。nullの場合は無制限
-     * @return $this
-     */
-    public function withGracePeriod(?int $minutes = null): self
-    {
-        $this->recoverable = true;
-
-        if ($minutes !== null && $minutes > 0) {
-            $this->gracePeriod = new \DateInterval("PT{$minutes}M");
-        } else {
-            $this->gracePeriod = null;  // 無制限
-        }
-
-        return $this;
-    }
-
-    /**
-     * リカバリを有効化（猶予期間なし）
-     *
-     * @return $this
-     */
-    public function enableRecovery(): self
-    {
-        $this->recoverable = true;
-        $this->gracePeriod = null;  // 無制限
-        return $this;
-    }
-
-    /**
-     * Dispatcher タイプを指定
-     *
-     * @param string $type 'local' または 'stepfunctions'
-     * @return $this
-     */
-    public function dispatchVia(string $type): self
-    {
-        $this->dispatcherType = $type;
-        return $this;
-    }
-
-    /**
-     * 指定されたDispatcherタイプを取得
-     *
-     * @return string|null Dispatcherタイプ（未指定の場合はnull）
-     */
-    public function getDispatcherType()
-    {
-        return $this->dispatcherType;
-    }
-}
-```
+→ ソース: `src/Scheduling/ClockAwareEvent.php`
 
 ### ScheduleOrchestratorInterface
 
 スケジュール実行の全体調整を行うインターフェースです。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `run` | `(ClockAwareSchedule $schedule, Application $app, callable $shouldContinue)` | `bool` | スケジュールされたタスクを調整・実行する。実行成功なら true |
 
-use Illuminate\Contracts\Foundation\Application;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
-
-interface ScheduleOrchestratorInterface
-{
-    /**
-     * スケジュールされたタスクを調整・実行する
-     *
-     * @param ClockAwareSchedule $schedule Clock対応のスケジュールオブジェクト
-     * @param Application $app Laravel アプリケーションインスタンス
-     * @param callable $shouldContinue 実行継続の判定関数
-     * @return bool 実行が成功したかどうか
-     */
-    public function run(ClockAwareSchedule $schedule, Application $app, callable $shouldContinue): bool;
-}
-```
+→ ソース: `src/Orchestrator/ScheduleOrchestratorInterface.php`
 
 ### CompositeDispatcher
 
-複数のDispatcherを保持し、イベントのdispatcherTypeに応じて適切なDispatcherに委譲するクラスです。
+複数のDispatcherを保持し、イベントの `dispatcherType` に応じて適切なDispatcherに委譲するクラスです。`ScheduleDispatcherInterface` を実装します。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `dispatchEvent` | `(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt)` | `DispatchResultInterface` | `event->getDispatcherType()` に基づいて適切な Dispatcher に委譲 |
+| `cleanup` | — | `void` | 全 Dispatcher の完了プロセスをクリーンアップ |
+| `stopAll` | — | `void` | 全 Dispatcher の実行中プロセスを停止 |
 
-use DateTimeInterface;
-use Illuminate\Container\Container;
-use Psr\Log\LoggerInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+コンストラクタに少なくとも1つの Dispatcher が必要です。空の Dispatcher 配列や不明な Dispatcher タイプに対して `InvalidArgumentException` をスローします。
 
-/**
- * 複数のDispatcherを保持し、event.typeに応じて委譲する
- */
-class CompositeDispatcher implements ScheduleDispatcherInterface
-{
-    /** @var array<string, ScheduleDispatcherInterface> */
-    private $dispatchers;
+DI 登録は Registrar パターンで行われます（`src/Providers/` 参照）。`ScheduleDispatcherInterface` のバインディングは `TrackingDispatcher` でデコレータとしてラップされます。
 
-    /** @var LoggerInterface */
-    private $logger;
-
-    /**
-     * @param array<string, ScheduleDispatcherInterface> $dispatchers
-     * @param LoggerInterface $logger Logger
-     * @throws \InvalidArgumentException dispatchers が空の場合
-     */
-    public function __construct(array $dispatchers, LoggerInterface $logger)
-    {
-        if (empty($dispatchers)) {
-            throw new \InvalidArgumentException('Dispatchers array cannot be empty');
-        }
-
-        $this->dispatchers = $dispatchers;
-        $this->logger = $logger;
-    }
-
-    /**
-     * 単一イベントをディスパッチする
-     *
-     * @param ClockAwareEvent $event 実行するスケジュールイベント
-     * @param Container $container Laravel コンテナインスタンス
-     * @param DateTimeInterface $dueAt 実行予定時刻
-     * @return DispatchResultInterface ディスパッチ結果
-     */
-    public function dispatchEvent(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
-        $type = $event->getDispatcherType();
-
-        if (!isset($this->dispatchers[$type])) {
-            $availableTypes = implode(', ', array_keys($this->dispatchers));
-            throw new \InvalidArgumentException(
-                "Unknown dispatcher type: {$type}. Available types: {$availableTypes}"
-            );
-        }
-
-        return $this->dispatchers[$type]->dispatchEvent($event, $container, $dueAt);
-    }
-
-    public function cleanup(): void;
-    public function stopAll(): void;
-}
-```
-
-**ServiceProvider での DI**:
-
-```php
-// CompositeDispatcher を別名で登録
-$this->app->singleton(CompositeDispatcher::class, function ($app) {
-    return new CompositeDispatcher(
-        [
-            'local' => $app->make(LocalDispatcher::class),
-            'stepfunctions' => $app->make(StepFunctionsDispatcher::class),
-        ],
-        $app->make('log')
-    );
-});
-
-// ExecutionTrackerInterface は設定に応じて切り替え
-$this->app->singleton(ExecutionTrackerInterface::class, function ($app) {
-    if (config('graceful-scheduler.tracker.enabled')) {
-        return new CacheExecutionTracker(/* ... */);
-    }
-    return new NullExecutionTracker();
-});
-
-// ScheduleDispatcherInterface は TrackingDispatcher でラップ
-$this->app->singleton(ScheduleDispatcherInterface::class, function ($app) {
-    return new TrackingDispatcher(
-        $app->make(CompositeDispatcher::class),
-        $app->make(ExecutionTrackerInterface::class),
-        $app->make(LoggerInterface::class)
-    );
-});
-
-// ScheduleOrchestratorInterface は DefaultScheduleOrchestrator
-$this->app->singleton(ScheduleOrchestratorInterface::class, function ($app) {
-    return new DefaultScheduleOrchestrator(
-        $app->make(ScheduleDispatcherInterface::class),
-        $app->make(ExecutionTrackerInterface::class),
-        $app->make(ClockInterface::class),
-        $app->make(SleeperInterface::class),
-        $app->make(LoggerInterface::class)
-    );
-});
-```
+→ ソース: `src/Dispatcher/CompositeDispatcher.php`
 
 ### DispatchResultInterface
 
 Dispatcher の結果を型安全に扱うためのインターフェースです。共通メタデータを定義し、各 Dispatcher 固有の情報は具象クラスで保持します。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `getEventIdentifier` | — | `string` | イベント識別子を取得（mutex name） |
+| `getEventCommand` | — | `string` | 実行コマンドを取得（例: `"php artisan report:daily"`） |
+| `getDispatcherType` | — | `string` | Dispatcher 種別を取得（`'local'` \| `'stepfunctions'`） |
+| `getDispatchedAt` | — | `DateTimeImmutable` | ディスパッチ時刻を取得 |
 
-interface DispatchResultInterface
-{
-    /**
-     * イベントの識別子を取得（mutex name）
-     *
-     * @return string イベント識別子
-     */
-    public function getEventIdentifier(): string;
-
-    /**
-     * 実行コマンドを取得
-     *
-     * @return string 実行コマンド（例: "php artisan report:daily"）
-     */
-    public function getEventCommand(): string;
-
-    /**
-     * Dispatcher 種別を取得
-     *
-     * @return string Dispatcher 種別（'local' | 'stepfunctions'）
-     */
-    public function getDispatcherType(): string;
-
-    /**
-     * ディスパッチ時刻を取得
-     *
-     * @return \DateTimeImmutable ディスパッチ時刻
-     */
-    public function getDispatchedAt(): \DateTimeImmutable;
-}
-```
+→ ソース: `src/Dispatcher/Result/DispatchResultInterface.php`
 
 ### StartedDispatchResultInterface / AlreadyRunningDispatchResultInterface / FailedDispatchResultInterface
 
 結果の種類を型で表現するサブインターフェースです。`instanceof` 演算子で型安全に判定できます。
 
-```php
-<?php
+- **`StartedDispatchResultInterface`**: マーカーインターフェース（追加メソッドなし）。ディスパッチ成功を表す
+- **`AlreadyRunningDispatchResultInterface`**: マーカーインターフェース（追加メソッドなし）。重複実行の検出を表す（例: Step Functions `ExecutionAlreadyExists`）
+- **`FailedDispatchResultInterface`**: ディスパッチ失敗を表す。`getError(): string` と `getException(): ?Throwable` を追加
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
-
-/**
- * 成功したディスパッチ結果を表すマーカーインターフェース
- *
- * instanceof StartedDispatchResultInterface で新規開始を判定
- */
-interface StartedDispatchResultInterface extends DispatchResultInterface
-{
-    // マーカーインターフェース（メソッドなし）
-}
-
-/**
- * 既に実行中のタスクに対するディスパッチ結果を表すマーカーインターフェース
- *
- * Step Functions の ExecutionAlreadyExists など、
- * 重複実行を検出した場合に使用します。
- *
- * instanceof AlreadyRunningDispatchResultInterface で既存実行を判定
- */
-interface AlreadyRunningDispatchResultInterface extends DispatchResultInterface
-{
-    // マーカーインターフェース（メソッドなし）
-}
-
-/**
- * 失敗したディスパッチ結果を表すインターフェース
- *
- * instanceof FailedDispatchResultInterface で失敗を判定
- */
-interface FailedDispatchResultInterface extends DispatchResultInterface
-{
-    /**
-     * エラーメッセージを取得
-     *
-     * @return string エラーメッセージ
-     */
-    public function getError(): string;
-
-    /**
-     * 元の例外を取得
-     *
-     * @return \Throwable|null 例外オブジェクト（存在する場合）
-     */
-    public function getException(): ?\Throwable;
-}
-```
+→ ソース: `src/Dispatcher/Result/` ディレクトリ
 
 ### LocalDispatcher 結果クラス
 
-LocalDispatcher 用の結果クラスです。成功時は Process オブジェクトを保持し、バックグラウンドプロセスの管理を可能にします。
+LocalDispatcher 用の結果クラスです。成功時は `Process` オブジェクトを保持し、バックグラウンドプロセスの管理を可能にします。
 
-```php
-<?php
+| クラス | 実装インターフェース | Dispatcher 固有メソッド |
+|---|---|---|
+| `StartedLocalDispatchResult` | `StartedDispatchResultInterface` | `getProcess(): Process`, `isRunning(): bool`, `getExitCode(): ?int` |
+| `FailedLocalDispatchResult` | `FailedDispatchResultInterface` | — （基底の `getError()` / `getException()` を使用） |
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+両クラスとも `getDispatcherType()` は `'local'` を返します。
 
-use Symfony\Component\Process\Process;
-
-/**
- * 成功した LocalDispatcher の結果
- */
-class StartedLocalDispatchResult implements StartedDispatchResultInterface
-{
-    /** @var Process */
-    private $process;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    public function __construct(
-        Process $process,
-        string $eventIdentifier,
-        string $eventCommand,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
-
-    // DispatchResultInterface 実装
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'local'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-
-    // Local 固有メソッド
-    public function getProcess(): Process;
-    public function isRunning(): bool;
-    public function getExitCode(): ?int;
-}
-
-/**
- * 失敗した LocalDispatcher の結果
- */
-class FailedLocalDispatchResult implements FailedDispatchResultInterface
-{
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var string */
-    private $error;
-
-    /** @var \Throwable|null */
-    private $exception;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    public function __construct(
-        string $eventIdentifier,
-        string $eventCommand,
-        string $error,
-        ?\Throwable $exception = null,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
-
-    // FailedDispatchResultInterface 実装
-    public function getError(): string { return $this->error; }
-    public function getException(): ?\Throwable;
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'local'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-}
-```
-
-**使用例（Orchestrator から）:**
-
-```php
-// イベントをディスパッチ
-$result = $dispatcher->dispatchEvent($event, $container);
-
-if ($result instanceof StartedLocalDispatchResult) {
-    // ログ出力
-    Log::info('Event dispatched', [
-        'command' => $result->getEventCommand(),
-        'type' => $result->getDispatcherType(),
-        'identifier' => $result->getEventIdentifier(),
-        'at' => $result->getDispatchedAt(),
-    ]);
-
-    // プロセス管理
-    $this->runningProcesses[] = $result;
-} elseif ($result instanceof StartedDispatchResultInterface) {
-    // StepFunctions など他の成功ケース
-    Log::info('Event dispatched via ' . $result->getDispatcherType());
-} elseif ($result instanceof FailedDispatchResultInterface) {
-    Log::error('Event dispatch failed', [
-        'command' => $result->getEventCommand(),
-        'error' => $result->getError(),
-    ]);
-}
-```
+→ ソース: `src/Dispatcher/Result/StartedLocalDispatchResult.php`, `src/Dispatcher/Result/FailedLocalDispatchResult.php`
 
 ### StepFunctionsDispatcher 結果クラス
 
 StepFunctionsDispatcher 用の結果クラスです。新規開始時は `StartedStepFunctionsDispatchResult`、既存実行時は `AlreadyRunningStepFunctionsDispatchResult`、失敗時は `FailedStepFunctionsDispatchResult` を使用します。
 
-```php
-<?php
+| クラス | 実装インターフェース | StepFunctions 固有メソッド |
+|---|---|---|
+| `StartedStepFunctionsDispatchResult` | `StartedDispatchResultInterface` | `getExecutionArn(): string`, `getExecutionName(): string` |
+| `AlreadyRunningStepFunctionsDispatchResult` | `AlreadyRunningDispatchResultInterface` | `getExecutionName(): string` |
+| `FailedStepFunctionsDispatchResult` | `FailedDispatchResultInterface` | `getExecutionName(): string`, ファクトリメソッド `failed(...)` |
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+全クラスとも `getDispatcherType()` は `'stepfunctions'` を返します。
 
-/**
- * 成功した StepFunctionsDispatcher の結果
- */
-class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
-{
-    /** @var string */
-    private $executionArn;
-
-    /** @var string */
-    private $executionName;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    public function __construct(
-        string $executionArn,
-        string $executionName,
-        string $eventIdentifier,
-        string $eventCommand,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
-
-    // DispatchResultInterface 実装
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'stepfunctions'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-
-    // StepFunctions 固有メソッド
-    public function getExecutionArn(): string;
-    public function getExecutionName(): string;
-}
-
-/**
- * 既に実行中の StepFunctionsDispatcher の結果
- *
- * ExecutionAlreadyExists が発生した場合に使用します。
- */
-class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatchResultInterface
-{
-    /** @var string */
-    private $executionName;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    public function __construct(
-        string $executionName,
-        string $eventIdentifier,
-        string $eventCommand,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
-
-    // DispatchResultInterface 実装
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'stepfunctions'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-
-    // StepFunctions 固有メソッド
-    public function getExecutionName(): string;
-}
-
-/**
- * 失敗した StepFunctionsDispatcher の結果
- */
-class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
-{
-    /** @var string */
-    private $executionName;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var string */
-    private $error;
-
-    /** @var \Throwable|null */
-    private $exception;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    // ファクトリメソッド
-    public static function failed(
-        string $executionName,
-        string $identifier,
-        ?string $command,
-        string $error,
-        ?\Throwable $exception = null
-    ): self;
-
-    // FailedDispatchResultInterface 実装
-    public function getError(): string { return $this->error; }
-    public function getException(): ?\Throwable;
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'stepfunctions'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-
-    // StepFunctions 固有メソッド
-    public function getExecutionName(): string;
-}
-```
+→ ソース: `src/Dispatcher/Result/` ディレクトリ
 
 ### ScheduleDispatcherInterface
 
 スケジュールタスクの実行方法を抽象化するインターフェースです。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `dispatchEvent` | `(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt)` | `DispatchResultInterface` | 単一イベントをディスパッチ。`$dueAt` はトラッキングとリカバリに使用 |
+| `cleanup` | — | `void` | 完了したプロセスのクリーンアップ |
+| `stopAll` | — | `void` | 全ての実行中プロセスを停止 |
 
-use DateTimeInterface;
-use Illuminate\Container\Container;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
-
-interface ScheduleDispatcherInterface
-{
-    /**
-     * 単一イベントをディスパッチする
-     *
-     * @param ClockAwareEvent $event 実行するスケジュールイベント
-     * @param Container $container Laravel コンテナインスタンス
-     * @param DateTimeInterface $dueAt 実行予定時刻（トラッキングやリカバリに使用）
-     * @return DispatchResultInterface ディスパッチ結果
-     */
-    public function dispatchEvent(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface;
-
-    /**
-     * 完了したプロセスのクリーンアップを行う
-     */
-    public function cleanup(): void;
-
-    /**
-     * 全ての実行中プロセスを停止する
-     */
-    public function stopAll(): void;
-}
-```
+→ ソース: `src/Dispatcher/ScheduleDispatcherInterface.php`
 
 **実装**:
 
@@ -1299,154 +838,44 @@ interface ScheduleDispatcherInterface
 
 ロック取得失敗などでスキップされた結果を表すインターフェースです。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `getReason` | — | `string` | スキップされた理由を取得（例: `'lock_not_acquired'`） |
 
-/**
- * スキップされたディスパッチ結果を表すインターフェース
- *
- * ロック取得失敗などで実際にはディスパッチされなかった場合に使用します。
- *
- * instanceof SkippedDispatchResultInterface でスキップを判定
- */
-interface SkippedDispatchResultInterface extends DispatchResultInterface
-{
-    /**
-     * スキップされた理由を取得
-     *
-     * @return string 理由（例: 'lock_not_acquired'）
-     */
-    public function getReason(): string;
-}
-```
+→ ソース: `src/Dispatcher/Result/SkippedDispatchResultInterface.php`
 
 ### TrackingDispatcher
 
-トラッキングロジック（ロック取得、実行記録）を担当するデコレーターです。
+トラッキングロジック（ロック取得、実行記録）を担当するデコレーターです。`ScheduleDispatcherInterface` を実装します。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `dispatchEvent` | `(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt)` | `DispatchResultInterface` | トラッキング付きでディスパッチ（以下のフロー参照） |
+| `cleanup` | — | `void` | 内部 Dispatcher に委譲 |
+| `stopAll` | — | `void` | 内部 Dispatcher に委譲 |
 
-use DateTimeInterface;
-use Illuminate\Container\Container;
-use Psr\Log\LoggerInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
-use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
+**処理フロー**: (1) `ExecutionTrackerInterface::acquireLock()` でロック取得 — 取得失敗時は `SkippedDispatchResult` を返す; (2) 内部の `ScheduleDispatcherInterface` に委譲; (3) `handleResult()` で結果をトラッキング（実行記録、失敗ログ）。
 
-/**
- * トラッキングロジックを担当するデコレーター
- *
- * 責務:
- * - ロック取得（acquireLock）
- * - 実行記録（markExecuted）
- * - 失敗時のログ出力
- * - 内部 Dispatcher への委譲
- */
-class TrackingDispatcher implements ScheduleDispatcherInterface
-{
-    /** @var ScheduleDispatcherInterface */
-    private $inner;
-
-    /** @var ExecutionTrackerInterface */
-    private $tracker;
-
-    /** @var LoggerInterface */
-    private $logger;
-
-    public function __construct(
-        ScheduleDispatcherInterface $inner,
-        ExecutionTrackerInterface $tracker,
-        LoggerInterface $logger
-    );
-
-    public function dispatchEvent(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
-        // 1. ロック取得
-        if (!$this->tracker->acquireLock($event, $dueAt)) {
-            return new SkippedDispatchResult(
-                $event->mutexName(),
-                (string) $event->command,
-                'lock_not_acquired'
-            );
-        }
-
-        // 2. 内部 Dispatcher に委譲
-        $result = $this->inner->dispatchEvent($event, $container, $dueAt);
-
-        // 3. 結果に応じたトラッキング
-        $this->handleResult($result, $event, $dueAt);
-
-        return $result;
-    }
-
-    public function cleanup(): void;
-    public function stopAll(): void;
-}
-```
+→ ソース: `src/Dispatcher/TrackingDispatcher.php`
 
 ### ExecutionTrackerInterface
 
 スケジュールタスクの実行履歴を追跡し、取りこぼしを検出するインターフェースです。
 
-```php
-<?php
+**主要メソッド**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
+| メソッド | パラメータ | 戻り値 | 説明 |
+|---|---|---|---|
+| `markExecuted` | `(ClockAwareEvent $event, DateTimeInterface $dueAt)` | `void` | タスクの実行を記録する |
+| `getMissedDueIfRecoverable` | `(ClockAwareEvent $event, DateTimeInterface $now)` | `?DateTimeInterface` | リカバリすべき取りこぼしの実行予定時刻を返す。初回実行時は `null`。不正な cron 式に対して `InvalidArgumentException` をスロー |
+| `acquireLock` | `(ClockAwareEvent $event, DateTimeInterface $dueAt)` | `bool` | 排他ロックを取得して重複実行を防止 |
+| `releaseLock` | `(ClockAwareEvent $event, DateTimeInterface $dueAt)` | `void` | ロックを解放する |
 
-use DateTimeInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
-
-interface ExecutionTrackerInterface
-{
-    /**
-     * タスクの実行を記録する
-     *
-     * @param ClockAwareEvent $event 実行されたイベント
-     * @param DateTimeInterface $dueAt 実行予定時刻
-     */
-    public function markExecuted(ClockAwareEvent $event, DateTimeInterface $dueAt): void;
-
-    /**
-     * リカバリすべき取りこぼしがあれば、その実行予定時刻を返す
-     *
-     * 以下の条件をすべて満たす場合に missedDue を返す:
-     * - 前回の実行予定時刻より後の実行予定が存在する（取りこぼしあり）
-     * - grace period 内である
-     *
-     * 初回実行（実行記録なし）の場合は null を返す。
-     * cron 式が不正な場合は例外を投げる。
-     *
-     * @param ClockAwareEvent $event チェック対象のイベント
-     * @param DateTimeInterface $now 現在時刻
-     * @return DateTimeInterface|null リカバリすべき場合は missedDue、そうでなければ null
-     * @throws \InvalidArgumentException cron 式が不正な場合
-     */
-    public function getMissedDueIfRecoverable(ClockAwareEvent $event, DateTimeInterface $now): ?DateTimeInterface;
-
-    /**
-     * 指定時刻に対するロックを取得する
-     *
-     * 複数 Worker が同じタスクを重複実行しないよう、排他ロックを取得する。
-     *
-     * @param ClockAwareEvent $event 対象イベント
-     * @param DateTimeInterface $dueAt 実行予定時刻
-     * @return bool ロック取得成功なら true
-     */
-    public function acquireLock(ClockAwareEvent $event, DateTimeInterface $dueAt): bool;
-
-    /**
-     * 指定時刻に対するロックを解放する
-     *
-     * @param ClockAwareEvent $event 対象イベント
-     * @param DateTimeInterface $dueAt 実行予定時刻
-     */
-    public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void;
-}
-```
+→ ソース: `src/Tracker/ExecutionTrackerInterface.php`
 
 **実装例**:
 
@@ -1538,7 +967,7 @@ interface ExecutionTrackerInterface
 | ID | テスト名 | 期待結果 |
 |----|---------|---------|
 | T2.11 | testDelegatesToEventSpecifiedDispatcher | イベント指定の Dispatcher に委譲 |
-| T2.12 | testDefaultDispatcherTypeUsesLocalDispatcher | デフォルトdispatcher typeはlocalを使用 |
+| T2.12 | testDefaultDispatcherTypeUsesLocalDispatcher | デフォルト dispatcher type は local を使用 |
 | T2.14 | testThrowsOnUnknownType | 未登録 type で例外 |
 | T2.16 | testThrowsWhenDispatchersArrayIsEmpty | 空配列で例外 |
 | T2.18 | testCleanupDelegatesToAllChildDispatchers | cleanup が全子に委譲 |
@@ -1709,16 +1138,16 @@ interface ExecutionTrackerInterface
 **動作フロー**:
 ```
 1. LocalDispatcher.dispatchEvent()
-   ├── callBeforeCallbacks()          ← 親プロセスで同期実行
-   ├── buildCommand()                 ← schedule:finish を含むコマンド構築
-   └── Process::start()               ← バックグラウンド実行
+   +-- callBeforeCallbacks()          <- 親プロセスで同期実行
+   +-- buildCommand()                 <- schedule:finish を含むコマンド構築
+   +-- Process::start()               <- バックグラウンド実行
 
 2. シェルで実行
-   ├── original_command > output      ← 出力がファイルにリダイレクト
-   └── schedule:finish "mutex" "$?"   ← 終了コードを渡す
+   +-- original_command > output      <- 出力がファイルにリダイレクト
+   +-- schedule:finish "mutex" "$?"   <- 終了コードを渡す
 
 3. schedule:finish（別プロセス）
-   └── callAfterCallbacksWithExitCode() ← onSuccess/onFailure/after を実行
+   +-- callAfterCallbacksWithExitCode() <- onSuccess/onFailure/after を実行
 ```
 
 **サポートする Laravel Event 機能**:
@@ -1829,107 +1258,164 @@ Step Functions実装の詳細なエラーハンドリングについては、[ST
 
 ```
 src/
-├── Clock/
-│   ├── ClockInterface.php               # 時刻抽象化インターフェース
-│   ├── SystemClock.php                  # 本番環境実装
-│   ├── SleeperInterface.php             # スリープ抽象化
-│   └── Sleeper.php                      # 本番環境実装
-├── Console/
-│   └── GracefulScheduleWorkCommand.php  # Artisan コマンド（Orchestrator を使用）
-├── Dispatcher/
-│   ├── DispatchResultInterface.php                  # ディスパッチ結果基底インターフェース
-│   ├── StartedDispatchResultInterface.php           # 成功結果インターフェース（新規開始）
-│   ├── AlreadyRunningDispatchResultInterface.php    # 既存実行インターフェース
-│   ├── FailedDispatchResultInterface.php            # 失敗結果インターフェース
-│   ├── SkippedDispatchResultInterface.php           # スキップ結果インターフェース
-│   ├── SkippedDispatchResult.php                    # スキップ結果実装
-│   ├── StartedLocalDispatchResult.php               # LocalDispatcher 成功結果
-│   ├── FailedLocalDispatchResult.php                # LocalDispatcher 失敗結果
-│   ├── StartedStepFunctionsDispatchResult.php       # StepFunctionsDispatcher 成功結果
-│   ├── AlreadyRunningStepFunctionsDispatchResult.php # StepFunctionsDispatcher 既存実行結果
-│   ├── FailedStepFunctionsDispatchResult.php        # StepFunctionsDispatcher 失敗結果
-│   ├── ScheduleDispatcherInterface.php       # Dispatcher インターフェース
-│   ├── TrackingDispatcher.php                # トラッキングデコレーター
-│   ├── CompositeDispatcher.php               # Dispatcher 委譲クラス
-│   ├── LocalDispatcher.php                   # バックグラウンドプロセス起動
-│   ├── StepFunctionsDispatcher.php           # AWS Step Functions 統合
-│   └── StepFunctions/                        # Step Functions 関連クラス
-│       ├── StepFunctionsClientInterface.php  # SfnClient 抽象化
-│       ├── AwsSfnClientAdapter.php           # AWS SDK アダプター
-│       ├── ExecutionNameGeneratorInterface.php # Execution Name 生成インターフェース
-│       ├── ExecutionNameGenerator.php        # Execution Name 生成
-│       ├── StartExecutionResult.php          # startExecution 結果
-│       ├── StepFunctionsException.php        # 基底例外
-│       └── ExecutionAlreadyExistsException.php # 重複実行例外
-├── Orchestrator/
-│   ├── ScheduleOrchestratorInterface.php # スケジュール実行調整インターフェース
-│   └── DefaultScheduleOrchestrator.php   # デフォルト実装
-├── Providers/
-│   └── GracefulScheduleWorkerProvider.php  # DI 設定
-├── Scheduling/
-│   ├── ClockAwareSchedule.php           # Schedule 拡張
-│   └── ClockAwareEvent.php              # Event 拡張（withGracePeriod、dispatchVia 等）
-└── Tracker/
-    ├── ExecutionTrackerInterface.php    # インターフェース
-    ├── CacheExecutionTracker.php        # Redis/Cache 実装（ロック機能付き）
-    └── NullExecutionTracker.php         # Null Object 実装（トラッキング無効時）
++-- Clock/
+|   +-- ClockInterface.php               # 時刻抽象化インターフェース
+|   +-- SystemClock.php                  # 本番環境実装
+|   +-- FreezableClock.php               # フリーズ可能な Clock（テスト/デバッグ用）
+|   +-- SleeperInterface.php             # スリープ抽象化
+|   +-- Sleeper.php                      # 本番環境実装
++-- Console/
+|   +-- GracefulScheduleWorkCommand.php  # Artisan コマンド（Orchestrator を使用）
+|   +-- ExceptionReporterInterface.php   # 例外レポーターインターフェース
+|   +-- ExceptionReporter.php            # 例外レポーター（Laravel 7+）
+|   +-- LegacyExceptionReporter.php      # 例外レポーター（Laravel 5/6）
+|   +-- UsesClockAwareSchedule.php       # Kernel で ClockAwareSchedule を使用する trait
++-- Dispatcher/
+|   +-- ScheduleDispatcherInterface.php       # Dispatcher インターフェース
+|   +-- DispatcherType.php                    # Dispatcher タイプ列挙
+|   +-- TrackingDispatcher.php                # トラッキングデコレーター
+|   +-- CompositeDispatcher.php               # Dispatcher 委譲クラス
+|   +-- LocalDispatcher.php                   # バックグラウンドプロセス起動
+|   +-- StepFunctionsDispatcher.php           # AWS Step Functions 統合
+|   +-- RunningProcessManager.php             # 実行中プロセス管理
+|   +-- Result/                               # ディスパッチ結果型
+|   |   +-- DispatchResultInterface.php                  # ディスパッチ結果基底インターフェース
+|   |   +-- StartedDispatchResultInterface.php           # 成功結果インターフェース（新規開始）
+|   |   +-- AlreadyRunningDispatchResultInterface.php    # 既存実行インターフェース
+|   |   +-- FailedDispatchResultInterface.php            # 失敗結果インターフェース
+|   |   +-- SkippedDispatchResultInterface.php           # スキップ結果インターフェース
+|   |   +-- AbstractDispatchResult.php                   # ディスパッチ結果の抽象基底
+|   |   +-- SkippedDispatchResult.php                    # スキップ結果実装
+|   |   +-- StartedLocalDispatchResult.php               # LocalDispatcher 成功結果
+|   |   +-- FailedLocalDispatchResult.php                # LocalDispatcher 失敗結果
+|   |   +-- StartedStepFunctionsDispatchResult.php       # StepFunctionsDispatcher 成功結果
+|   |   +-- AlreadyRunningStepFunctionsDispatchResult.php # StepFunctionsDispatcher 既存実行結果
+|   |   +-- FailedStepFunctionsDispatchResult.php        # StepFunctionsDispatcher 失敗結果
+|   +-- StepFunctions/                        # Step Functions 関連クラス
+|       +-- StepFunctionsClientInterface.php  # SfnClient 抽象化
+|       +-- AwsSfnClientAdapter.php           # AWS SDK アダプター
+|       +-- ExecutionNameGeneratorInterface.php # Execution Name 生成インターフェース
+|       +-- ExecutionNameGenerator.php        # Execution Name 生成
+|       +-- StartExecutionResult.php          # startExecution 結果
+|       +-- StartExecutionInputFactoryInterface.php # Input ファクトリインターフェース
+|       +-- StartExecutionInputFactory.php    # Input ファクトリ実装
+|       +-- StartExecutionInput.php           # Input 値オブジェクト
+|       +-- PayloadInterface.php              # Payload インターフェース
+|       +-- Payload.php                       # Payload 値オブジェクト
+|       +-- PayloadBuilderInterface.php       # Payload ビルダーインターフェース
+|       +-- PayloadBuilder.php                # Payload ビルダー実装
+|       +-- LockKeyGenerator.php              # ロックキー生成
+|       +-- MutexNameSanitizer.php            # Mutex 名サニタイズ
+|       +-- StepFunctionsException.php        # 基底例外
+|       +-- PayloadEncodingException.php      # Payload エンコード例外
+|       +-- ExecutionAlreadyExistsException.php # 重複実行例外
++-- Logging/
+|   +-- PrefixedLogger.php               # プレフィックス付きロガー
++-- Orchestrator/
+|   +-- ScheduleOrchestratorInterface.php # スケジュール実行調整インターフェース
+|   +-- DefaultScheduleOrchestrator.php   # デフォルト実装
++-- Providers/
+|   +-- GracefulScheduleWorkerProvider.php  # DI 設定
+|   +-- DispatcherServiceRegistrar.php      # Dispatcher 登録
+|   +-- OrchestratorServiceRegistrar.php    # Orchestrator 登録
+|   +-- TrackerServiceRegistrar.php         # Tracker 登録
+|   +-- StepFunctionsServiceProvider.php    # Step Functions サービスプロバイダー
++-- Scheduling/
+|   +-- ClockAwareSchedule.php           # Schedule 拡張
+|   +-- ClockAwareEvent.php              # Event 拡張（withGracePeriod、dispatchVia 等）
+|   +-- ClockAwareTimeFilter.php         # Clock 対応の時刻フィルタリング
+|   +-- ProcessCommandBuilder.php        # プロセスコマンド構築
+|   +-- TimezoneResolver.php             # タイムゾーン解決
++-- Tracker/
+    +-- ExecutionTrackerInterface.php    # インターフェース
+    +-- CacheExecutionTracker.php        # Redis/Cache 実装（ロック機能付き）
+    +-- NullExecutionTracker.php         # Null Object 実装（トラッキング無効時）
 
 config/
-└── graceful-scheduler.php               # 設定ファイル
++-- graceful-scheduler.php               # 設定ファイル
 
 tests/
-├── E2E/
-│   └── GracefulScheduleWorkerCommandTest.php  # SIGTERM グレースフルシャットダウン
-├── Helper/                                    # テスト用ヘルパークラス
-│   ├── AdvancingClock.php                     # 自動進行 Clock
-│   ├── FixedClock.php                         # 固定時刻 Clock
-│   ├── NullSleeper.php                        # no-op Sleeper
-│   ├── FakeDispatcher.php                     # Dispatcher Fake
-│   ├── FakeExecutionTracker.php               # Tracker Fake
-│   ├── FakeStepFunctionsClient.php            # Step Functions Client Fake
-│   ├── SpyLogger.php                          # Logger Spy
-│   └── ...                                    # その他 Fake/Stub/Spy
-├── Integration/
-│   ├── Dispatcher/
-│   │   ├── StepFunctionsDispatcherIntegrationTest.php  # moto 統合テスト
-│   │   └── TrackingDispatcherRedisIntegrationTest.php  # Redis 統合テスト
-│   ├── Orchestrator/
-│   │   └── OrchestratorFlowIntegrationTest.php         # フロー統合テスト
-│   ├── Providers/
-│   │   └── ProviderWiringIntegrationTest.php           # DI 結線テスト
-│   └── Tracker/
-│       └── CacheExecutionTrackerRedisTest.php          # Redis 統合テスト
-└── Unit/
-    ├── Clock/
-    │   ├── SystemClockTest.php
-    │   └── SleeperTest.php
-    ├── Console/
-    │   └── GracefulScheduleWorkCommandTest.php
-    ├── Dispatcher/
-    │   ├── StartedLocalDispatchResultTest.php
-    │   ├── FailedLocalDispatchResultTest.php
-    │   ├── StartedStepFunctionsDispatchResultTest.php
-    │   ├── AlreadyRunningStepFunctionsDispatchResultTest.php
-    │   ├── FailedStepFunctionsDispatchResultTest.php
-    │   ├── SkippedDispatchResultTest.php
-    │   ├── TrackingDispatcherTest.php
-    │   ├── CompositeDispatcherTest.php
-    │   ├── LocalDispatcherTest.php
-    │   ├── StepFunctionsDispatcherTest.php
-    │   └── StepFunctions/
-    │       ├── AwsSfnClientAdapterTest.php
-    │       ├── ExecutionNameGeneratorTest.php
-    │       └── StartExecutionResultTest.php
-    ├── Orchestrator/
-    │   └── DefaultScheduleOrchestratorTest.php
-    ├── Providers/
-    │   └── GracefulScheduleWorkerProviderTest.php
-    ├── Scheduling/
-    │   ├── ClockAwareScheduleTest.php
-    │   └── ClockAwareEventTest.php
-    └── Tracker/
-        ├── CacheExecutionTrackerTest.php
-        └── NullExecutionTrackerTest.php
++-- E2E/
+|   +-- GracefulScheduleWorkerCommandTest.php  # SIGTERM グレースフルシャットダウン
+|   +-- BackgroundCommandOutputTest.php        # バックグラウンドコマンド出力検証
++-- Helper/                                    # テスト用ヘルパークラス
+|   +-- AdvancingClock.php                     # 自動進行 Clock
+|   +-- FixedClock.php                         # 固定時刻 Clock
+|   +-- NullSleeper.php                        # no-op Sleeper
+|   +-- FakeDispatcher.php                     # Dispatcher Fake
+|   +-- FakeExecutionTracker.php               # Tracker Fake
+|   +-- FakeStepFunctionsClient.php            # Step Functions Client Fake
+|   +-- SpyLogger.php                          # Logger Spy
+|   +-- ...                                    # その他 Fake/Stub/Spy
++-- Integration/
+|   +-- Dispatcher/
+|   |   +-- StepFunctionsDispatcherIntegrationTest.php  # moto 統合テスト
+|   |   +-- TrackingDispatcherRedisIntegrationTest.php  # Redis 統合テスト
+|   +-- Orchestrator/
+|   |   +-- OrchestratorFlowIntegrationTest.php         # フロー統合テスト
+|   |   +-- OrchestratorFiltersPassIntegrationTest.php  # フィルターパス統合テスト
+|   +-- Providers/
+|   |   +-- ProviderBootIntegrationTest.php             # プロバイダー起動統合テスト
+|   |   +-- ProviderWiringIntegrationTest.php           # DI 結線テスト
+|   +-- Scheduling/
+|   |   +-- ScheduleRunCompatibilityIntegrationTest.php # Schedule 実行互換テスト
+|   +-- Tracker/
+|       +-- CacheExecutionTrackerRedisTest.php          # Redis 統合テスト
++-- Unit/
+    +-- Clock/
+    |   +-- SystemClockTest.php
+    |   +-- SleeperTest.php
+    |   +-- FreezableClockTest.php
+    +-- Console/
+    |   +-- GracefulScheduleWorkCommandTest.php
+    |   +-- ExceptionReporterTest.php
+    |   +-- LegacyExceptionReporterTest.php
+    |   +-- UsesClockAwareScheduleTest.php
+    +-- Dispatcher/
+    |   +-- LocalDispatcherTest.php
+    |   +-- CompositeDispatcherTest.php
+    |   +-- TrackingDispatcherTest.php
+    |   +-- StepFunctionsDispatcherTest.php
+    |   +-- RunningProcessManagerTest.php
+    |   +-- Result/
+    |   |   +-- AbstractDispatchResultTest.php
+    |   |   +-- StartedLocalDispatchResultTest.php
+    |   |   +-- FailedLocalDispatchResultTest.php
+    |   |   +-- StartedStepFunctionsDispatchResultTest.php
+    |   |   +-- AlreadyRunningStepFunctionsDispatchResultTest.php
+    |   |   +-- FailedStepFunctionsDispatchResultTest.php
+    |   |   +-- SkippedDispatchResultTest.php
+    |   +-- StepFunctions/
+    |       +-- AwsSfnClientAdapterTest.php
+    |       +-- ExecutionNameGeneratorTest.php
+    |       +-- MutexNameSanitizerTest.php
+    |       +-- LockKeyGeneratorTest.php
+    |       +-- PayloadTest.php
+    |       +-- PayloadBuilderTest.php
+    |       +-- StartExecutionInputFactoryTest.php
+    |       +-- StartExecutionInputTest.php
+    |       +-- StartExecutionResultTest.php
+    +-- Logging/
+    |   +-- PrefixedLoggerTest.php
+    +-- Orchestrator/
+    |   +-- DefaultScheduleOrchestratorTest.php
+    +-- Providers/
+    |   +-- GracefulScheduleWorkerProviderTest.php
+    |   +-- DispatcherServiceRegistrarTest.php
+    |   +-- OrchestratorServiceRegistrarTest.php
+    |   +-- TrackerServiceRegistrarTest.php
+    |   +-- StepFunctionsServiceProviderTest.php
+    +-- Scheduling/
+    |   +-- ClockAwareScheduleTest.php
+    |   +-- ClockAwareEventTest.php
+    |   +-- ClockAwareEventCompatibilityTest.php
+    |   +-- ClockAwareScheduleCompatibilityTest.php
+    |   +-- ClockAwareTimeFilterTest.php
+    |   +-- ProcessCommandBuilderTest.php
+    |   +-- TimezoneResolverTest.php
+    +-- Tracker/
+        +-- CacheExecutionTrackerTest.php
+        +-- NullExecutionTrackerTest.php
 ```
 
 ---
@@ -1970,6 +1456,7 @@ return [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
         ],
+        'lock_ttl' => env('SCHEDULE_SF_LOCK_TTL', 3600),
     ],
 
     /*
@@ -1983,7 +1470,6 @@ return [
     'tracker' => [
         'enabled' => env('SCHEDULE_TRACKER_ENABLED', false),
         'store' => env('SCHEDULE_TRACKER_STORE'), // redis, dynamodb, etc.
-        'prefix' => env('SCHEDULE_TRACKER_PREFIX', 'schedule:executed:'),
         'lock_ttl' => env('SCHEDULE_TRACKER_LOCK_TTL', 3600),      // ロックのTTL（秒）
     ],
 ];
@@ -2015,7 +1501,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 
 ## 実装フェーズ
 
-### Phase 1: 基盤リファクタリング（ClockAware 導入） ✅ 完了
+### Phase 1: 基盤リファクタリング（ClockAware 導入） -- 完了
 
 **目的**: Clock パターンを導入し、時刻依存を外部化する
 
@@ -2035,7 +1521,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 - `tests/Unit/Scheduling/ClockAwareEventTest.php`
 - `tests/Unit/Scheduling/ClockAwareScheduleTest.php`
 
-### Phase 2: Dispatcher 分離（後方互換維持） ✅ 完了
+### Phase 2: Dispatcher 分離（後方互換維持） -- 完了
 
 **目的**: 既存のロジックを Dispatcher パターンに移行し、後方互換性を維持する
 
@@ -2053,7 +1539,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 - `tests/Unit/Dispatcher/TrackingDispatcherTest.php`
 - 各 DispatchResult のユニットテスト
 
-### Phase 3: Orchestrator ✅ 完了
+### Phase 3: Orchestrator -- 完了
 
 **目的**: スケジュール実行の調整層を導入し、責務を分離する
 
@@ -2070,29 +1556,45 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 - `tests/Integration/Orchestrator/OrchestratorFlowIntegrationTest.php`
 - `tests/Integration/Providers/ProviderWiringIntegrationTest.php`
 
-### Phase 4: Step Functions 対応 ✅ 完了
+### Phase 4: Step Functions 対応 -- 完了
 
 **目的**: AWS Step Functions を使用した外部実行機能を追加
 
 **成果物**:
 
 - `src/Dispatcher/StepFunctionsDispatcher.php`
-- `src/Dispatcher/StartedStepFunctionsDispatchResult.php`
-- `src/Dispatcher/AlreadyRunningStepFunctionsDispatchResult.php`
-- `src/Dispatcher/FailedStepFunctionsDispatchResult.php`
+- `src/Dispatcher/Result/StartedStepFunctionsDispatchResult.php`
+- `src/Dispatcher/Result/AlreadyRunningStepFunctionsDispatchResult.php`
+- `src/Dispatcher/Result/FailedStepFunctionsDispatchResult.php`
 - `src/Dispatcher/StepFunctions/StepFunctionsClientInterface.php`
 - `src/Dispatcher/StepFunctions/AwsSfnClientAdapter.php`
 - `src/Dispatcher/StepFunctions/ExecutionNameGeneratorInterface.php`
 - `src/Dispatcher/StepFunctions/ExecutionNameGenerator.php`
 - `src/Dispatcher/StepFunctions/StartExecutionResult.php`
+- `src/Dispatcher/StepFunctions/StartExecutionInputFactoryInterface.php`
+- `src/Dispatcher/StepFunctions/StartExecutionInputFactory.php`
+- `src/Dispatcher/StepFunctions/StartExecutionInput.php`
+- `src/Dispatcher/StepFunctions/PayloadInterface.php`
+- `src/Dispatcher/StepFunctions/Payload.php`
+- `src/Dispatcher/StepFunctions/PayloadBuilderInterface.php`
+- `src/Dispatcher/StepFunctions/PayloadBuilder.php`
+- `src/Dispatcher/StepFunctions/LockKeyGenerator.php`
+- `src/Dispatcher/StepFunctions/MutexNameSanitizer.php`
 - `src/Dispatcher/StepFunctions/StepFunctionsException.php`
+- `src/Dispatcher/StepFunctions/PayloadEncodingException.php`
 - `src/Dispatcher/StepFunctions/ExecutionAlreadyExistsException.php`
 - `tests/Unit/Dispatcher/StepFunctionsDispatcherTest.php`
 - `tests/Unit/Dispatcher/StepFunctions/AwsSfnClientAdapterTest.php`
 - `tests/Unit/Dispatcher/StepFunctions/ExecutionNameGeneratorTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/MutexNameSanitizerTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/LockKeyGeneratorTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/PayloadTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/PayloadBuilderTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/StartExecutionInputFactoryTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/StartExecutionInputTest.php`
 - `tests/Integration/Dispatcher/StepFunctionsDispatcherIntegrationTest.php`（moto 使用）
 
-### Phase 5: At-least-once 対応（ExecutionTracker） ✅ 完了
+### Phase 5: At-least-once 対応（ExecutionTracker） -- 完了
 
 **目的**: 取りこぼしタスクの検出とリカバリ機能を追加
 
@@ -2106,7 +1608,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 - `tests/Integration/Tracker/CacheExecutionTrackerRedisTest.php`
 - `tests/Integration/Dispatcher/TrackingDispatcherRedisIntegrationTest.php`
 
-### Phase 6: 拡張機能（Grace Period） ✅ 完了
+### Phase 6: 拡張機能（Grace Period） -- 完了
 
 **目的**: リカバリ制御の拡張メソッドを実装
 
@@ -2116,7 +1618,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 - `src/Tracker/CacheExecutionTracker.php`（Grace Period 判定）
 - `tests/Unit/Scheduling/ClockAwareEventTest.php`
 
-### E2E テスト ✅ 完了
+### E2E テスト -- 完了
 
 - `tests/E2E/GracefulScheduleWorkerCommandTest.php`（SIGTERM graceful shutdown）
 
@@ -2134,16 +1636,17 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 
 | カテゴリ | テスト数 | 検証対象 |
 |---------|---------|---------|
-| Unit/Clock | 6 | SystemClock、Sleeper |
-| Unit/Scheduling | 17 | ClockAwareEvent、ClockAwareSchedule |
-| Unit/Dispatcher | 94 | LocalDispatcher、CompositeDispatcher、TrackingDispatcher、StepFunctionsDispatcher、各 DispatchResult |
-| Unit/Orchestrator | 11 | DefaultScheduleOrchestrator |
-| Unit/Tracker | 19 | CacheExecutionTracker、NullExecutionTracker |
-| Unit/Providers | 15 | GracefulScheduleWorkerProvider |
-| Unit/Console | 1 | GracefulScheduleWorkCommand |
-| Integration | 17 | Redis 統合、moto 統合、DI 結線、フロー統合 |
-| E2E | 1 | SIGTERM graceful shutdown |
-| **合計** | **228** | |
+| Unit/Clock | 13 | SystemClock、Sleeper、FreezableClock |
+| Unit/Scheduling | 111 | ClockAwareEvent、ClockAwareSchedule、ClockAwareTimeFilter、ProcessCommandBuilder、TimezoneResolver、Compatibility |
+| Unit/Console | 24 | GracefulScheduleWorkCommand、ExceptionReporter、LegacyExceptionReporter、UsesClockAwareSchedule |
+| Unit/Dispatcher | 247 | LocalDispatcher、CompositeDispatcher、TrackingDispatcher、StepFunctionsDispatcher、RunningProcessManager、各 DispatchResult、StepFunctions サブクラス |
+| Unit/Orchestrator | 28 | DefaultScheduleOrchestrator |
+| Unit/Tracker | 26 | CacheExecutionTracker、NullExecutionTracker |
+| Unit/Providers | 46 | GracefulScheduleWorkerProvider、DispatcherServiceRegistrar、OrchestratorServiceRegistrar、TrackerServiceRegistrar、StepFunctionsServiceProvider |
+| Unit/Logging | 4 | PrefixedLogger |
+| Integration | 45 | Redis 統合、moto 統合、DI 結線、フロー統合、フィルターパス、Schedule 互換 |
+| E2E | 3 | SIGTERM graceful shutdown、バックグラウンドコマンド出力 |
+| **合計** | **547** | |
 
 ### 統合テスト環境
 
