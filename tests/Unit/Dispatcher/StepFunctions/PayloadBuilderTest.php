@@ -97,17 +97,17 @@ class PayloadBuilderTest extends TestCase
     }
 
     /**
-     * @testdox PB.4 build returns Payload with ttl = dueAt timestamp + lockTtlSeconds
+     * @testdox PB.4 build returns Payload with expiresAt = dueAt timestamp + lockTtlSeconds
      */
-    public function testBuildReturnsPayloadWithCorrectTtl(): void
+    public function testBuildReturnsPayloadWithCorrectExpiresAt(): void
     {
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
         $payload = $this->builder->build($event, $dueAt, 3600);
 
-        $expectedTtl = $dueAt->getTimestamp() + 3600;
-        $this->assertSame($expectedTtl, $payload->getTtl());
+        $expectedExpiresAt = $dueAt->getTimestamp() + 3600;
+        $this->assertSame($expectedExpiresAt, $payload->getExpiresAt());
     }
 
     /**
@@ -166,6 +166,6 @@ class PayloadBuilderTest extends TestCase
         $this->assertArrayHasKey('mutexName', $decoded);
         $this->assertArrayHasKey('dueAt', $decoded);
         $this->assertArrayHasKey('lockKey', $decoded);
-        $this->assertArrayHasKey('ttl', $decoded);
+        $this->assertArrayHasKey('expiresAt', $decoded);
     }
 }

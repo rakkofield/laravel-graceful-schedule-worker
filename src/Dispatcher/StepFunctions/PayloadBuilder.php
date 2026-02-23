@@ -10,7 +10,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 /**
  * Default PayloadBuilder implementation.
  *
- * Extracts command, mutexName, dueAt, lockKey, and ttl
+ * Extracts command, mutexName, dueAt, lockKey, and expiresAt
  * from the event and builds a Payload DTO.
  */
 class PayloadBuilder implements PayloadBuilderInterface
@@ -34,14 +34,14 @@ class PayloadBuilder implements PayloadBuilderInterface
         $command = $event->getEffectiveCommand();
         $mutexName = $event->mutexName();
         $lockKey = $this->lockKeyGenerator->generate($mutexName, $dueAt, $event->withoutOverlapping);
-        $ttl = $dueAt->getTimestamp() + $lockTtlSeconds;
+        $expiresAt = $dueAt->getTimestamp() + $lockTtlSeconds;
 
         return new Payload(
             $command,
             $mutexName,
             $dueAt->format(DateTimeInterface::ATOM),
             $lockKey,
-            $ttl
+            $expiresAt
         );
     }
 }

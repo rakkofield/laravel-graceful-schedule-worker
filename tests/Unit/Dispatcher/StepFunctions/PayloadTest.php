@@ -31,7 +31,7 @@ class PayloadTest extends TestCase
         $this->assertSame('framework-schedule-run-abc123', $decoded['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $decoded['dueAt']);
         $this->assertSame('framework-schedule-run-abc123_1705282200', $decoded['lockKey']);
-        $this->assertSame(1705285800, $decoded['ttl']);
+        $this->assertSame(1705285800, $decoded['expiresAt']);
     }
 
     /**
@@ -52,7 +52,7 @@ class PayloadTest extends TestCase
         $this->assertSame('my-mutex', $payload->getMutexName());
         $this->assertSame('2024-01-15T10:30:00+09:00', $payload->getDueAt());
         $this->assertSame('my-lock-key', $payload->getLockKey());
-        $this->assertSame(3600, $payload->getTtl());
+        $this->assertSame(3600, $payload->getExpiresAt());
     }
 
     /**
@@ -90,7 +90,7 @@ class PayloadTest extends TestCase
         $decoded = json_decode($payload->toJson(), true);
 
         $this->assertCount(5, $decoded);
-        $expectedKeys = ['command', 'mutexName', 'dueAt', 'lockKey', 'ttl'];
+        $expectedKeys = ['command', 'mutexName', 'dueAt', 'lockKey', 'expiresAt'];
         $this->assertSame($expectedKeys, array_keys($decoded));
     }
 }

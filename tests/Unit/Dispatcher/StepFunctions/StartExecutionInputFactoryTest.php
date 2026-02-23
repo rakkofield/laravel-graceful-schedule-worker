@@ -86,7 +86,7 @@ class StartExecutionInputFactoryTest extends TestCase
         $this->assertSame($event->mutexName(), $decoded['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $decoded['dueAt']);
         $this->assertIsString($decoded['lockKey']);
-        $this->assertSame($dueAt->getTimestamp() + 3600, $decoded['ttl']);
+        $this->assertSame($dueAt->getTimestamp() + 3600, $decoded['expiresAt']);
     }
 
     /**

@@ -22,27 +22,27 @@ class Payload implements PayloadInterface
     private $lockKey;
 
     /** @var int */
-    private $ttl;
+    private $expiresAt;
 
     /**
      * @param string $command
      * @param string $mutexName
      * @param string $dueAt ISO 8601 formatted date string
      * @param string $lockKey
-     * @param int $ttl
+     * @param int $expiresAt
      */
     public function __construct(
         string $command,
         string $mutexName,
         string $dueAt,
         string $lockKey,
-        int $ttl
+        int $expiresAt
     ) {
         $this->command = $command;
         $this->mutexName = $mutexName;
         $this->dueAt = $dueAt;
         $this->lockKey = $lockKey;
-        $this->ttl = $ttl;
+        $this->expiresAt = $expiresAt;
     }
 
     /**
@@ -80,9 +80,9 @@ class Payload implements PayloadInterface
     /**
      * @return int
      */
-    public function getTtl(): int
+    public function getExpiresAt(): int
     {
-        return $this->ttl;
+        return $this->expiresAt;
     }
 
     /**
@@ -98,7 +98,7 @@ class Payload implements PayloadInterface
             'mutexName' => $this->mutexName,
             'dueAt' => $this->dueAt,
             'lockKey' => $this->lockKey,
-            'ttl' => $this->ttl,
+            'expiresAt' => $this->expiresAt,
         ]);
 
         if ($encoded === false) {

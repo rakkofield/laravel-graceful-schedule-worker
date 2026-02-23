@@ -137,7 +137,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.4 Input JSON contains command, mutexName, dueAt, lockKey, and ttl
+     * @testdox SFD.4 Input JSON contains command, mutexName, dueAt, lockKey, and expiresAt
      */
     public function testInputContainsRequiredFields(): void
     {
@@ -154,12 +154,12 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertArrayHasKey('mutexName', $input);
         $this->assertArrayHasKey('dueAt', $input);
         $this->assertArrayHasKey('lockKey', $input);
-        $this->assertArrayHasKey('ttl', $input);
+        $this->assertArrayHasKey('expiresAt', $input);
         $this->assertSame('php artisan report:daily', $input['command']);
         $this->assertSame($event->mutexName(), $input['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $input['dueAt']);
         $this->assertIsString($input['lockKey']);
-        $this->assertIsInt($input['ttl']);
+        $this->assertIsInt($input['expiresAt']);
     }
 
     /**
@@ -354,9 +354,9 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.19 TTL is calculated as dueAt timestamp + lockTtlSeconds
+     * @testdox SFD.19 expiresAt is calculated as dueAt timestamp + lockTtlSeconds
      */
-    public function testTtlIsCalculatedFromDueAtAndLockTtlSeconds(): void
+    public function testExpiresAtIsCalculatedFromDueAtAndLockTtlSeconds(): void
     {
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
@@ -367,8 +367,8 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertNotNull($execution);
 
         $input = json_decode($execution['input'], true);
-        $expectedTtl = $this->dueAt->getTimestamp() + 3600;
-        $this->assertSame($expectedTtl, $input['ttl']);
+        $expectedExpiresAt = $this->dueAt->getTimestamp() + 3600;
+        $this->assertSame($expectedExpiresAt, $input['expiresAt']);
     }
 
     /**
