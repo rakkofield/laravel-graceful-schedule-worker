@@ -12,6 +12,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilderInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
@@ -242,5 +245,46 @@ class StepFunctionsServiceProviderTest extends TestCase
 
         $endpoint = (string) $sfnClient->getEndpoint();
         $this->assertSame('http://localhost:9999', $endpoint);
+    }
+
+    /**
+     * @testdox SFP.9 Registers LockKeyGenerator as a singleton
+     */
+    public function testRegistersLockKeyGeneratorAsSingleton(): void
+    {
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound(LockKeyGenerator::class));
+        $this->assertTrue($this->app->isShared(LockKeyGenerator::class));
+
+        $generator = $this->app->make(LockKeyGenerator::class);
+        $this->assertInstanceOf(LockKeyGenerator::class, $generator);
+    }
+
+    /**
+     * @testdox SFP.10 Registers PayloadBuilderInterface as a singleton
+     */
+    public function testRegistersPayloadBuilderInterfaceAsSingleton(): void
+    {
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound(PayloadBuilderInterface::class));
+        $this->assertTrue($this->app->isShared(PayloadBuilderInterface::class));
+
+        $builder = $this->app->make(PayloadBuilderInterface::class);
+        $this->assertInstanceOf(PayloadBuilder::class, $builder);
+    }
+
+    /**
+     * @testdox SFP.11 PayloadBuilderInterface returns the same instance
+     */
+    public function testPayloadBuilderReturnsSameInstance(): void
+    {
+        $this->provider->register();
+
+        $builder1 = $this->app->make(PayloadBuilderInterface::class);
+        $builder2 = $this->app->make(PayloadBuilderInterface::class);
+
+        $this->assertSame($builder1, $builder2);
     }
 }

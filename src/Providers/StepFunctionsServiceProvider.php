@@ -12,7 +12,10 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilderInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 
@@ -32,6 +35,8 @@ class StepFunctionsServiceProvider extends ServiceProvider
         $this->registerClient();
         $this->registerSanitizer();
         $this->registerNameGenerator();
+        $this->registerLockKeyGenerator();
+        $this->registerPayloadBuilder();
         $this->registerDispatcher();
     }
 
@@ -82,6 +87,24 @@ class StepFunctionsServiceProvider extends ServiceProvider
         });
     }
 
+    protected function registerLockKeyGenerator(): void
+    {
+        $this->app->singleton(LockKeyGenerator::class, function (Container $app) {
+            /** @var MutexNameSanitizer $sanitizer */
+            $sanitizer = $app->make(MutexNameSanitizer::class);
+            return new LockKeyGenerator($sanitizer);
+        });
+    }
+
+    protected function registerPayloadBuilder(): void
+    {
+        $this->app->singleton(PayloadBuilderInterface::class, function (Container $app) {
+            /** @var LockKeyGenerator $lockKeyGenerator */
+            $lockKeyGenerator = $app->make(LockKeyGenerator::class);
+            return new PayloadBuilder($lockKeyGenerator);
+        });
+    }
+
     protected function registerDispatcher(): void
     {
         $this->app->singleton(StepFunctionsDispatcher::class, function (Container $app) {
@@ -104,8 +127,8 @@ class StepFunctionsServiceProvider extends ServiceProvider
             $lockTtl = $config->get('graceful-scheduler.stepfunctions.lock_ttl', 3600);
             $lockTtl = (int) $lockTtl;
 
-            /** @var MutexNameSanitizer $sanitizer */
-            $sanitizer = $app->make(MutexNameSanitizer::class);
+            /** @var PayloadBuilderInterface $payloadBuilder */
+            $payloadBuilder = $app->make(PayloadBuilderInterface::class);
 
             return new StepFunctionsDispatcher(
                 $client,
@@ -113,7 +136,7 @@ class StepFunctionsServiceProvider extends ServiceProvider
                 $nameGenerator,
                 $clock,
                 $lockTtl,
-                $sanitizer
+                $payloadBuilder
             );
         });
     }

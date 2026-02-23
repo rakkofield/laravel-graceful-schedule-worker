@@ -18,7 +18,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FakeStepFunctionsClient;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
@@ -72,13 +74,14 @@ class StepFunctionsDispatcherTest extends TestCase
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $sanitizer = new MutexNameSanitizer();
+        $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
         return new StepFunctionsDispatcher(
             $this->client,
             $this->stateMachineArn,
             new ExecutionNameGenerator($sanitizer),
             $clock,
             3600,
-            $sanitizer
+            $payloadBuilder
         );
     }
 
@@ -309,13 +312,14 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $sanitizer = new MutexNameSanitizer();
+        $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
         new StepFunctionsDispatcher(
             $this->client,
             '',
             new ExecutionNameGenerator($sanitizer),
             $clock,
             3600,
-            $sanitizer
+            $payloadBuilder
         );
     }
 

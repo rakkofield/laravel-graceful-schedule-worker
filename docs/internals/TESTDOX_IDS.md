@@ -39,9 +39,9 @@
 | Dispatcher/LocalDispatcherTest | `LD` | 41 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 13 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 20 |
-| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 20 |
+| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 22 |
 | Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 16 |
-| Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 8 |
+| Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 7 |
 | Dispatcher/Result/SkippedDispatchResultTest | `SD` | 9 |
 | Dispatcher/Result/StartedStepFunctionsDispatchResultTest | `SSR` | 8 |
 | Dispatcher/Result/FailedStepFunctionsDispatchResultTest | `FSR` | 8 |
@@ -51,10 +51,14 @@
 | Dispatcher/StepFunctions/MutexNameSanitizerTest | `MNS` | 12 |
 | Dispatcher/StepFunctions/LockKeyGeneratorTest | `LKG` | 9 |
 | Dispatcher/StepFunctions/PayloadTest | `PY` | 4 |
+| Dispatcher/StepFunctions/PayloadBuilderTest | `PB` | 8 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
-| ExceptionFormatterTest | `EF` | 3 |
 | Logging/PrefixedLoggerTest | `PL` | 4 |
-| Providers/GracefulScheduleWorkerProviderTest | `GP` | 18 |
+| Providers/DispatcherServiceRegistrarTest | `DSR` | 5 |
+| Providers/OrchestratorServiceRegistrarTest | `OSR` | 5 |
+| Providers/TrackerServiceRegistrarTest | `TSR` | 5 |
+| Providers/StepFunctionsServiceProviderTest | `SFP` | 11 |
+| Providers/GracefulScheduleWorkerProviderTest | `GP` | 20 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 28 |
 | Tracker/CacheExecutionTrackerTest | `CT` | 22 |
 | Tracker/NullExecutionTrackerTest | `NT` | 4 |
@@ -63,7 +67,7 @@
 
 | Test File | Prefix | Test Count |
 |---|---|---|
-| Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 4 |
+| Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 5 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
 | Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 7 |
 | Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 3 |

@@ -13,7 +13,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedStepFunctions
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilderInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -42,8 +42,8 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /** @var int */
     private $lockTtlSeconds;
 
-    /** @var MutexNameSanitizer */
-    private $sanitizer;
+    /** @var PayloadBuilderInterface */
+    private $payloadBuilder;
 
     /**
      * @param StepFunctionsClientInterface $client
@@ -51,7 +51,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
      * @param ExecutionNameGeneratorInterface $nameGenerator
      * @param ClockInterface $clock
      * @param int $lockTtlSeconds
-     * @param MutexNameSanitizer $sanitizer
+     * @param PayloadBuilderInterface $payloadBuilder
      */
     public function __construct(
         StepFunctionsClientInterface $client,
@@ -59,7 +59,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         ExecutionNameGeneratorInterface $nameGenerator,
         ClockInterface $clock,
         int $lockTtlSeconds,
-        MutexNameSanitizer $sanitizer
+        PayloadBuilderInterface $payloadBuilder
     ) {
         if ($stateMachineArn === '') {
             throw new InvalidArgumentException(
@@ -72,7 +72,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         $this->nameGenerator = $nameGenerator;
         $this->clock = $clock;
         $this->lockTtlSeconds = $lockTtlSeconds;
-        $this->sanitizer = $sanitizer;
+        $this->payloadBuilder = $payloadBuilder;
     }
 
     /**
@@ -85,15 +85,14 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         $mutexName = $event->mutexName();
         $command = $event->getRawCommand() ?? $event->command;
         $executionName = $this->nameGenerator->generate($event, $dueAt);
-        $ttl = $dueAt->getTimestamp() + $this->lockTtlSeconds;
 
         try {
-            $input = $this->buildInputJson($command, $mutexName, $dueAt, $event->withoutOverlapping, $ttl);
+            $payload = $this->payloadBuilder->build($event, $dueAt, $this->lockTtlSeconds);
 
             $result = $this->client->startExecution([
                 'stateMachineArn' => $this->stateMachineArn,
                 'name' => $executionName,
-                'input' => $input,
+                'input' => $payload->toJson(),
             ]);
 
             return new StartedStepFunctionsDispatchResult(
@@ -139,40 +138,5 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     public function stopAll(): void
     {
         // no-op: Step Functions executes remotely
-    }
-
-    /**
-     * Build the JSON input string for StartExecution.
-     *
-     * @param string $command
-     * @param string $mutexName
-     * @param DateTimeInterface $dueAt
-     * @param bool $withoutOverlapping
-     * @param int $ttl
-     * @return string
-     * @throws StepFunctionsException if encoding fails
-     */
-    private function buildInputJson(
-        string $command,
-        string $mutexName,
-        DateTimeInterface $dueAt,
-        bool $withoutOverlapping,
-        int $ttl
-    ): string {
-        $lockKey = $withoutOverlapping
-            ? $this->sanitizer->buildStableKey($mutexName)
-            : $this->sanitizer->buildIdentifier($mutexName, (string) $dueAt->getTimestamp());
-
-        $encoded = json_encode([
-            'command' => $command,
-            'mutexName' => $mutexName,
-            'dueAt' => $dueAt->format(DateTimeInterface::ATOM),
-            'lockKey' => $lockKey,
-            'ttl' => $ttl,
-        ]);
-        if ($encoded === false) {
-            throw new StepFunctionsException('Failed to encode input JSON: ' . json_last_error_msg());
-        }
-        return $encoded;
     }
 }
