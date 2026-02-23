@@ -15,7 +15,7 @@ interface PayloadInterface
      * Encode the payload as a JSON string.
      *
      * @return string
-     * @throws StepFunctionsException if encoding fails
+     * @throws PayloadEncodingException if encoding fails
      */
     public function toJson(): string;
 

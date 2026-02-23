@@ -89,7 +89,7 @@ class Payload implements PayloadInterface
      * Encode the payload as a JSON string.
      *
      * @return string
-     * @throws StepFunctionsException if JSON encoding fails
+     * @throws PayloadEncodingException if JSON encoding fails
      */
     public function toJson(): string
     {
@@ -102,7 +102,7 @@ class Payload implements PayloadInterface
         ]);
 
         if ($encoded === false) {
-            throw new StepFunctionsException('Failed to encode input JSON: ' . json_last_error_msg());
+            throw new PayloadEncodingException('Failed to encode input JSON: ' . json_last_error_msg());
         }
 
         return $encoded;

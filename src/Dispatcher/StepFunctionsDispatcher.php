@@ -56,31 +56,28 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();
         $command = $event->getEffectiveCommand();
-        $executionName = '';
+        $input = $this->inputFactory->create($event, $dueAt);
 
         try {
-            $input = $this->inputFactory->create($event, $dueAt);
-            $executionName = $input->getName();
-
             $result = $this->client->startExecution($input);
 
             return new StartedStepFunctionsDispatchResult(
                 $result->getExecutionArn(),
-                $executionName,
+                $input->getName(),
                 $mutexName,
                 $command,
                 $this->clock->now()
             );
         } catch (ExecutionAlreadyExistsException $e) {
             return new AlreadyRunningStepFunctionsDispatchResult(
-                $executionName,
+                $input->getName(),
                 $mutexName,
                 $command,
                 $this->clock->now()
             );
         } catch (StepFunctionsException $e) {
             return new FailedStepFunctionsDispatchResult(
-                $executionName,
+                $input->getName(),
                 $mutexName,
                 $command,
                 $e,

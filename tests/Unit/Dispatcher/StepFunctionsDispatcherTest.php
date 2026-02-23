@@ -21,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FakeStepFunc
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadEncodingException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
@@ -284,18 +285,18 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.14 json_encode failure returns FailedStepFunctionsDispatchResult
+     * @testdox SFD.14 json_encode failure propagates PayloadEncodingException
      */
-    public function testJsonEncodeFailureReturnsFailedResult(): void
+    public function testJsonEncodeFailurePropagatesPayloadEncodingException(): void
     {
         $dispatcher = $this->createDispatcher();
         // Force json_encode failure with invalid UTF-8 string
         $event = $this->createEvent("\xFF\xFE");
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $this->expectException(PayloadEncodingException::class);
+        $this->expectExceptionMessage('Failed to encode input JSON');
 
-        $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
-        $this->assertStringContainsString('Failed to encode input JSON', $result->getError());
+        $dispatcher->dispatchEvent($event, $this->dueAt);
     }
 
     /**

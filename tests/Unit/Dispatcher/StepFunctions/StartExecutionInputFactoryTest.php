@@ -90,14 +90,14 @@ class StartExecutionInputFactoryTest extends TestCase
     }
 
     /**
-     * @testdox SEIF.3 create() propagates StepFunctionsException on JSON encode failure
+     * @testdox SEIF.3 create() propagates PayloadEncodingException on JSON encode failure
      */
-    public function testCreatePropagatesStepFunctionsExceptionOnJsonFailure(): void
+    public function testCreatePropagatesPayloadEncodingExceptionOnJsonFailure(): void
     {
         $event = $this->createEvent("\xFF\xFE");
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $this->expectException(StepFunctionsException::class);
+        $this->expectException(PayloadEncodingException::class);
         $this->expectExceptionMessage('Failed to encode input JSON');
 
         $this->factory->create($event, $dueAt);

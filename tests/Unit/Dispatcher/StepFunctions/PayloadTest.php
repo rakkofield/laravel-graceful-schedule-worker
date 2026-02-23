@@ -56,7 +56,7 @@ class PayloadTest extends TestCase
     }
 
     /**
-     * @testdox PY.3 toJson throws StepFunctionsException on encoding failure
+     * @testdox PY.3 toJson throws PayloadEncodingException on encoding failure
      */
     public function testToJsonThrowsOnEncodingFailure(): void
     {
@@ -68,7 +68,7 @@ class PayloadTest extends TestCase
             3600
         );
 
-        $this->expectException(StepFunctionsException::class);
+        $this->expectException(PayloadEncodingException::class);
         $this->expectExceptionMessage('Failed to encode input JSON');
 
         $payload->toJson();

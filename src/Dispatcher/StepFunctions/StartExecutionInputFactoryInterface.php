@@ -15,7 +15,6 @@ interface StartExecutionInputFactoryInterface
      * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
      * @return StartExecutionInput
-     * @throws StepFunctionsException if payload encoding fails
      */
     public function create(ClockAwareEvent $event, DateTimeInterface $dueAt): StartExecutionInput;
 }
