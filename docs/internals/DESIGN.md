@@ -703,21 +703,13 @@ Organizing the responsibilities and contained objects of each layer.
 
 Interface for abstracting time. Enables fixing time during tests.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Clock;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `now` | — | `DateTimeImmutable` | Get the current time |
 
-interface ClockInterface
-{
-    /**
-     * Get the current time
-     *
-     * @return \DateTimeImmutable Current time
-     */
-    public function now(): \DateTimeImmutable;
-}
-```
+→ Source: `src/Clock/ClockInterface.php`
 
 **Implementations**:
 
@@ -726,604 +718,114 @@ interface ClockInterface
 
 ### ClockAwareEvent
 
-Event class providing extension methods.
+Event class providing extension methods. Extends `Illuminate\Console\Scheduling\Event` with clock-aware capabilities, recovery settings, and dispatcher type selection.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `withGracePeriod` | `(?int $minutes = null)` | `$this` | Enable recovery with optional grace period (minutes). `null` for unlimited |
+| `enableRecovery` | — | `$this` | Enable recovery with no grace period (unlimited) |
+| `dispatchVia` | `(string $type)` | `$this` | Specify Dispatcher type (`'local'` or `'stepfunctions'`) |
+| `getDispatcherType` | — | `?string` | Get the specified Dispatcher type (`null` if not specified) |
 
-use Illuminate\Console\Scheduling\Event;
-
-class ClockAwareEvent extends Event
-{
-    /** @var ClockInterface */
-    protected $clock;
-
-    /** @var \DateInterval|null */
-    protected $gracePeriod = null;
-
-    /** @var bool */
-    protected $recoverable = false;  // Default: no recovery (safety first)
-
-    /** @var string|null */
-    protected $dispatcherType = null;  // 'local' | 'stepfunctions' | null (use default)
-
-    /**
-     * Constructor
-     *
-     * @param \Illuminate\Console\Scheduling\Mutex $mutex
-     * @param string $command
-     * @param ClockInterface $clock
-     * @param \DateTimeZone|string|null $timezone
-     */
-    public function __construct($mutex, $command, ClockInterface $clock, $timezone = null)
-    {
-        parent::__construct($mutex, $command, $timezone);
-        $this->clock = $clock;
-    }
-
-    /**
-     * Enable recovery (set grace period)
-     *
-     * @param int|null $minutes Grace period (minutes). null for unlimited
-     * @return $this
-     */
-    public function withGracePeriod(?int $minutes = null): self
-    {
-        $this->recoverable = true;
-
-        if ($minutes !== null && $minutes > 0) {
-            $this->gracePeriod = new \DateInterval("PT{$minutes}M");
-        } else {
-            $this->gracePeriod = null;  // Unlimited
-        }
-
-        return $this;
-    }
-
-    /**
-     * Enable recovery (no grace period)
-     *
-     * @return $this
-     */
-    public function enableRecovery(): self
-    {
-        $this->recoverable = true;
-        $this->gracePeriod = null;  // Unlimited
-        return $this;
-    }
-
-    /**
-     * Specify Dispatcher type
-     *
-     * @param string $type 'local' or 'stepfunctions'
-     * @return $this
-     */
-    public function dispatchVia(string $type): self
-    {
-        $this->dispatcherType = $type;
-        return $this;
-    }
-
-    /**
-     * Get the specified Dispatcher type
-     *
-     * @return string|null Dispatcher type (null if not specified)
-     */
-    public function getDispatcherType()
-    {
-        return $this->dispatcherType;
-    }
-}
-```
+→ Source: `src/Scheduling/ClockAwareEvent.php`
 
 ### ScheduleOrchestratorInterface
 
 Interface for coordinating overall schedule execution.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Orchestrator;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `run` | `(ClockAwareSchedule $schedule, Application $app, callable $shouldContinue)` | `bool` | Coordinate and execute scheduled tasks. Returns whether execution was successful |
 
-use Illuminate\Contracts\Foundation\Application;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
-
-interface ScheduleOrchestratorInterface
-{
-    /**
-     * Coordinate and execute scheduled tasks
-     *
-     * @param ClockAwareSchedule $schedule Schedule with clock-aware events
-     * @param Application $app Laravel application instance
-     * @param callable $shouldContinue Function to determine whether to continue execution
-     * @return bool Whether execution was successful
-     */
-    public function run(ClockAwareSchedule $schedule, Application $app, callable $shouldContinue): bool;
-}
-```
+→ Source: `src/Orchestrator/ScheduleOrchestratorInterface.php`
 
 ### CompositeDispatcher
 
-Class that holds multiple Dispatchers and delegates to the appropriate Dispatcher based on the event's dispatcherType.
+Class that holds multiple Dispatchers and delegates to the appropriate Dispatcher based on the event's `dispatcherType`. Implements `ScheduleDispatcherInterface`.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `dispatchEvent` | `(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt)` | `DispatchResultInterface` | Delegate to the appropriate dispatcher based on `event->getDispatcherType()` |
+| `cleanup` | — | `void` | Clean up completed processes across all dispatchers |
+| `stopAll` | — | `void` | Stop all running processes across all dispatchers |
 
-use DateTimeInterface;
-use Illuminate\Contracts\Container\Container;
-use Psr\Log\LoggerInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+Requires at least one dispatcher in the constructor. Throws `InvalidArgumentException` for empty dispatchers or unknown dispatcher types.
 
-/**
- * Holds multiple Dispatchers and delegates based on event.getDispatcherType()
- */
-class CompositeDispatcher implements ScheduleDispatcherInterface
-{
-    /** @var array<string, ScheduleDispatcherInterface> */
-    private $dispatchers;
+DI registration is handled via the Registrar pattern (see `src/Providers/`). The `ScheduleDispatcherInterface` binding is wrapped with `TrackingDispatcher` as a decorator.
 
-    /** @var LoggerInterface */
-    private $logger;
-
-    /**
-     * @param array<string, ScheduleDispatcherInterface> $dispatchers
-     * @param LoggerInterface $logger
-     * @throws \InvalidArgumentException If dispatchers is empty
-     */
-    public function __construct(array $dispatchers, LoggerInterface $logger)
-    {
-        if (empty($dispatchers)) {
-            throw new \InvalidArgumentException('At least one dispatcher must be provided');
-        }
-
-        $this->dispatchers = $dispatchers;
-        $this->logger = $logger;
-    }
-
-    public function dispatchEvent(
-        ClockAwareEvent $event,
-        Container $container,
-        DateTimeInterface $dueAt
-    ): DispatchResultInterface {
-        $type = $event->getDispatcherType();
-
-        if (!isset($this->dispatchers[$type])) {
-            $availableTypes = implode(', ', array_keys($this->dispatchers));
-            throw new \InvalidArgumentException(
-                "Unknown dispatcher type: {$type}. Available types: {$availableTypes}"
-            );
-        }
-
-        return $this->dispatchers[$type]->dispatchEvent($event, $container, $dueAt);
-    }
-
-    public function cleanup(): void;
-    public function stopAll(): void;
-}
-```
-
-**DI in ServiceProvider**:
-
-```php
-// Register CompositeDispatcher
-$this->app->singleton(CompositeDispatcher::class, function ($app) {
-    return new CompositeDispatcher(
-        [
-            'local' => $app->make(LocalDispatcher::class),
-            'stepfunctions' => $app->make(StepFunctionsDispatcher::class),
-        ],
-        $app->make('log')
-    );
-});
-
-// ExecutionTrackerInterface switches based on config
-$this->app->singleton(ExecutionTrackerInterface::class, function ($app) {
-    if (config('graceful-scheduler.tracker.enabled')) {
-        return new CacheExecutionTracker(/* ... */);
-    }
-    return new NullExecutionTracker();
-});
-
-// ScheduleDispatcherInterface wrapped with TrackingDispatcher
-$this->app->singleton(ScheduleDispatcherInterface::class, function ($app) {
-    return new TrackingDispatcher(
-        $app->make(CompositeDispatcher::class),
-        $app->make(ExecutionTrackerInterface::class),
-        $app->make(LoggerInterface::class)
-    );
-});
-
-// ScheduleOrchestratorInterface is DefaultScheduleOrchestrator
-$this->app->singleton(ScheduleOrchestratorInterface::class, function ($app) {
-    return new DefaultScheduleOrchestrator(
-        $app->make(ScheduleDispatcherInterface::class),
-        $app->make(ExecutionTrackerInterface::class),
-        $app->make(ClockInterface::class),
-        $app->make(SleeperInterface::class),
-        $app->make(LoggerInterface::class)
-    );
-});
-```
+→ Source: `src/Dispatcher/CompositeDispatcher.php`
 
 ### DispatchResultInterface
 
 Interface for type-safe handling of Dispatcher results. Defines common metadata, with Dispatcher-specific information held in concrete classes.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `getEventIdentifier` | — | `string` | Get event identifier (mutex name) |
+| `getEventCommand` | — | `string` | Get execution command (e.g., `"php artisan report:daily"`) |
+| `getDispatcherType` | — | `string` | Get Dispatcher type (`'local'` \| `'stepfunctions'`) |
+| `getDispatchedAt` | — | `DateTimeImmutable` | Get dispatch time |
 
-interface DispatchResultInterface
-{
-    /**
-     * Get event identifier (mutex name)
-     *
-     * @return string Event identifier
-     */
-    public function getEventIdentifier(): string;
-
-    /**
-     * Get execution command
-     *
-     * @return string Execution command (e.g., "php artisan report:daily")
-     */
-    public function getEventCommand(): string;
-
-    /**
-     * Get Dispatcher type
-     *
-     * @return string Dispatcher type ('local' | 'stepfunctions')
-     */
-    public function getDispatcherType(): string;
-
-    /**
-     * Get dispatch time
-     *
-     * @return \DateTimeImmutable Dispatch time
-     */
-    public function getDispatchedAt(): \DateTimeImmutable;
-}
-```
+→ Source: `src/Dispatcher/Result/DispatchResultInterface.php`
 
 ### StartedDispatchResultInterface / AlreadyRunningDispatchResultInterface / FailedDispatchResultInterface
 
 Sub-interfaces that express result types through the type system. Type-safe determination is possible using the `instanceof` operator.
 
-```php
-<?php
+- **`StartedDispatchResultInterface`**: Marker interface (no additional methods) representing a successful dispatch
+- **`AlreadyRunningDispatchResultInterface`**: Marker interface (no additional methods) representing a duplicate execution detection (e.g., Step Functions `ExecutionAlreadyExists`)
+- **`FailedDispatchResultInterface`**: Represents a failed dispatch. Adds `getError(): string` and `getException(): ?Throwable`
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
-
-/**
- * Marker interface representing a successful dispatch result
- *
- * Use instanceof StartedDispatchResultInterface to determine new starts
- */
-interface StartedDispatchResultInterface extends DispatchResultInterface
-{
-    // Marker interface (no methods)
-}
-
-/**
- * Marker interface representing a dispatch result for an already-running task
- *
- * Used when duplicate execution is detected, such as
- * Step Functions ExecutionAlreadyExists.
- *
- * Use instanceof AlreadyRunningDispatchResultInterface to determine existing executions
- */
-interface AlreadyRunningDispatchResultInterface extends DispatchResultInterface
-{
-    // Marker interface (no methods)
-}
-
-/**
- * Interface representing a failed dispatch result
- *
- * Use instanceof FailedDispatchResultInterface to determine failures
- */
-interface FailedDispatchResultInterface extends DispatchResultInterface
-{
-    /**
-     * Get error message
-     *
-     * @return string Error message
-     */
-    public function getError(): string;
-
-    /**
-     * Get original exception
-     *
-     * @return \Throwable|null Exception object (if present)
-     */
-    public function getException(): ?\Throwable;
-}
-```
+→ Source: `src/Dispatcher/Result/` directory
 
 ### LocalDispatcher Result Classes
 
-Result classes for LocalDispatcher. On success, holds the Process object enabling background process management.
+Result classes for LocalDispatcher. On success, holds the `Process` object enabling background process management.
 
-```php
-<?php
+| Class | Implements | Dispatcher-specific methods |
+|---|---|---|
+| `StartedLocalDispatchResult` | `StartedDispatchResultInterface` | `getProcess(): Process`, `isRunning(): bool`, `getExitCode(): ?int` |
+| `FailedLocalDispatchResult` | `FailedDispatchResultInterface` | — (uses base `getError()` / `getException()`) |
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+Both classes return `'local'` from `getDispatcherType()`.
 
-use Symfony\Component\Process\Process;
-
-/**
- * Successful LocalDispatcher result
- */
-class StartedLocalDispatchResult implements StartedDispatchResultInterface
-{
-    /** @var Process */
-    private $process;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    public function __construct(
-        Process $process,
-        string $eventIdentifier,
-        string $eventCommand,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
-
-    // DispatchResultInterface implementation
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'local'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-
-    // Local-specific methods
-    public function getProcess(): Process;
-    public function isRunning(): bool;
-    public function getExitCode(): ?int;
-}
-
-/**
- * Failed LocalDispatcher result
- */
-class FailedLocalDispatchResult implements FailedDispatchResultInterface
-{
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var string */
-    private $error;
-
-    /** @var \Throwable|null */
-    private $exception;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    public function __construct(
-        string $eventIdentifier,
-        string $eventCommand,
-        string $error,
-        ?\Throwable $exception = null,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
-
-    // FailedDispatchResultInterface implementation
-    public function getError(): string { return $this->error; }
-    public function getException(): ?\Throwable;
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'local'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-}
-```
-
-**Usage example (from Orchestrator):**
-
-```php
-// Dispatch event
-$result = $dispatcher->dispatchEvent($event, $container);
-
-if ($result instanceof StartedLocalDispatchResult) {
-    // Log output
-    Log::info('Event dispatched', [
-        'command' => $result->getEventCommand(),
-        'type' => $result->getDispatcherType(),
-        'identifier' => $result->getEventIdentifier(),
-        'at' => $result->getDispatchedAt(),
-    ]);
-
-    // Process management
-    $this->runningProcesses[] = $result;
-} elseif ($result instanceof StartedDispatchResultInterface) {
-    // StepFunctions and other success cases
-    Log::info('Event dispatched via ' . $result->getDispatcherType());
-} elseif ($result instanceof FailedDispatchResultInterface) {
-    Log::error('Event dispatch failed', [
-        'command' => $result->getEventCommand(),
-        'error' => $result->getError(),
-    ]);
-}
-```
+→ Source: `src/Dispatcher/Result/StartedLocalDispatchResult.php`, `src/Dispatcher/Result/FailedLocalDispatchResult.php`
 
 ### StepFunctionsDispatcher Result Classes
 
 Result classes for StepFunctionsDispatcher. Uses `StartedStepFunctionsDispatchResult` for new starts, `AlreadyRunningStepFunctionsDispatchResult` for existing executions, and `FailedStepFunctionsDispatchResult` for failures.
 
-```php
-<?php
+| Class | Implements | StepFunctions-specific methods |
+|---|---|---|
+| `StartedStepFunctionsDispatchResult` | `StartedDispatchResultInterface` | `getExecutionArn(): string`, `getExecutionName(): string` |
+| `AlreadyRunningStepFunctionsDispatchResult` | `AlreadyRunningDispatchResultInterface` | `getExecutionName(): string` |
+| `FailedStepFunctionsDispatchResult` | `FailedDispatchResultInterface` | `getExecutionName(): string`, factory method `failed(...)` |
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+All classes return `'stepfunctions'` from `getDispatcherType()`.
 
-/**
- * Successful StepFunctionsDispatcher result
- */
-class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
-{
-    /** @var string */
-    private $executionArn;
-
-    /** @var string */
-    private $executionName;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    public function __construct(
-        string $executionArn,
-        string $executionName,
-        string $eventIdentifier,
-        string $eventCommand,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
-
-    // DispatchResultInterface implementation
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'stepfunctions'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-
-    // StepFunctions-specific methods
-    public function getExecutionArn(): string;
-    public function getExecutionName(): string;
-}
-
-/**
- * Already-running StepFunctionsDispatcher result
- *
- * Used when ExecutionAlreadyExists occurs.
- */
-class AlreadyRunningStepFunctionsDispatchResult implements AlreadyRunningDispatchResultInterface
-{
-    /** @var string */
-    private $executionName;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    public function __construct(
-        string $executionName,
-        string $eventIdentifier,
-        string $eventCommand,
-        ?\DateTimeImmutable $dispatchedAt = null
-    );
-
-    // DispatchResultInterface implementation
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'stepfunctions'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-
-    // StepFunctions-specific methods
-    public function getExecutionName(): string;
-}
-
-/**
- * Failed StepFunctionsDispatcher result
- */
-class FailedStepFunctionsDispatchResult implements FailedDispatchResultInterface
-{
-    /** @var string */
-    private $executionName;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var string */
-    private $error;
-
-    /** @var \Throwable|null */
-    private $exception;
-
-    /** @var \DateTimeImmutable */
-    private $dispatchedAt;
-
-    // Factory method
-    public static function failed(
-        string $executionName,
-        string $identifier,
-        ?string $command,
-        string $error,
-        ?\Throwable $exception = null
-    ): self;
-
-    // FailedDispatchResultInterface implementation
-    public function getError(): string { return $this->error; }
-    public function getException(): ?\Throwable;
-    public function getEventIdentifier(): string;
-    public function getEventCommand(): string;
-    public function getDispatcherType(): string { return 'stepfunctions'; }
-    public function getDispatchedAt(): \DateTimeImmutable;
-
-    // StepFunctions-specific methods
-    public function getExecutionName(): string;
-}
-```
+→ Source: `src/Dispatcher/Result/` directory
 
 ### ScheduleDispatcherInterface
 
 Interface abstracting schedule task execution methods.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `dispatchEvent` | `(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt)` | `DispatchResultInterface` | Dispatch a single event. `$dueAt` is used for tracking and recovery |
+| `cleanup` | — | `void` | Clean up completed processes |
+| `stopAll` | — | `void` | Stop all running processes |
 
-use DateTimeInterface;
-use Illuminate\Container\Container;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
-
-interface ScheduleDispatcherInterface
-{
-    /**
-     * Dispatch a single event
-     *
-     * @param ClockAwareEvent $event Schedule event to execute
-     * @param Container $container Laravel container instance
-     * @param DateTimeInterface $dueAt Scheduled execution time (used for tracking and recovery)
-     * @return DispatchResultInterface Dispatch result
-     */
-    public function dispatchEvent(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface;
-
-    /**
-     * Clean up completed processes
-     */
-    public function cleanup(): void;
-
-    /**
-     * Stop all running processes
-     */
-    public function stopAll(): void;
-}
-```
+→ Source: `src/Dispatcher/ScheduleDispatcherInterface.php`
 
 **Implementations**:
 
@@ -1336,154 +838,44 @@ interface ScheduleDispatcherInterface
 
 Interface representing a result that was skipped, such as due to lock acquisition failure.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `getReason` | — | `string` | Get the reason for skipping (e.g., `'lock_not_acquired'`) |
 
-/**
- * Interface representing a skipped dispatch result
- *
- * Used when dispatch did not actually occur, such as lock acquisition failure.
- *
- * Use instanceof SkippedDispatchResultInterface to determine skips
- */
-interface SkippedDispatchResultInterface extends DispatchResultInterface
-{
-    /**
-     * Get the reason for skipping
-     *
-     * @return string Reason (e.g., 'lock_not_acquired')
-     */
-    public function getReason(): string;
-}
-```
+→ Source: `src/Dispatcher/Result/SkippedDispatchResultInterface.php`
 
 ### TrackingDispatcher
 
-Decorator responsible for tracking logic (lock acquisition, execution recording).
+Decorator responsible for tracking logic (lock acquisition, execution recording). Implements `ScheduleDispatcherInterface`.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `dispatchEvent` | `(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt)` | `DispatchResultInterface` | Dispatch with tracking (see flow below) |
+| `cleanup` | — | `void` | Delegate to inner dispatcher |
+| `stopAll` | — | `void` | Delegate to inner dispatcher |
 
-use DateTimeInterface;
-use Illuminate\Container\Container;
-use Psr\Log\LoggerInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
-use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
+**Processing flow**: (1) Acquire lock via `ExecutionTrackerInterface::acquireLock()` — returns `SkippedDispatchResult` if lock not acquired; (2) Delegate to inner `ScheduleDispatcherInterface`; (3) Track result via `handleResult()` (mark executed, log failures).
 
-/**
- * Decorator responsible for tracking logic
- *
- * Responsibilities:
- * - Lock acquisition (acquireLock)
- * - Execution recording (markExecuted)
- * - Failure logging
- * - Delegation to inner Dispatcher
- */
-class TrackingDispatcher implements ScheduleDispatcherInterface
-{
-    /** @var ScheduleDispatcherInterface */
-    private $inner;
-
-    /** @var ExecutionTrackerInterface */
-    private $tracker;
-
-    /** @var LoggerInterface */
-    private $logger;
-
-    public function __construct(
-        ScheduleDispatcherInterface $inner,
-        ExecutionTrackerInterface $tracker,
-        LoggerInterface $logger
-    );
-
-    public function dispatchEvent(ClockAwareEvent $event, Container $container, DateTimeInterface $dueAt): DispatchResultInterface
-    {
-        // 1. Acquire lock
-        if (!$this->tracker->acquireLock($event, $dueAt)) {
-            return new SkippedDispatchResult(
-                $event->mutexName(),
-                (string) $event->command,
-                'lock_not_acquired'
-            );
-        }
-
-        // 2. Delegate to inner Dispatcher
-        $result = $this->inner->dispatchEvent($event, $container, $dueAt);
-
-        // 3. Track based on result
-        $this->handleResult($result, $event, $dueAt);
-
-        return $result;
-    }
-
-    public function cleanup(): void;
-    public function stopAll(): void;
-}
-```
+→ Source: `src/Dispatcher/TrackingDispatcher.php`
 
 ### ExecutionTrackerInterface
 
 Interface for tracking schedule task execution history and detecting missed executions.
 
-```php
-<?php
+**Key methods**:
 
-namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
+| Method | Parameters | Return | Description |
+|---|---|---|---|
+| `markExecuted` | `(ClockAwareEvent $event, DateTimeInterface $dueAt)` | `void` | Record a task execution |
+| `getMissedDueIfRecoverable` | `(ClockAwareEvent $event, DateTimeInterface $now)` | `?DateTimeInterface` | Return missed execution time if recovery needed. Returns `null` for first executions. Throws `InvalidArgumentException` for invalid cron expressions |
+| `acquireLock` | `(ClockAwareEvent $event, DateTimeInterface $dueAt)` | `bool` | Acquire exclusive lock to prevent concurrent execution |
+| `releaseLock` | `(ClockAwareEvent $event, DateTimeInterface $dueAt)` | `void` | Release the lock |
 
-use DateTimeInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
-
-interface ExecutionTrackerInterface
-{
-    /**
-     * Record a task execution
-     *
-     * @param ClockAwareEvent $event Executed event
-     * @param DateTimeInterface $dueAt Scheduled execution time
-     */
-    public function markExecuted(ClockAwareEvent $event, DateTimeInterface $dueAt): void;
-
-    /**
-     * Return the scheduled execution time of a missed execution that should be recovered, if any
-     *
-     * Returns missedDue when all of the following conditions are met:
-     * - A scheduled execution time exists after the last execution time (missed execution detected)
-     * - Within grace period
-     *
-     * Returns null for first executions (no execution record).
-     * Throws an exception for invalid cron expressions.
-     *
-     * @param ClockAwareEvent $event Event to check
-     * @param DateTimeInterface $now Current time
-     * @return DateTimeInterface|null missedDue if recovery needed, null otherwise
-     * @throws \InvalidArgumentException If cron expression is invalid
-     */
-    public function getMissedDueIfRecoverable(ClockAwareEvent $event, DateTimeInterface $now): ?DateTimeInterface;
-
-    /**
-     * Acquire a lock for the specified time
-     *
-     * Acquires an exclusive lock to prevent multiple Workers from executing the same task concurrently.
-     *
-     * @param ClockAwareEvent $event Target event
-     * @param DateTimeInterface $dueAt Scheduled execution time
-     * @return bool true if lock acquired successfully
-     */
-    public function acquireLock(ClockAwareEvent $event, DateTimeInterface $dueAt): bool;
-
-    /**
-     * Release the lock for the specified time
-     *
-     * @param ClockAwareEvent $event Target event
-     * @param DateTimeInterface $dueAt Scheduled execution time
-     */
-    public function releaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void;
-}
-```
+→ Source: `src/Tracker/ExecutionTrackerInterface.php`
 
 **Implementation example**:
 
