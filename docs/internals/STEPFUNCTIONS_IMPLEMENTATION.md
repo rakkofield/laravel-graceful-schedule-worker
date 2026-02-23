@@ -350,18 +350,18 @@ Information required as input to the State Machine:
 ```json
 {
   "command": "reports:generate",
-  "arguments": ["--date=2024-01-01"],
-  "dueAt": "2024-01-01T03:00:00Z",
   "mutexName": "schedule-reports:generate",
-  "isRecovery": false
+  "dueAt": "2024-01-01T03:00:00Z",
+  "lockKey": "schedule-reports-generate-1704067200",
+  "ttl": 3600
 }
 ```
 
 - `command`: The artisan command to execute
-- `arguments`: Command arguments
-- `dueAt`: The original due time (can be used for idempotency checks)
 - `mutexName`: Laravel event identifier
-- `isRecovery`: Whether this is a recovery execution
+- `dueAt`: The original due time (can be used for idempotency checks)
+- `lockKey`: DynamoDB lock key (generated from mutexName and dueAt)
+- `ttl`: Lock TTL in seconds
 
 ---
 

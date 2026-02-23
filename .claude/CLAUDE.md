@@ -92,14 +92,15 @@ When a task is completed, run the following without waiting for confirmation:
 
 ```
 src/
-├── Clock/                # Clock & sleep abstraction (ClockInterface, SleeperInterface)
-├── Console/              # Artisan commands (GracefulScheduleWorkCommand)
-├── Dispatcher/           # Task dispatchers
-│   ├── Result/           # Dispatch result types (Started, Failed, Skipped, AlreadyRunning)
-│   └── StepFunctions/    # Step Functions client, exceptions, name generation
+├── Clock/                # Clock & sleep abstraction (ClockInterface, SleeperInterface, FreezableClock)
+├── Console/              # Artisan commands (GracefulScheduleWorkCommand, ExceptionReporter, UsesClockAwareSchedule)
+├── Dispatcher/           # Task dispatchers (RunningProcessManager, DispatcherType)
+│   ├── Result/           # Dispatch result types (AbstractDispatchResult, Started, Failed, Skipped, AlreadyRunning)
+│   └── StepFunctions/    # Step Functions client, payload, lock key, input factory, name generation
+├── Logging/              # Logging utilities (PrefixedLogger)
 ├── Orchestrator/         # Schedule execution coordination (DefaultScheduleOrchestrator)
-├── Providers/            # ServiceProvider
-├── Scheduling/           # ClockAwareSchedule, ClockAwareEvent
+├── Providers/            # ServiceProvider, Registrars (Dispatcher, Orchestrator, Tracker), StepFunctionsServiceProvider
+├── Scheduling/           # ClockAwareSchedule, ClockAwareEvent, ClockAwareTimeFilter, ProcessCommandBuilder, TimezoneResolver
 └── Tracker/              # Execution tracking (CacheExecutionTracker, NullExecutionTracker)
 
 tests/

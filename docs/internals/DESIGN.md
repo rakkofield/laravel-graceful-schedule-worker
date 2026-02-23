@@ -336,10 +336,47 @@ classDiagram
     }
 
     class StepFunctionsDispatcher {
-        -client SfnClient
-        -stateMachineArn string
-        -tracker ExecutionTrackerInterface
+        -client StepFunctionsClientInterface
+        -inputFactory StartExecutionInputFactoryInterface
+        -clock ClockInterface
         +dispatchEvent(event, container) DispatchResultInterface
+    }
+
+    class StepFunctionsClientInterface {
+        <<interface>>
+        +startExecution(input) StartExecutionResult
+    }
+
+    class StartExecutionInputFactoryInterface {
+        <<interface>>
+        +create(event, dueAt) StartExecutionInput
+    }
+
+    class StartExecutionInputFactory {
+        -nameGenerator ExecutionNameGeneratorInterface
+        -payloadBuilder PayloadBuilderInterface
+        -lockTtlSeconds int
+        +create(event, dueAt) StartExecutionInput
+    }
+
+    class PayloadBuilderInterface {
+        <<interface>>
+        +build(event, dueAt, lockTtlSeconds) PayloadInterface
+    }
+
+    class PayloadBuilder {
+        -lockKeyGenerator LockKeyGenerator
+        +build(event, dueAt, lockTtlSeconds) PayloadInterface
+    }
+
+    class LockKeyGenerator {
+        -sanitizer MutexNameSanitizer
+        +generate(mutexName, dueAt, withoutOverlapping) string
+    }
+
+    class MutexNameSanitizer {
+        +buildIdentifier(mutexName, timestamp) string
+        +buildStableKey(mutexName) string
     }
 
     %% Tracker pattern
@@ -415,8 +452,13 @@ classDiagram
     CompositeDispatcher --> ScheduleDispatcherInterface : delegates
 
     LocalDispatcher --> Schedule : uses
-    StepFunctionsDispatcher --> Schedule : uses
-    StepFunctionsDispatcher --> ExecutionTrackerInterface : uses (optional)
+    StepFunctionsDispatcher --> StepFunctionsClientInterface : uses
+    StepFunctionsDispatcher --> StartExecutionInputFactoryInterface : uses
+    StartExecutionInputFactory ..|> StartExecutionInputFactoryInterface
+    StartExecutionInputFactory --> PayloadBuilderInterface : uses
+    PayloadBuilder ..|> PayloadBuilderInterface
+    PayloadBuilder --> LockKeyGenerator : uses
+    LockKeyGenerator --> MutexNameSanitizer : uses
 
     CacheExecutionTracker --> Event : uses
 
@@ -1827,43 +1869,71 @@ src/
 +-- Clock/
 |   +-- ClockInterface.php               # Time abstraction interface
 |   +-- SystemClock.php                  # Production implementation
+|   +-- FreezableClock.php               # Freezable clock (for testing/debugging)
 |   +-- SleeperInterface.php             # Sleep abstraction
 |   +-- Sleeper.php                      # Production implementation
 +-- Console/
 |   +-- GracefulScheduleWorkCommand.php  # Artisan command (uses Orchestrator)
+|   +-- ExceptionReporterInterface.php   # Exception reporter interface
+|   +-- ExceptionReporter.php            # Exception reporter (Laravel 7+)
+|   +-- LegacyExceptionReporter.php      # Exception reporter (Laravel 5/6)
+|   +-- UsesClockAwareSchedule.php       # Trait for Kernel to use ClockAwareSchedule
 +-- Dispatcher/
-|   +-- DispatchResultInterface.php                  # Dispatch result base interface
-|   +-- StartedDispatchResultInterface.php           # Success result interface (new start)
-|   +-- AlreadyRunningDispatchResultInterface.php    # Existing execution interface
-|   +-- FailedDispatchResultInterface.php            # Failure result interface
-|   +-- SkippedDispatchResultInterface.php           # Skipped result interface
-|   +-- SkippedDispatchResult.php                    # Skipped result implementation
-|   +-- StartedLocalDispatchResult.php               # LocalDispatcher success result
-|   +-- FailedLocalDispatchResult.php                # LocalDispatcher failure result
-|   +-- StartedStepFunctionsDispatchResult.php       # StepFunctionsDispatcher success result
-|   +-- AlreadyRunningStepFunctionsDispatchResult.php # StepFunctionsDispatcher existing execution result
-|   +-- FailedStepFunctionsDispatchResult.php        # StepFunctionsDispatcher failure result
 |   +-- ScheduleDispatcherInterface.php       # Dispatcher interface
+|   +-- DispatcherType.php                    # Dispatcher type enum
 |   +-- TrackingDispatcher.php                # Tracking decorator
 |   +-- CompositeDispatcher.php               # Dispatcher delegation class
 |   +-- LocalDispatcher.php                   # Background process start
 |   +-- StepFunctionsDispatcher.php           # AWS Step Functions integration
+|   +-- RunningProcessManager.php             # Running process management
+|   +-- Result/                               # Dispatch result types
+|   |   +-- DispatchResultInterface.php                  # Dispatch result base interface
+|   |   +-- StartedDispatchResultInterface.php           # Success result interface (new start)
+|   |   +-- AlreadyRunningDispatchResultInterface.php    # Existing execution interface
+|   |   +-- FailedDispatchResultInterface.php            # Failure result interface
+|   |   +-- SkippedDispatchResultInterface.php           # Skipped result interface
+|   |   +-- AbstractDispatchResult.php                   # Abstract base for dispatch results
+|   |   +-- SkippedDispatchResult.php                    # Skipped result implementation
+|   |   +-- StartedLocalDispatchResult.php               # LocalDispatcher success result
+|   |   +-- FailedLocalDispatchResult.php                # LocalDispatcher failure result
+|   |   +-- StartedStepFunctionsDispatchResult.php       # StepFunctionsDispatcher success result
+|   |   +-- AlreadyRunningStepFunctionsDispatchResult.php # StepFunctionsDispatcher existing execution result
+|   |   +-- FailedStepFunctionsDispatchResult.php        # StepFunctionsDispatcher failure result
 |   +-- StepFunctions/                        # Step Functions related classes
 |       +-- StepFunctionsClientInterface.php  # SfnClient abstraction
 |       +-- AwsSfnClientAdapter.php           # AWS SDK adapter
 |       +-- ExecutionNameGeneratorInterface.php # Execution Name generation interface
 |       +-- ExecutionNameGenerator.php        # Execution Name generation
 |       +-- StartExecutionResult.php          # startExecution result
+|       +-- StartExecutionInputFactoryInterface.php # Input factory interface
+|       +-- StartExecutionInputFactory.php    # Input factory implementation
+|       +-- StartExecutionInput.php           # Input value object
+|       +-- PayloadInterface.php              # Payload interface
+|       +-- Payload.php                       # Payload value object
+|       +-- PayloadBuilderInterface.php       # Payload builder interface
+|       +-- PayloadBuilder.php                # Payload builder implementation
+|       +-- LockKeyGenerator.php              # Lock key generation
+|       +-- MutexNameSanitizer.php            # Mutex name sanitization
 |       +-- StepFunctionsException.php        # Base exception
+|       +-- PayloadEncodingException.php      # Payload encoding exception
 |       +-- ExecutionAlreadyExistsException.php # Duplicate execution exception
++-- Logging/
+|   +-- PrefixedLogger.php               # Logger with prefix
 +-- Orchestrator/
 |   +-- ScheduleOrchestratorInterface.php # Schedule execution coordination interface
 |   +-- DefaultScheduleOrchestrator.php   # Default implementation
 +-- Providers/
 |   +-- GracefulScheduleWorkerProvider.php  # DI configuration
+|   +-- DispatcherServiceRegistrar.php      # Dispatcher registration
+|   +-- OrchestratorServiceRegistrar.php    # Orchestrator registration
+|   +-- TrackerServiceRegistrar.php         # Tracker registration
+|   +-- StepFunctionsServiceProvider.php    # Step Functions service provider
 +-- Scheduling/
 |   +-- ClockAwareSchedule.php           # Schedule extension
 |   +-- ClockAwareEvent.php              # Event extension (withGracePeriod, dispatchVia, etc.)
+|   +-- ClockAwareTimeFilter.php         # Clock-aware time filtering
+|   +-- ProcessCommandBuilder.php        # Process command building
+|   +-- TimezoneResolver.php             # Timezone resolution
 +-- Tracker/
     +-- ExecutionTrackerInterface.php    # Interface
     +-- CacheExecutionTracker.php        # Redis/Cache implementation (with locking)
@@ -1875,6 +1945,7 @@ config/
 tests/
 +-- E2E/
 |   +-- GracefulScheduleWorkerCommandTest.php  # SIGTERM graceful shutdown
+|   +-- BackgroundCommandOutputTest.php        # Background command output verification
 +-- Helper/                                    # Test helper classes
 |   +-- AdvancingClock.php                     # Auto-advancing Clock
 |   +-- FixedClock.php                         # Fixed-time Clock
@@ -1890,38 +1961,66 @@ tests/
 |   |   +-- TrackingDispatcherRedisIntegrationTest.php  # Redis integration test
 |   +-- Orchestrator/
 |   |   +-- OrchestratorFlowIntegrationTest.php         # Flow integration test
+|   |   +-- OrchestratorFiltersPassIntegrationTest.php  # Filters pass integration test
 |   +-- Providers/
+|   |   +-- ProviderBootIntegrationTest.php             # Provider boot integration test
 |   |   +-- ProviderWiringIntegrationTest.php           # DI wiring test
+|   +-- Scheduling/
+|   |   +-- ScheduleRunCompatibilityIntegrationTest.php # Schedule run compatibility test
 |   +-- Tracker/
 |       +-- CacheExecutionTrackerRedisTest.php          # Redis integration test
 +-- Unit/
     +-- Clock/
     |   +-- SystemClockTest.php
     |   +-- SleeperTest.php
+    |   +-- FreezableClockTest.php
     +-- Console/
     |   +-- GracefulScheduleWorkCommandTest.php
+    |   +-- ExceptionReporterTest.php
+    |   +-- LegacyExceptionReporterTest.php
+    |   +-- UsesClockAwareScheduleTest.php
     +-- Dispatcher/
-    |   +-- StartedLocalDispatchResultTest.php
-    |   +-- FailedLocalDispatchResultTest.php
-    |   +-- StartedStepFunctionsDispatchResultTest.php
-    |   +-- AlreadyRunningStepFunctionsDispatchResultTest.php
-    |   +-- FailedStepFunctionsDispatchResultTest.php
-    |   +-- SkippedDispatchResultTest.php
-    |   +-- TrackingDispatcherTest.php
-    |   +-- CompositeDispatcherTest.php
     |   +-- LocalDispatcherTest.php
+    |   +-- CompositeDispatcherTest.php
+    |   +-- TrackingDispatcherTest.php
     |   +-- StepFunctionsDispatcherTest.php
+    |   +-- RunningProcessManagerTest.php
+    |   +-- Result/
+    |   |   +-- AbstractDispatchResultTest.php
+    |   |   +-- StartedLocalDispatchResultTest.php
+    |   |   +-- FailedLocalDispatchResultTest.php
+    |   |   +-- StartedStepFunctionsDispatchResultTest.php
+    |   |   +-- AlreadyRunningStepFunctionsDispatchResultTest.php
+    |   |   +-- FailedStepFunctionsDispatchResultTest.php
+    |   |   +-- SkippedDispatchResultTest.php
     |   +-- StepFunctions/
     |       +-- AwsSfnClientAdapterTest.php
     |       +-- ExecutionNameGeneratorTest.php
+    |       +-- MutexNameSanitizerTest.php
+    |       +-- LockKeyGeneratorTest.php
+    |       +-- PayloadTest.php
+    |       +-- PayloadBuilderTest.php
+    |       +-- StartExecutionInputFactoryTest.php
+    |       +-- StartExecutionInputTest.php
     |       +-- StartExecutionResultTest.php
+    +-- Logging/
+    |   +-- PrefixedLoggerTest.php
     +-- Orchestrator/
     |   +-- DefaultScheduleOrchestratorTest.php
     +-- Providers/
     |   +-- GracefulScheduleWorkerProviderTest.php
+    |   +-- DispatcherServiceRegistrarTest.php
+    |   +-- OrchestratorServiceRegistrarTest.php
+    |   +-- TrackerServiceRegistrarTest.php
+    |   +-- StepFunctionsServiceProviderTest.php
     +-- Scheduling/
     |   +-- ClockAwareScheduleTest.php
     |   +-- ClockAwareEventTest.php
+    |   +-- ClockAwareEventCompatibilityTest.php
+    |   +-- ClockAwareScheduleCompatibilityTest.php
+    |   +-- ClockAwareTimeFilterTest.php
+    |   +-- ProcessCommandBuilderTest.php
+    |   +-- TimezoneResolverTest.php
     +-- Tracker/
         +-- CacheExecutionTrackerTest.php
         +-- NullExecutionTrackerTest.php
@@ -1965,6 +2064,7 @@ return [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
         ],
+        'lock_ttl' => env('SCHEDULE_SF_LOCK_TTL', 3600),
     ],
 
     /*
@@ -1972,14 +2072,13 @@ return [
     | Execution Tracker Configuration
     |--------------------------------------------------------------------------
     |
-    | Configuration for execution history tracking.
+    | Execution tracking configuration.
     |
     */
     'tracker' => [
         'enabled' => env('SCHEDULE_TRACKER_ENABLED', false),
         'store' => env('SCHEDULE_TRACKER_STORE'), // redis, dynamodb, etc.
-        'prefix' => env('SCHEDULE_TRACKER_PREFIX', 'schedule:executed:'),
-        'lock_ttl' => env('SCHEDULE_TRACKER_LOCK_TTL', 3600),      // Lock TTL (seconds)
+        'lock_ttl' => env('SCHEDULE_TRACKER_LOCK_TTL', 3600),      // Lock TTL in seconds
     ],
 ];
 ```
@@ -2072,19 +2171,35 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 **Deliverables**:
 
 - `src/Dispatcher/StepFunctionsDispatcher.php`
-- `src/Dispatcher/StartedStepFunctionsDispatchResult.php`
-- `src/Dispatcher/AlreadyRunningStepFunctionsDispatchResult.php`
-- `src/Dispatcher/FailedStepFunctionsDispatchResult.php`
+- `src/Dispatcher/Result/StartedStepFunctionsDispatchResult.php`
+- `src/Dispatcher/Result/AlreadyRunningStepFunctionsDispatchResult.php`
+- `src/Dispatcher/Result/FailedStepFunctionsDispatchResult.php`
 - `src/Dispatcher/StepFunctions/StepFunctionsClientInterface.php`
 - `src/Dispatcher/StepFunctions/AwsSfnClientAdapter.php`
 - `src/Dispatcher/StepFunctions/ExecutionNameGeneratorInterface.php`
 - `src/Dispatcher/StepFunctions/ExecutionNameGenerator.php`
 - `src/Dispatcher/StepFunctions/StartExecutionResult.php`
+- `src/Dispatcher/StepFunctions/StartExecutionInputFactoryInterface.php`
+- `src/Dispatcher/StepFunctions/StartExecutionInputFactory.php`
+- `src/Dispatcher/StepFunctions/StartExecutionInput.php`
+- `src/Dispatcher/StepFunctions/PayloadInterface.php`
+- `src/Dispatcher/StepFunctions/Payload.php`
+- `src/Dispatcher/StepFunctions/PayloadBuilderInterface.php`
+- `src/Dispatcher/StepFunctions/PayloadBuilder.php`
+- `src/Dispatcher/StepFunctions/LockKeyGenerator.php`
+- `src/Dispatcher/StepFunctions/MutexNameSanitizer.php`
 - `src/Dispatcher/StepFunctions/StepFunctionsException.php`
+- `src/Dispatcher/StepFunctions/PayloadEncodingException.php`
 - `src/Dispatcher/StepFunctions/ExecutionAlreadyExistsException.php`
 - `tests/Unit/Dispatcher/StepFunctionsDispatcherTest.php`
 - `tests/Unit/Dispatcher/StepFunctions/AwsSfnClientAdapterTest.php`
 - `tests/Unit/Dispatcher/StepFunctions/ExecutionNameGeneratorTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/MutexNameSanitizerTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/LockKeyGeneratorTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/PayloadTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/PayloadBuilderTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/StartExecutionInputFactoryTest.php`
+- `tests/Unit/Dispatcher/StepFunctions/StartExecutionInputTest.php`
 - `tests/Integration/Dispatcher/StepFunctionsDispatcherIntegrationTest.php` (uses moto)
 
 ### Phase 5: At-least-once Support (ExecutionTracker) -- Complete
@@ -2129,16 +2244,17 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 
 | Category | Test Count | Verification Target |
 |----------|-----------|-------------------|
-| Unit/Clock | 6 | SystemClock, Sleeper |
-| Unit/Scheduling | 17 | ClockAwareEvent, ClockAwareSchedule |
-| Unit/Dispatcher | 94 | LocalDispatcher, CompositeDispatcher, TrackingDispatcher, StepFunctionsDispatcher, each DispatchResult |
-| Unit/Orchestrator | 11 | DefaultScheduleOrchestrator |
-| Unit/Tracker | 19 | CacheExecutionTracker, NullExecutionTracker |
-| Unit/Providers | 15 | GracefulScheduleWorkerProvider |
-| Unit/Console | 1 | GracefulScheduleWorkCommand |
-| Integration | 17 | Redis integration, moto integration, DI wiring, flow integration |
-| E2E | 1 | SIGTERM graceful shutdown |
-| **Total** | **228** | |
+| Unit/Clock | 13 | SystemClock, Sleeper, FreezableClock |
+| Unit/Scheduling | 111 | ClockAwareEvent, ClockAwareSchedule, ClockAwareTimeFilter, ProcessCommandBuilder, TimezoneResolver, Compatibility |
+| Unit/Console | 24 | GracefulScheduleWorkCommand, ExceptionReporter, LegacyExceptionReporter, UsesClockAwareSchedule |
+| Unit/Dispatcher | 247 | LocalDispatcher, CompositeDispatcher, TrackingDispatcher, StepFunctionsDispatcher, RunningProcessManager, each DispatchResult, StepFunctions sub-classes |
+| Unit/Orchestrator | 28 | DefaultScheduleOrchestrator |
+| Unit/Tracker | 26 | CacheExecutionTracker, NullExecutionTracker |
+| Unit/Providers | 46 | GracefulScheduleWorkerProvider, DispatcherServiceRegistrar, OrchestratorServiceRegistrar, TrackerServiceRegistrar, StepFunctionsServiceProvider |
+| Unit/Logging | 4 | PrefixedLogger |
+| Integration | 45 | Redis integration, moto integration, DI wiring, flow integration, filters pass, schedule compatibility |
+| E2E | 3 | SIGTERM graceful shutdown, background command output |
+| **Total** | **547** | |
 
 ### Integration Test Environment
 
