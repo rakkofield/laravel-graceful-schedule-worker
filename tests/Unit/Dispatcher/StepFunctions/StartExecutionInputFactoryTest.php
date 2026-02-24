@@ -82,7 +82,7 @@ class StartExecutionInputFactoryTest extends TestCase
         $input = $this->factory->create($event, $dueAt);
 
         $decoded = json_decode($input->getInput(), true);
-        $this->assertSame('php artisan report:daily', $decoded['command']);
+        $this->assertSame(['php', 'artisan', 'report:daily'], $decoded['command']);
         $this->assertSame($event->mutexName(), $decoded['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $decoded['dueAt']);
         $this->assertIsString($decoded['lockKey']);

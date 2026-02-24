@@ -208,7 +208,7 @@ class ClockAwareScheduleTest extends TestCase
 
         $event = $schedule->command('report:daily');
 
-        $this->assertSame('report:daily', $event->getRawCommand());
+        $this->assertSame(['report:daily'], $event->getRawCommand());
     }
 
     /**
@@ -221,7 +221,7 @@ class ClockAwareScheduleTest extends TestCase
 
         $event = $schedule->command('report:daily', ['--verbose' => 'yes']);
 
-        $this->assertSame("report:daily --verbose='yes'", $event->getRawCommand());
+        $this->assertSame(['report:daily', '--verbose=yes'], $event->getRawCommand());
     }
 
     /**
@@ -235,5 +235,70 @@ class ClockAwareScheduleTest extends TestCase
         $event = $schedule->exec('echo test');
 
         $this->assertNull($event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.19 command() with long option array expands to repeated key=value pairs
+     */
+    public function testCommandWithLongOptionArrayExpandsToRepeatedKeyValuePairs(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command('deploy:run', ['--tag' => ['a', 'b']]);
+
+        $this->assertSame(['deploy:run', '--tag=a', '--tag=b'], $event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.20 command() with short option array expands to alternating flag-value pairs
+     */
+    public function testCommandWithShortOptionArrayExpandsToAlternatingFlagValuePairs(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command('deploy:run', ['-t' => ['a', 'b']]);
+
+        $this->assertSame(['deploy:run', '-t', 'a', '-t', 'b'], $event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.21 command() with positional arguments appends them in order
+     */
+    public function testCommandWithPositionalArgumentsAppendsThemInOrder(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command('deploy:run', ['arg1', 'arg2']);
+
+        $this->assertSame(['deploy:run', 'arg1', 'arg2'], $event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.22 command() with numeric key array expands values as positional arguments
+     */
+    public function testCommandWithNumericKeyArrayExpandsValuesAsPositionalArguments(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command('deploy:run', [['a', 'b']]);
+
+        $this->assertSame(['deploy:run', 'a', 'b'], $event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.23 command() with space-containing value preserves spaces without splitting
+     */
+    public function testCommandWithSpaceContainingValuePreservesSpacesWithoutSplitting(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command('deploy:run', ['--message' => 'fix: spaces in message']);
+
+        $this->assertSame(['deploy:run', '--message=fix: spaces in message'], $event->getRawCommand());
     }
 }

@@ -9,7 +9,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
  */
 class Payload implements PayloadInterface
 {
-    /** @var string */
+    /** @var string[] */
     private $command;
 
     /** @var string */
@@ -25,14 +25,14 @@ class Payload implements PayloadInterface
     private $expiresAt;
 
     /**
-     * @param string $command
+     * @param string[] $command
      * @param string $mutexName
      * @param string $dueAt ISO 8601 formatted date string
      * @param string $lockKey
      * @param int $expiresAt
      */
     public function __construct(
-        string $command,
+        array $command,
         string $mutexName,
         string $dueAt,
         string $lockKey,
@@ -46,9 +46,9 @@ class Payload implements PayloadInterface
     }
 
     /**
-     * @return string
+     * @return string[]
      */
-    public function getCommand(): string
+    public function getCommand(): array
     {
         return $this->command;
     }

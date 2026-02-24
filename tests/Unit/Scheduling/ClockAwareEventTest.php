@@ -654,9 +654,9 @@ class ClockAwareEventTest extends TestCase
             new TimezoneResolver()
         );
 
-        $event->setRawCommand('report:daily');
+        $event->setRawCommand(['report:daily']);
 
-        $this->assertSame('report:daily', $event->getRawCommand());
+        $this->assertSame(['report:daily'], $event->getRawCommand());
     }
 
     /**
@@ -674,9 +674,9 @@ class ClockAwareEventTest extends TestCase
             new TimezoneResolver()
         );
 
-        $event->setRawCommand('report:daily');
+        $event->setRawCommand(['report:daily']);
 
-        $this->assertSame('report:daily', $event->getEffectiveCommand());
+        $this->assertSame(['report:daily'], $event->getEffectiveCommand());
     }
 
     /**
@@ -694,6 +694,6 @@ class ClockAwareEventTest extends TestCase
             new TimezoneResolver()
         );
 
-        $this->assertSame('php artisan test', $event->getEffectiveCommand());
+        $this->assertSame(['php', 'artisan', 'test'], $event->getEffectiveCommand());
     }
 }

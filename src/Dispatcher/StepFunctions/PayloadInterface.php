@@ -20,9 +20,9 @@ interface PayloadInterface
     public function toJson(): string;
 
     /**
-     * Get the command string this payload represents.
+     * Get the command this payload represents.
      *
-     * @return string
+     * @return string[]
      */
-    public function getCommand(): string;
+    public function getCommand(): array;
 }

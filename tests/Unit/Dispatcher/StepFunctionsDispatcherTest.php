@@ -155,7 +155,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertArrayHasKey('dueAt', $input);
         $this->assertArrayHasKey('lockKey', $input);
         $this->assertArrayHasKey('expiresAt', $input);
-        $this->assertSame('php artisan report:daily', $input['command']);
+        $this->assertSame(['php', 'artisan', 'report:daily'], $input['command']);
         $this->assertSame($event->mutexName(), $input['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $input['dueAt']);
         $this->assertIsString($input['lockKey']);
@@ -324,7 +324,7 @@ class StepFunctionsDispatcherTest extends TestCase
     {
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
-        $event->setRawCommand('report:daily');
+        $event->setRawCommand(['report:daily']);
 
         $dispatcher->dispatchEvent($event, $this->dueAt);
 
@@ -332,7 +332,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertNotNull($execution);
 
         $input = json_decode($execution['input'], true);
-        $this->assertSame('report:daily', $input['command']);
+        $this->assertSame(['report:daily'], $input['command']);
     }
 
     /**
@@ -350,7 +350,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertNotNull($execution);
 
         $input = json_decode($execution['input'], true);
-        $this->assertSame('php artisan report:daily', $input['command']);
+        $this->assertSame(['php', 'artisan', 'report:daily'], $input['command']);
     }
 
     /**

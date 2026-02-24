@@ -35,7 +35,7 @@ class ClockAwareEvent extends Event
      */
     protected $dispatcherType;
 
-    /** @var string|null */
+    /** @var string[]|null */
     protected $rawCommand = null;
 
     /** @var ClockAwareTimeFilter */
@@ -157,30 +157,30 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * @return string|null
+     * @return string[]|null
      */
-    public function getRawCommand(): ?string
+    public function getRawCommand(): ?array
     {
         return $this->rawCommand;
     }
 
     /**
-     * Get the effective command string for this event.
+     * Get the effective command as an array for this event.
      *
-     * Returns rawCommand if set, otherwise falls back to the command property.
+     * Returns rawCommand if set, otherwise falls back to splitting the command property.
      *
-     * @return string
+     * @return string[]
      */
-    public function getEffectiveCommand(): string
+    public function getEffectiveCommand(): array
     {
-        return $this->rawCommand ?? $this->command;
+        return $this->rawCommand ?? explode(' ', $this->command);
     }
 
     /**
-     * @param string $rawCommand
+     * @param string[] $rawCommand
      * @return void
      */
-    public function setRawCommand(string $rawCommand): void
+    public function setRawCommand(array $rawCommand): void
     {
         $this->rawCommand = $rawCommand;
     }

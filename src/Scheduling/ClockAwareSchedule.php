@@ -62,10 +62,7 @@ class ClockAwareSchedule extends Schedule
             $command = $resolved->getName();
         }
 
-        $rawCommand = (string) $command;
-        if (count($parameters)) {
-            $rawCommand .= ' ' . $this->compileParameters($parameters);
-        }
+        $rawCommand = $this->buildRawCommandArray((string) $command, $parameters);
 
         $event = $this->exec(
             Application::formatCommandString((string) $command),
@@ -114,6 +111,74 @@ class ClockAwareSchedule extends Schedule
         /** @var ClockAwareEvent[] $events */
         $events = parent::events();
         return $events;
+    }
+
+    /**
+     * Build rawCommand as an array of individual arguments.
+     *
+     * Unlike compileParameters() which produces a shell-escaped string,
+     * this builds an array where each element is a separate argument
+     * without shell escaping (unnecessary for array-based command passing).
+     *
+     * @param string $command
+     * @param array<string, mixed> $parameters
+     * @return string[]
+     */
+    private function buildRawCommandArray(string $command, array $parameters): array
+    {
+        $result = [$command];
+
+        foreach ($parameters as $key => $value) {
+            if (is_array($value)) {
+                /** @var array<int, string|int> $value */
+                $result = array_merge($result, $this->compileArrayParameter($key, $value));
+                continue;
+            }
+
+            $stringValue = (string) (is_scalar($value) ? $value : '');
+
+            if (is_numeric($key)) {
+                $result[] = $stringValue;
+                continue;
+            }
+
+            $result[] = $key . '=' . $stringValue;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Compile an array parameter into individual argument elements.
+     *
+     * @param string|int $key
+     * @param array<int, string|int> $values
+     * @return string[]
+     */
+    private function compileArrayParameter($key, array $values): array
+    {
+        $result = [];
+
+        if (is_string($key) && strncmp($key, '--', 2) === 0) {
+            foreach ($values as $v) {
+                $result[] = $key . '=' . $v;
+            }
+            return $result;
+        }
+
+        if (is_string($key) && isset($key[0]) && $key[0] === '-') {
+            foreach ($values as $v) {
+                $result[] = $key;
+                $result[] = (string) $v;
+            }
+            return $result;
+        }
+
+        foreach ($values as $v) {
+            $result[] = (string) $v;
+        }
+
+        return $result;
     }
 
     /**

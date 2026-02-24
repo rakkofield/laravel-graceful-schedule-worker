@@ -55,7 +55,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();
-        $command = $event->getEffectiveCommand();
+        $command = implode(' ', $event->getEffectiveCommand());
         $input = $this->inputFactory->create($event, $dueAt);
 
         try {

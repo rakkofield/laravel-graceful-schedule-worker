@@ -349,7 +349,7 @@ State Machine への入力として必要な情報：
 
 ```json
 {
-  "command": "reports:generate",
+  "command": ["reports:generate"],
   "arguments": ["--date=2024-01-01"],
   "dueAt": "2024-01-01T03:00:00Z",
   "mutexName": "schedule-reports:generate",

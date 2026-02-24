@@ -67,7 +67,7 @@ class PayloadBuilderTest extends TestCase
         $payload = $this->builder->build($event, $dueAt, 3600);
 
         $this->assertInstanceOf(PayloadInterface::class, $payload);
-        $this->assertSame('php artisan report:daily', $payload->getCommand());
+        $this->assertSame(['php', 'artisan', 'report:daily'], $payload->getCommand());
     }
 
     /**
@@ -116,12 +116,12 @@ class PayloadBuilderTest extends TestCase
     public function testBuildUsesRawCommandWhenAvailable(): void
     {
         $event = $this->createEvent('php artisan report:daily');
-        $event->setRawCommand('report:daily');
+        $event->setRawCommand(['report:daily']);
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
         $payload = $this->builder->build($event, $dueAt, 3600);
 
-        $this->assertSame('report:daily', $payload->getCommand());
+        $this->assertSame(['report:daily'], $payload->getCommand());
     }
 
     /**

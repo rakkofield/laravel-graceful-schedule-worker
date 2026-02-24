@@ -17,7 +17,7 @@ class PayloadTest extends TestCase
     public function testToJsonReturnsValidJsonWithAllFields(): void
     {
         $payload = new Payload(
-            'php artisan report:daily',
+            ['php', 'artisan', 'report:daily'],
             'framework-schedule-run-abc123',
             '2024-01-15T10:30:00+09:00',
             'framework-schedule-run-abc123_1705282200',
@@ -27,7 +27,7 @@ class PayloadTest extends TestCase
         $json = $payload->toJson();
         $decoded = json_decode($json, true);
 
-        $this->assertSame('php artisan report:daily', $decoded['command']);
+        $this->assertSame(['php', 'artisan', 'report:daily'], $decoded['command']);
         $this->assertSame('framework-schedule-run-abc123', $decoded['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $decoded['dueAt']);
         $this->assertSame('framework-schedule-run-abc123_1705282200', $decoded['lockKey']);
@@ -40,7 +40,7 @@ class PayloadTest extends TestCase
     public function testGettersReturnConstructorValues(): void
     {
         $payload = new Payload(
-            'php artisan test',
+            ['php', 'artisan', 'test'],
             'my-mutex',
             '2024-01-15T10:30:00+09:00',
             'my-lock-key',
@@ -48,7 +48,7 @@ class PayloadTest extends TestCase
         );
 
         $this->assertInstanceOf(PayloadInterface::class, $payload);
-        $this->assertSame('php artisan test', $payload->getCommand());
+        $this->assertSame(['php', 'artisan', 'test'], $payload->getCommand());
         $this->assertSame('my-mutex', $payload->getMutexName());
         $this->assertSame('2024-01-15T10:30:00+09:00', $payload->getDueAt());
         $this->assertSame('my-lock-key', $payload->getLockKey());
@@ -61,7 +61,7 @@ class PayloadTest extends TestCase
     public function testToJsonThrowsOnEncodingFailure(): void
     {
         $payload = new Payload(
-            "\xFF\xFE",
+            ["\xFF\xFE"],
             'mutex',
             '2024-01-15T10:30:00+09:00',
             'lock-key',
@@ -80,7 +80,7 @@ class PayloadTest extends TestCase
     public function testToJsonProducesExactlyFiveKeys(): void
     {
         $payload = new Payload(
-            'command',
+            ['command'],
             'mutex',
             '2024-01-15T10:30:00+09:00',
             'lock-key',
