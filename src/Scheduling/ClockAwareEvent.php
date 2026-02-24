@@ -247,6 +247,24 @@ class ClockAwareEvent extends Event
     }
 
     /**
+     * Resolve the lock TTL in seconds.
+     *
+     * When withoutOverlapping is enabled, converts expiresAt (minutes) to seconds.
+     * Otherwise returns the given default value as-is.
+     *
+     * @param int $defaultTtlSeconds Default TTL in seconds
+     * @return int
+     */
+    public function resolveLockTtlSeconds(int $defaultTtlSeconds): int
+    {
+        if ($this->withoutOverlapping) {
+            return $this->expiresAt * 60;
+        }
+
+        return $defaultTtlSeconds;
+    }
+
+    /**
      * Build the command string for execution via Symfony Process.
      *
      * Delegates to ProcessCommandBuilder which extends Laravel's CommandBuilder,

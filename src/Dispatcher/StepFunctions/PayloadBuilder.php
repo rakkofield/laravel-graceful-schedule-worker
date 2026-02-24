@@ -34,7 +34,9 @@ class PayloadBuilder implements PayloadBuilderInterface
         $command = $event->getEffectiveCommand();
         $mutexName = $event->mutexName();
         $lockKey = $this->lockKeyGenerator->generate($mutexName, $dueAt, $event->withoutOverlapping);
-        $expiresAt = $dueAt->getTimestamp() + $lockTtlSeconds;
+
+        $lockTtl = $event->resolveLockTtlSeconds($lockTtlSeconds);
+        $expiresAt = $dueAt->getTimestamp() + $lockTtl;
 
         return new Payload(
             $command,

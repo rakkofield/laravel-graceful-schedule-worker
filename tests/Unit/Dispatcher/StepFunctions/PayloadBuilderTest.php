@@ -168,4 +168,34 @@ class PayloadBuilderTest extends TestCase
         $this->assertArrayHasKey('lockKey', $decoded);
         $this->assertArrayHasKey('expiresAt', $decoded);
     }
+
+    /**
+     * @testdox PB.9 build uses event expiresAt when withoutOverlapping has explicit expiresAt
+     */
+    public function testBuildUsesEventExpiresAtWhenWithoutOverlappingHasExplicitValue(): void
+    {
+        $event = $this->createEvent('php artisan report:daily');
+        $event->withoutOverlapping(30);
+        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+
+        $payload = $this->builder->build($event, $dueAt, 3600);
+
+        $expectedExpiresAt = $dueAt->getTimestamp() + (30 * 60);
+        $this->assertSame($expectedExpiresAt, $payload->getExpiresAt());
+    }
+
+    /**
+     * @testdox PB.10 build uses default event expiresAt when withoutOverlapping called without argument
+     */
+    public function testBuildUsesDefaultEventExpiresAtWhenWithoutOverlappingCalledWithoutArgument(): void
+    {
+        $event = $this->createEvent('php artisan report:daily');
+        $event->withoutOverlapping();
+        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+
+        $payload = $this->builder->build($event, $dueAt, 3600);
+
+        $expectedExpiresAt = $dueAt->getTimestamp() + (1440 * 60);
+        $this->assertSame($expectedExpiresAt, $payload->getExpiresAt());
+    }
 }

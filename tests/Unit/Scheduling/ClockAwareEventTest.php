@@ -696,4 +696,62 @@ class ClockAwareEventTest extends TestCase
 
         $this->assertSame(['php', 'artisan', 'test'], $event->getEffectiveCommand());
     }
+
+    /**
+     * @testdox CE.34 resolveLockTtlSeconds returns default when withoutOverlapping is not set
+     */
+    public function testResolveLockTtlSecondsReturnsDefaultWhenNotWithoutOverlapping(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+
+        $this->assertSame(3600, $event->resolveLockTtlSeconds(3600));
+    }
+
+    /**
+     * @testdox CE.35 resolveLockTtlSeconds returns expiresAt in seconds with default overlapping (1440 min)
+     */
+    public function testResolveLockTtlSecondsReturnsExpiresAtInSecondsWithDefaultOverlapping(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+
+        $event->withoutOverlapping();
+
+        $this->assertSame(86400, $event->resolveLockTtlSeconds(3600));
+    }
+
+    /**
+     * @testdox CE.36 resolveLockTtlSeconds returns expiresAt in seconds with explicit overlapping (30 min)
+     */
+    public function testResolveLockTtlSecondsReturnsExpiresAtInSecondsWithExplicitOverlapping(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+
+        $event->withoutOverlapping(30);
+
+        $this->assertSame(1800, $event->resolveLockTtlSeconds(3600));
+    }
 }
