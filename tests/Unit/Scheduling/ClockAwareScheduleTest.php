@@ -199,29 +199,75 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.16 command() sets rawCommand to the artisan command name
+     * @testdox CS.16 command() builds correct rawCommand array
+     * @dataProvider rawCommandProvider
+     * @param string $command
+     * @param array<mixed> $parameters
+     * @param string[] $expected
      */
-    public function testCommandSetsRawCommandToArtisanCommandName(): void
+    public function testCommandRawCommand(string $command, array $parameters, array $expected): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
-        $event = $schedule->command('report:daily');
+        $event = $schedule->command($command, $parameters);
 
-        $this->assertSame(['report:daily'], $event->getRawCommand());
+        $this->assertSame($expected, $event->getRawCommand());
     }
 
     /**
-     * @testdox CS.17 command() with parameters includes compiled parameters in rawCommand
+     * @return array<string, array{string, array<mixed>, string[]}>
      */
-    public function testCommandWithParametersIncludesCompiledParametersInRawCommand(): void
+    public function rawCommandProvider(): array
     {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
-
-        $event = $schedule->command('report:daily', ['--verbose' => 'yes']);
-
-        $this->assertSame(['report:daily', '--verbose=yes'], $event->getRawCommand());
+        return [
+            'command name only' => [
+                'report:daily', [], ['report:daily'],
+            ],
+            'long option with string value' => [
+                'report:daily', ['--verbose' => 'yes'], ['report:daily', '--verbose=yes'],
+            ],
+            'long option with array values' => [
+                'deploy:run', ['--tag' => ['a', 'b']], ['deploy:run', '--tag=a', '--tag=b'],
+            ],
+            'short option with array values' => [
+                'deploy:run', ['-t' => ['a', 'b']], ['deploy:run', '-t', 'a', '-t', 'b'],
+            ],
+            'positional arguments' => [
+                'deploy:run', ['arg1', 'arg2'], ['deploy:run', 'arg1', 'arg2'],
+            ],
+            'numeric key array expands values' => [
+                'deploy:run', [['a', 'b']], ['deploy:run', 'a', 'b'],
+            ],
+            'space-containing value' => [
+                'deploy:run',
+                ['--message' => 'fix: spaces in message'],
+                ['deploy:run', '--message=fix: spaces in message'],
+            ],
+            'flag as positional (long)' => [
+                'task:run', ['--force'], ['task:run', '--force'],
+            ],
+            'flag as positional (short)' => [
+                'task:run', ['-v'], ['task:run', '-v'],
+            ],
+            'integer value' => [
+                'task:run', ['--workers' => 5], ['task:run', '--workers=5'],
+            ],
+            'boolean true becomes 1' => [
+                'task:run', ['--force' => true], ['task:run', '--force=1'],
+            ],
+            'boolean false becomes empty' => [
+                'task:run', ['--flag' => false], ['task:run', '--flag='],
+            ],
+            'null value becomes empty' => [
+                'task:run', ['--option' => null], ['task:run', '--option='],
+            ],
+            'mixed parameters' => [
+                'deploy:run',
+                ['--tag' => ['v1', 'v2'], '-v', 'positional', '--workers' => 3],
+                ['deploy:run', '--tag=v1', '--tag=v2', '-v', 'positional', '--workers=3'],
+            ],
+        ];
     }
 
     /**
@@ -238,67 +284,28 @@ class ClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox CS.19 command() with long option array expands to repeated key=value pairs
+     * @testdox CS.24 command() resolves class-based command to its name
      */
-    public function testCommandWithLongOptionArrayExpandsToRepeatedKeyValuePairs(): void
+    public function testCommandResolvesClassBasedCommandToItsName(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
-        $event = $schedule->command('deploy:run', ['--tag' => ['a', 'b']]);
+        $event = $schedule->command(StubCommand::class);
 
-        $this->assertSame(['deploy:run', '--tag=a', '--tag=b'], $event->getRawCommand());
+        $this->assertSame(['stub:command'], $event->getRawCommand());
     }
 
     /**
-     * @testdox CS.20 command() with short option array expands to alternating flag-value pairs
+     * @testdox CS.25 command() resolves class-based command with parameters
      */
-    public function testCommandWithShortOptionArrayExpandsToAlternatingFlagValuePairs(): void
+    public function testCommandResolvesClassBasedCommandWithParameters(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
         $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
-        $event = $schedule->command('deploy:run', ['-t' => ['a', 'b']]);
+        $event = $schedule->command(StubCommand::class, ['--force', '--count' => 3]);
 
-        $this->assertSame(['deploy:run', '-t', 'a', '-t', 'b'], $event->getRawCommand());
-    }
-
-    /**
-     * @testdox CS.21 command() with positional arguments appends them in order
-     */
-    public function testCommandWithPositionalArgumentsAppendsThemInOrder(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
-
-        $event = $schedule->command('deploy:run', ['arg1', 'arg2']);
-
-        $this->assertSame(['deploy:run', 'arg1', 'arg2'], $event->getRawCommand());
-    }
-
-    /**
-     * @testdox CS.22 command() with numeric key array expands values as positional arguments
-     */
-    public function testCommandWithNumericKeyArrayExpandsValuesAsPositionalArguments(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
-
-        $event = $schedule->command('deploy:run', [['a', 'b']]);
-
-        $this->assertSame(['deploy:run', 'a', 'b'], $event->getRawCommand());
-    }
-
-    /**
-     * @testdox CS.23 command() with space-containing value preserves spaces without splitting
-     */
-    public function testCommandWithSpaceContainingValuePreservesSpacesWithoutSplitting(): void
-    {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
-
-        $event = $schedule->command('deploy:run', ['--message' => 'fix: spaces in message']);
-
-        $this->assertSame(['deploy:run', '--message=fix: spaces in message'], $event->getRawCommand());
+        $this->assertSame(['stub:command', '--force', '--count=3'], $event->getRawCommand());
     }
 }
