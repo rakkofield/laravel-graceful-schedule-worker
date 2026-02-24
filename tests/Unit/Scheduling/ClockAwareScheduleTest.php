@@ -267,6 +267,15 @@ class ClockAwareScheduleTest extends TestCase
                 ['--tag' => ['v1', 'v2'], '-v', 'positional', '--workers' => 3],
                 ['deploy:run', '--tag=v1', '--tag=v2', '-v', 'positional', '--workers=3'],
             ],
+            'value containing double quotes' => [
+                'task:run', ['--title' => 'A "real" test'], ['task:run', '--title=A "real" test'],
+            ],
+            'hyphen-starting positional argument' => [
+                'task:run', ['-1 minute'], ['task:run', '-1 minute'],
+            ],
+            'non-flag string key with array values' => [
+                'deploy:run', ['foo' => ['bar', 'baz']], ['deploy:run', 'bar', 'baz'],
+            ],
         ];
     }
 
