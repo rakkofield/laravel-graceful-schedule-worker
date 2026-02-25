@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use DateTimeInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
  * Generates lock keys for Step Functions payload.
@@ -26,16 +27,17 @@ class LockKeyGenerator
     }
 
     /**
-     * Generate a lock key based on mutex name and overlapping configuration.
+     * Generate a lock key based on the event's mutex name and overlapping configuration.
      *
-     * @param string $mutexName
+     * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
-     * @param bool $withoutOverlapping
      * @return string
      */
-    public function generate(string $mutexName, DateTimeInterface $dueAt, bool $withoutOverlapping): string
+    public function generate(ClockAwareEvent $event, DateTimeInterface $dueAt): string
     {
-        if ($withoutOverlapping) {
+        $mutexName = $event->mutexName();
+
+        if ($event->withoutOverlapping) {
             return $this->sanitizer->buildStableKey($mutexName);
         }
 
