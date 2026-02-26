@@ -91,7 +91,12 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         }
 
         // 2. Delegate to inner dispatcher
-        $result = $this->inner->dispatchEvent($event, $dueAt);
+        try {
+            $result = $this->inner->dispatchEvent($event, $dueAt);
+        } catch (\Throwable $e) {
+            $this->tryReleaseLock($event, $dueAt);
+            throw $e;
+        }
 
         // 3. Validate result type (programming error - must propagate)
         $this->assertKnownResultType($result, $event);

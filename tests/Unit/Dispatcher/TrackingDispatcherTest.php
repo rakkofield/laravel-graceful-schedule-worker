@@ -636,6 +636,60 @@ class TrackingDispatcherTest extends TestCase
     }
 
     /**
+     * @testdox TD.21 Lock is released when inner dispatcher throws exception
+     */
+    public function testReleasesLockWhenInnerDispatcherThrows(): void
+    {
+        $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
+        $throwingInner = new ThrowingFakeDispatcher($startedResult);
+        $dispatchException = new \RuntimeException('Payload encoding failed');
+        $throwingInner->willThrowOnDispatch($dispatchException);
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $dispatcher = new TrackingDispatcher(
+            $throwingInner,
+            $this->tracker,
+            $this->logger,
+            $clock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
+        );
+        $event = $this->createEvent('echo test');
+        $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+
+        $caughtException = null;
+        try {
+            $dispatcher->dispatchEvent($event, $dueAt);
+        } catch (\RuntimeException $e) {
+            $caughtException = $e;
+        }
+
+        // The original exception is re-thrown
+        $this->assertSame($dispatchException, $caughtException);
+
+        // Lock should be released
+        $locks = $this->tracker->getLocks();
+        $key = $event->mutexName() . ':' . $dueAt->getTimestamp();
+        $this->assertArrayNotHasKey($key, $locks, 'Lock should be released when inner dispatcher throws');
+
+        // markExecuted should NOT be called
+        $executed = $this->tracker->getExecuted();
+        $this->assertArrayNotHasKey($event->mutexName(), $executed);
+    }
+
+    /**
      * @testdox TD.20 releaseLock exception on Failed result is caught and handleDispatchFailure still runs
      */
     public function testReleaseLockExceptionOnFailedResultIsCaughtAndHandleDispatchFailureStillRuns(): void
