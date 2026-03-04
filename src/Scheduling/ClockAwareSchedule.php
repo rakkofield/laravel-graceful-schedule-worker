@@ -22,17 +22,26 @@ class ClockAwareSchedule extends Schedule
     /** @var string */
     protected $defaultDispatcherType;
 
+    /** @var TimezoneResolver */
+    private $timezoneResolver;
+
     /**
      * @param ClockInterface $clock
      * @param string $defaultDispatcherType
      * @param \DateTimeZone|string|null $timezone
+     * @param TimezoneResolver $timezoneResolver
      */
-    public function __construct(ClockInterface $clock, string $defaultDispatcherType = 'local', $timezone = null)
-    {
+    public function __construct(
+        ClockInterface $clock,
+        string $defaultDispatcherType,
+        $timezone,
+        TimezoneResolver $timezoneResolver
+    ) {
         parent::__construct($timezone);
         $this->clock = $clock;
         $this->eventClock = new FreezableClock($clock);
         $this->defaultDispatcherType = $defaultDispatcherType;
+        $this->timezoneResolver = $timezoneResolver;
     }
 
     /**
@@ -41,6 +50,9 @@ class ClockAwareSchedule extends Schedule
      * @param string $command
      * @param array<string, mixed> $parameters
      * @return ClockAwareEvent
+     *
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     *     Container::getInstance and Application::formatCommandString are framework APIs
      */
     public function command($command, array $parameters = [])
     {
@@ -50,10 +62,16 @@ class ClockAwareSchedule extends Schedule
             $command = $resolved->getName();
         }
 
-        return $this->exec(
+        $rawCommand = $this->buildRawCommandArray((string) $command, $parameters);
+
+        $event = $this->exec(
             Application::formatCommandString((string) $command),
             $parameters
         );
+
+        $event->setRawCommand($rawCommand);
+
+        return $event;
     }
 
     /**
@@ -74,7 +92,8 @@ class ClockAwareSchedule extends Schedule
             $command,
             $this->eventClock,
             $this->defaultDispatcherType,
-            $this->timezone
+            $this->timezone,
+            $this->timezoneResolver
         );
 
         $this->events[] = $event;
@@ -92,6 +111,74 @@ class ClockAwareSchedule extends Schedule
         /** @var ClockAwareEvent[] $events */
         $events = parent::events();
         return $events;
+    }
+
+    /**
+     * Build rawCommand as an array of individual arguments.
+     *
+     * Unlike compileParameters() which produces a shell-escaped string,
+     * this builds an array where each element is a separate argument
+     * without shell escaping (unnecessary for array-based command passing).
+     *
+     * @param string $command
+     * @param array<string, mixed> $parameters
+     * @return string[]
+     */
+    private function buildRawCommandArray(string $command, array $parameters): array
+    {
+        $result = [$command];
+
+        foreach ($parameters as $key => $value) {
+            if (is_array($value)) {
+                /** @var array<int, string|int> $value */
+                $result = array_merge($result, $this->compileArrayParameter($key, $value));
+                continue;
+            }
+
+            $stringValue = (string) (is_scalar($value) ? $value : '');
+
+            if (is_numeric($key)) {
+                $result[] = $stringValue;
+                continue;
+            }
+
+            $result[] = $key . '=' . $stringValue;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Compile an array parameter into individual argument elements.
+     *
+     * @param string|int $key
+     * @param array<int, string|int> $values
+     * @return string[]
+     */
+    private function compileArrayParameter($key, array $values): array
+    {
+        $result = [];
+
+        if (is_string($key) && strncmp($key, '--', 2) === 0) {
+            foreach ($values as $v) {
+                $result[] = $key . '=' . $v;
+            }
+            return $result;
+        }
+
+        if (is_string($key) && isset($key[0]) && $key[0] === '-') {
+            foreach ($values as $v) {
+                $result[] = $key;
+                $result[] = (string) $v;
+            }
+            return $result;
+        }
+
+        foreach ($values as $v) {
+            $result[] = (string) $v;
+        }
+
+        return $result;
     }
 
     /**

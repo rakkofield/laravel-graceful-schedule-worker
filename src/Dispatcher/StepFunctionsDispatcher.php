@@ -11,11 +11,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInter
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\Payload;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactoryInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsException;
-use RakkoInc\LaravelGracefulScheduleWorker\ExceptionFormatter;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 
 /**
@@ -28,36 +26,24 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /** @var StepFunctionsClientInterface */
     private $client;
 
-    /** @var string */
-    private $stateMachineArn;
-
-    /** @var ExecutionNameGeneratorInterface */
-    private $nameGenerator;
+    /** @var StartExecutionInputFactoryInterface */
+    private $inputFactory;
 
     /** @var ClockInterface */
     private $clock;
 
     /**
      * @param StepFunctionsClientInterface $client
-     * @param string $stateMachineArn
-     * @param ExecutionNameGeneratorInterface $nameGenerator
+     * @param StartExecutionInputFactoryInterface $inputFactory
      * @param ClockInterface $clock
      */
     public function __construct(
         StepFunctionsClientInterface $client,
-        string $stateMachineArn,
-        ExecutionNameGeneratorInterface $nameGenerator,
+        StartExecutionInputFactoryInterface $inputFactory,
         ClockInterface $clock
     ) {
-        if ($stateMachineArn === '') {
-            throw new \InvalidArgumentException(
-                'stateMachineArn cannot be empty.'
-                . ' Please set graceful-scheduler.stepfunctions.state_machine_arn in your config.'
-            );
-        }
         $this->client = $client;
-        $this->stateMachineArn = $stateMachineArn;
-        $this->nameGenerator = $nameGenerator;
+        $this->inputFactory = $inputFactory;
         $this->clock = $clock;
     }
 
@@ -69,39 +55,31 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         DateTimeInterface $dueAt
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();
-        $command = $event->command;
-        $executionName = $this->nameGenerator->generate($event, $dueAt);
+        $command = implode(' ', $event->getEffectiveCommand());
+        $input = $this->inputFactory->create($event, $dueAt);
 
         try {
-            $input = (new Payload($command, $mutexName, $dueAt))->toJson();
-
-            $result = $this->client->startExecution([
-                'stateMachineArn' => $this->stateMachineArn,
-                'name' => $executionName,
-                'input' => $input,
-            ]);
+            $result = $this->client->startExecution($input);
 
             return new StartedStepFunctionsDispatchResult(
                 $result->getExecutionArn(),
-                $executionName,
+                $input->getName(),
                 $mutexName,
-                (string) $command,
+                $command,
                 $this->clock->now()
             );
         } catch (ExecutionAlreadyExistsException $e) {
             return new AlreadyRunningStepFunctionsDispatchResult(
-                $executionName,
+                $input->getName(),
                 $mutexName,
-                (string) $command,
+                $command,
                 $this->clock->now()
             );
         } catch (StepFunctionsException $e) {
-            // Handle Step Functions API errors (not ExecutionAlreadyExists)
-            return FailedStepFunctionsDispatchResult::failed(
-                $executionName,
+            return new FailedStepFunctionsDispatchResult(
+                $input->getName(),
                 $mutexName,
                 $command,
-                ExceptionFormatter::format($e),
                 $e,
                 $this->clock->now()
             );

@@ -13,12 +13,14 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeFailedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpySchedule;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
@@ -109,12 +111,32 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $tracker = $this->createTracker();
 
-        $event = new ClockAwareEvent($this->eventMutex, 'echo normal', $clock, 'local');
+        $event = new ClockAwareEvent($this->eventMutex, 'echo normal', $clock, 'local', null, new TimezoneResolver());
         $event->cron('0 * * * *');
 
         $this->schedule->setDueEvents([$event]);
 
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $clock);
+        $trackingDispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $tracker,
+            $this->logger,
+            $clock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
+        );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -140,7 +162,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 11:05:00'));
         $tracker = $this->createTracker();
 
-        $event = new ClockAwareEvent($this->eventMutex, 'echo recovery', $clock, 'local');
+        $event = new ClockAwareEvent($this->eventMutex, 'echo recovery', $clock, 'local', null, new TimezoneResolver());
         $event->cron('0 * * * *');
         $event->withGracePeriod(120);
 
@@ -150,7 +172,27 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $this->schedule->setDueEvents([]);
         $this->schedule->addEvent($event);
 
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $clock);
+        $trackingDispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $tracker,
+            $this->logger,
+            $clock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
+        );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -194,7 +236,27 @@ class OrchestratorFlowIntegrationTest extends TestCase
             ['local' => $localDispatcher, 'stepfunctions' => $sfnDispatcher],
             $this->logger
         );
-        $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger, $clock);
+        $trackingDispatcher = new TrackingDispatcher(
+            $composite,
+            $tracker,
+            $this->logger,
+            $clock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
+        );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -203,10 +265,24 @@ class OrchestratorFlowIntegrationTest extends TestCase
             new NullSleeper()
         );
 
-        $localEvent = new ClockAwareEvent($this->eventMutex, 'echo local', $clock, 'local');
+        $localEvent = new ClockAwareEvent(
+            $this->eventMutex,
+            'echo local',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
         $localEvent->cron('0 * * * *');
 
-        $sfnEvent = new ClockAwareEvent($this->eventMutex, 'echo sfn', $clock, 'local');
+        $sfnEvent = new ClockAwareEvent(
+            $this->eventMutex,
+            'echo sfn',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
         $sfnEvent->cron('0 * * * *');
         $sfnEvent->dispatchVia('stepfunctions');
 
@@ -226,7 +302,14 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 11:05:00'));
         $tracker = $this->createTracker();
 
-        $event = new ClockAwareEvent($this->eventMutex, 'echo recover-after-fail', $clock, 'local');
+        $event = new ClockAwareEvent(
+            $this->eventMutex,
+            'echo recover-after-fail',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
         $event->cron('0 * * * *');
         $event->withGracePeriod(120);
 
@@ -240,7 +323,27 @@ class OrchestratorFlowIntegrationTest extends TestCase
         $this->innerDispatcher->setResult(
             FakeFailedDispatchResult::create($event->mutexName(), 'echo recover-after-fail', 'StepFunctions error')
         );
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $clock);
+        $trackingDispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $tracker,
+            $this->logger,
+            $clock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
+        );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -263,7 +366,27 @@ class OrchestratorFlowIntegrationTest extends TestCase
             FakeStartedDispatchResult::create($event->mutexName(), 'echo recover-after-fail', 'fake')
         );
         $this->innerDispatcher->reset();
-        $trackingDispatcher2 = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $clock);
+        $trackingDispatcher2 = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $tracker,
+            $this->logger,
+            $clock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
+        );
         $orchestrator2 = new DefaultScheduleOrchestrator(
             $trackingDispatcher2,
             $clock,
@@ -300,7 +423,27 @@ class OrchestratorFlowIntegrationTest extends TestCase
             ['local' => $localDispatcher, 'stepfunctions' => $sfnDispatcher],
             $this->logger
         );
-        $trackingDispatcher = new TrackingDispatcher($composite, $tracker, $this->logger, $clock);
+        $trackingDispatcher = new TrackingDispatcher(
+            $composite,
+            $tracker,
+            $this->logger,
+            $clock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
+        );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
             $clock,
@@ -309,7 +452,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             new NullSleeper()
         );
 
-        $event = new ClockAwareEvent($this->eventMutex, 'echo shutdown', $clock, 'local');
+        $event = new ClockAwareEvent($this->eventMutex, 'echo shutdown', $clock, 'local', null, new TimezoneResolver());
         $event->cron('0 * * * *');
         $this->schedule->setDueEvents([$event]);
 

@@ -14,10 +14,10 @@ interface StepFunctionsClientInterface
     /**
      * Start a State Machine execution.
      *
-     * @param array{stateMachineArn: string, name?: string, input?: string} $args
+     * @param StartExecutionInput $input
      * @return StartExecutionResult
      * @throws ExecutionAlreadyExistsException If an execution with the same name already exists
      * @throws StepFunctionsException For other Step Functions errors
      */
-    public function startExecution(array $args): StartExecutionResult;
+    public function startExecution(StartExecutionInput $input): StartExecutionResult;
 }

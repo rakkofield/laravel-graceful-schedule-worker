@@ -20,11 +20,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
+use RakkoInc\LaravelGracefulScheduleWorker\Logging\PrefixedLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
@@ -167,11 +169,45 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
+     * @testdox GP.2a Registers PrefixedLogger singleton under graceful-scheduler.logger
+     */
+    public function testRegistersPrefixedLoggerAsSingleton(): void
+    {
+        $this->provider->register();
+
+        $this->assertTrue($this->app->bound('graceful-scheduler.logger'));
+        $this->assertTrue($this->app->isShared('graceful-scheduler.logger'));
+
+        $logger = $this->app->make('graceful-scheduler.logger');
+        $this->assertInstanceOf(PrefixedLogger::class, $logger);
+    }
+
+    /**
+     * @testdox GP.2b PrefixedLogger singleton returns the same instance
+     */
+    public function testPrefixedLoggerReturnsSameInstance(): void
+    {
+        $this->provider->register();
+
+        $logger1 = $this->app->make('graceful-scheduler.logger');
+        $logger2 = $this->app->make('graceful-scheduler.logger');
+
+        $this->assertSame($logger1, $logger2);
+    }
+
+    /**
      * @testdox GP.3 ClockAwareSchedule receives ClockInterface
      */
     public function testClockAwareScheduleReceivesClockInterface(): void
     {
         $this->provider->register();
+
+        // ClockAwareSchedule requires explicit binding (not auto-wirable due to scalar params)
+        $this->app->singleton(ClockAwareSchedule::class, function (Container $app) {
+            /** @var ClockInterface $clock */
+            $clock = $app->make(ClockInterface::class);
+            return new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+        });
 
         $schedule = $this->app->make(ClockAwareSchedule::class);
         $clock = $this->app->make(ClockInterface::class);

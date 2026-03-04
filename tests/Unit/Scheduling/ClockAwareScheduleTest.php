@@ -42,7 +42,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testReturnsClockAwareEventFromCommand(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->command('php artisan test');
 
@@ -55,7 +55,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testReturnsClockAwareEventFromExec(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('ls -la');
 
@@ -69,7 +69,7 @@ class ClockAwareScheduleTest extends TestCase
     {
         $fixedTime = new DateTimeImmutable('2024-01-01 12:00:00');
         $clock = new FixedClock($fixedTime);
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event1 = $schedule->command('php artisan test1');
         $event2 = $schedule->command('php artisan test2');
@@ -86,7 +86,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testExecHandlesParametersCorrectly(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('command', ['--foo' => 'bar', '--baz']);
 
@@ -99,7 +99,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testCommandHandlesParametersCorrectly(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->command('php artisan test', ['--option' => 'value']);
 
@@ -114,7 +114,7 @@ class ClockAwareScheduleTest extends TestCase
         $innerTime = new DateTimeImmutable('2024-01-15 12:00:00');
         $frozenTime = new DateTimeImmutable('2024-01-15 10:30:00');
         $clock = new FixedClock($innerTime);
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -137,7 +137,7 @@ class ClockAwareScheduleTest extends TestCase
         $innerTime = new DateTimeImmutable('2024-01-15 12:00:00');
         $frozenTime = new DateTimeImmutable('2024-01-15 10:30:00');
         $clock = new FixedClock($innerTime);
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -159,7 +159,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testExecPassesFreezableClockToEvent(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -176,7 +176,7 @@ class ClockAwareScheduleTest extends TestCase
     public function testExecPassesDefaultDispatcherTypeToClockAwareEvent(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock, 'stepfunctions');
+        $schedule = new ClockAwareSchedule($clock, 'stepfunctions', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
@@ -190,11 +190,131 @@ class ClockAwareScheduleTest extends TestCase
     public function testDefaultDispatcherTypeIsLocalWhenNotSpecified(): void
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
-        $schedule = new ClockAwareSchedule($clock);
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
 
         $event = $schedule->exec('echo test');
 
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
         $this->assertSame('local', $event->getDispatcherType());
+    }
+
+    /**
+     * @testdox CS.16 command() builds correct rawCommand array
+     * @dataProvider rawCommandProvider
+     * @param string $command
+     * @param array<mixed> $parameters
+     * @param string[] $expected
+     */
+    public function testCommandRawCommand(string $command, array $parameters, array $expected): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command($command, $parameters);
+
+        $this->assertSame($expected, $event->getRawCommand());
+    }
+
+    /**
+     * @return array<string, array{string, array<mixed>, string[]}>
+     */
+    public function rawCommandProvider(): array
+    {
+        return [
+            'command name only' => [
+                'report:daily', [], ['report:daily'],
+            ],
+            'long option with string value' => [
+                'report:daily', ['--verbose' => 'yes'], ['report:daily', '--verbose=yes'],
+            ],
+            'long option with array values' => [
+                'deploy:run', ['--tag' => ['a', 'b']], ['deploy:run', '--tag=a', '--tag=b'],
+            ],
+            'short option with array values' => [
+                'deploy:run', ['-t' => ['a', 'b']], ['deploy:run', '-t', 'a', '-t', 'b'],
+            ],
+            'positional arguments' => [
+                'deploy:run', ['arg1', 'arg2'], ['deploy:run', 'arg1', 'arg2'],
+            ],
+            'numeric key array expands values' => [
+                'deploy:run', [['a', 'b']], ['deploy:run', 'a', 'b'],
+            ],
+            'space-containing value' => [
+                'deploy:run',
+                ['--message' => 'fix: spaces in message'],
+                ['deploy:run', '--message=fix: spaces in message'],
+            ],
+            'flag as positional (long)' => [
+                'task:run', ['--force'], ['task:run', '--force'],
+            ],
+            'flag as positional (short)' => [
+                'task:run', ['-v'], ['task:run', '-v'],
+            ],
+            'integer value' => [
+                'task:run', ['--workers' => 5], ['task:run', '--workers=5'],
+            ],
+            'boolean true becomes 1' => [
+                'task:run', ['--force' => true], ['task:run', '--force=1'],
+            ],
+            'boolean false becomes empty' => [
+                'task:run', ['--flag' => false], ['task:run', '--flag='],
+            ],
+            'null value becomes empty' => [
+                'task:run', ['--option' => null], ['task:run', '--option='],
+            ],
+            'mixed parameters' => [
+                'deploy:run',
+                ['--tag' => ['v1', 'v2'], '-v', 'positional', '--workers' => 3],
+                ['deploy:run', '--tag=v1', '--tag=v2', '-v', 'positional', '--workers=3'],
+            ],
+            'value containing double quotes' => [
+                'task:run', ['--title' => 'A "real" test'], ['task:run', '--title=A "real" test'],
+            ],
+            'hyphen-starting positional argument' => [
+                'task:run', ['-1 minute'], ['task:run', '-1 minute'],
+            ],
+            'non-flag string key with array values' => [
+                'deploy:run', ['foo' => ['bar', 'baz']], ['deploy:run', 'bar', 'baz'],
+            ],
+        ];
+    }
+
+    /**
+     * @testdox CS.18 exec() does not set rawCommand
+     */
+    public function testExecDoesNotSetRawCommand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->exec('echo test');
+
+        $this->assertNull($event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.24 command() resolves class-based command to its name
+     */
+    public function testCommandResolvesClassBasedCommandToItsName(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command(StubCommand::class);
+
+        $this->assertSame(['stub:command'], $event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.25 command() resolves class-based command with parameters
+     */
+    public function testCommandResolvesClassBasedCommandWithParameters(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command(StubCommand::class, ['--force', '--count' => 3]);
+
+        $this->assertSame(['stub:command', '--force', '--count=3'], $event->getRawCommand());
     }
 }

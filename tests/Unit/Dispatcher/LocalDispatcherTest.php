@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
@@ -21,6 +22,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\SpyCallbackEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ThrowingOnForgetEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 
 class LocalDispatcherTest extends TestCase
@@ -61,7 +63,7 @@ class LocalDispatcherTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     private function createSpyEvent(string $command): SpyCallbackEvent
@@ -71,12 +73,43 @@ class LocalDispatcherTest extends TestCase
     }
 
     /**
+     * Create a LocalDispatcher with a RunningProcessManager.
+     *
+     * @param FixedClock $clock
+     * @param LoggerInterface|null $logger
+     * @return LocalDispatcher
+     */
+    private function createDispatcher(FixedClock $clock, ?LoggerInterface $logger = null): LocalDispatcher
+    {
+        $logger = $logger ?? new NullLogger();
+        $processManager = new RunningProcessManager($this->app, $logger, new NullSleeper(), 10.0);
+        return new LocalDispatcher(
+            $this->app,
+            null,
+            $logger,
+            $clock,
+            $processManager,
+            $this->createSkippedResultFactory()
+        );
+    }
+
+    /**
+     * @return callable(string, string, \DateTimeImmutable): SkippedDispatchResult
+     */
+    private function createSkippedResultFactory(): callable
+    {
+        return function (string $id, string $cmd, \DateTimeImmutable $at): SkippedDispatchResult {
+            return new SkippedDispatchResult($id, $cmd, 'withoutOverlapping', $at, DispatcherType::LOCAL);
+        };
+    }
+
+    /**
      * @testdox LD.1 dispatchEvent returns StartedLocalDispatchResult
      */
     public function testReturnsLocalDispatchResult(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -91,7 +124,7 @@ class LocalDispatcherTest extends TestCase
     public function testReturnsStartedDispatchResultInterfaceOnSuccess(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -105,7 +138,7 @@ class LocalDispatcherTest extends TestCase
     public function testReturnsCorrectEventIdentifier(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -119,7 +152,7 @@ class LocalDispatcherTest extends TestCase
     public function testReturnsCorrectEventCommand(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('php artisan report:daily');
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -134,7 +167,7 @@ class LocalDispatcherTest extends TestCase
     public function testReturnsCorrectDispatcherType(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -148,7 +181,7 @@ class LocalDispatcherTest extends TestCase
     public function testStartsProcessInBackground(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('sleep 0.1');
         $event->runInBackground = true;
 
@@ -167,7 +200,7 @@ class LocalDispatcherTest extends TestCase
     public function testReturnsDispatchedAtTimestamp(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -183,7 +216,7 @@ class LocalDispatcherTest extends TestCase
     public function testHasRunningProcessImmediatelyAfterDispatch(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('sleep 2');
         $event->runInBackground = true;
 
@@ -200,7 +233,7 @@ class LocalDispatcherTest extends TestCase
     public function testBeforeCallbacksAreCalledBeforeDispatch(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('echo test');
 
         $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -214,7 +247,7 @@ class LocalDispatcherTest extends TestCase
     public function testBuildProcessCommandDoesNotIncludeScheduleFinish(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
         $event->runInBackground = true;
 
@@ -232,7 +265,7 @@ class LocalDispatcherTest extends TestCase
     public function testRunInBackgroundIsPreservedAfterDispatch(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
         $event->runInBackground = false;
 
@@ -248,7 +281,7 @@ class LocalDispatcherTest extends TestCase
     public function testOutputRedirectionIsIncludedInCommand(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
         $event->sendOutputTo('/tmp/test-output.log');
 
@@ -264,7 +297,7 @@ class LocalDispatcherTest extends TestCase
     public function testReturnsFailedWhenBeforeCallbackThrows(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('echo test');
         $event->throwOnBeforeCallback(new \RuntimeException('Test exception'));
 
@@ -281,7 +314,7 @@ class LocalDispatcherTest extends TestCase
     public function testRethrowsErrorFromBeforeCallback(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('echo test');
         $event->throwOnBeforeCallback(new \Error('Test error'));
 
@@ -297,7 +330,7 @@ class LocalDispatcherTest extends TestCase
     public function testCleanupRemovesCompletedProcesses(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
 
         // Dispatch a process that completes immediately (background)
         $event1 = $this->createEvent('echo test1');
@@ -364,7 +397,7 @@ class LocalDispatcherTest extends TestCase
     public function testStopAllHandlesAlreadyStoppedProcesses(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
 
         // Dispatch a process that completes immediately (background)
         $event = $this->createEvent('echo test');
@@ -388,7 +421,7 @@ class LocalDispatcherTest extends TestCase
     public function testDispatchEventAddsResultToRunningProcesses(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
 
         $event = $this->createEvent('sleep 5');
         $event->runInBackground = true;
@@ -535,7 +568,7 @@ class LocalDispatcherTest extends TestCase
     public function testForegroundEventRunsSynchronously(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo foreground');
         // runInBackground defaults to false
 
@@ -553,7 +586,7 @@ class LocalDispatcherTest extends TestCase
     public function testForegroundEventCallsAfterCallbacks(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('echo test');
         // runInBackground defaults to false
 
@@ -569,7 +602,7 @@ class LocalDispatcherTest extends TestCase
     public function testForegroundEventResultNotAddedToRunningProcesses(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
         // runInBackground defaults to false
 
@@ -589,7 +622,7 @@ class LocalDispatcherTest extends TestCase
     public function testBackgroundEventRunsAsynchronously(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('sleep 2');
         $event->runInBackground = true;
 
@@ -608,9 +641,9 @@ class LocalDispatcherTest extends TestCase
     public function testClockAwareEventUseBuildProcessCommandInBackground(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock, 'local');
+        $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock, 'local', null, new TimezoneResolver());
         $event->runInBackground = true;
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -629,7 +662,7 @@ class LocalDispatcherTest extends TestCase
     public function testForegroundNonZeroExitCodePassedToAfterCallbacks(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('exit 42');
 
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
@@ -645,7 +678,7 @@ class LocalDispatcherTest extends TestCase
     public function testForegroundAfterCallbackExceptionReturnsStartedResult(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('echo test');
         $event->throwOnAfterCallback(new \RuntimeException('afterCallback error'));
 
@@ -662,7 +695,7 @@ class LocalDispatcherTest extends TestCase
     public function testWithoutOverlappingReturnsSkippedWhenMutexAlreadyExists(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
         $event->withoutOverlapping();
 
@@ -684,7 +717,7 @@ class LocalDispatcherTest extends TestCase
     public function testWithoutOverlappingCallsMutexCreateBeforeDispatch(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
         $event->withoutOverlapping();
 
@@ -699,7 +732,7 @@ class LocalDispatcherTest extends TestCase
     public function testWithoutOverlappingProceedsNormallyWhenMutexCreateSucceeds(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
         $event->withoutOverlapping();
 
@@ -930,7 +963,7 @@ class LocalDispatcherTest extends TestCase
     public function testWithoutOverlappingMutexReleasedWhenBeforeCallbacksThrow(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('echo test');
         $event->withoutOverlapping();
         $event->throwOnBeforeCallback(new \RuntimeException('beforeCallback failed'));
@@ -957,7 +990,15 @@ class LocalDispatcherTest extends TestCase
         });
 
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, $logger, new NullSleeper(), $fixedClock);
+        $processManager = new RunningProcessManager($this->app, $logger, new NullSleeper(), 10.0);
+        $dispatcher = new LocalDispatcher(
+            $this->app,
+            null,
+            $logger,
+            $fixedClock,
+            $processManager,
+            $this->createSkippedResultFactory()
+        );
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $event = new SpyCallbackEvent($throwingMutex, 'echo test', $clock);
         $event->withoutOverlapping();
@@ -979,7 +1020,7 @@ class LocalDispatcherTest extends TestCase
     public function testMutexNotReleasedWhenBeforeCallbacksThrowWithoutOverlapping(): void
     {
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $dispatcher = new LocalDispatcher($this->app, null, new NullLogger(), new NullSleeper(), $fixedClock);
+        $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('echo test');
         // withoutOverlapping() is NOT called
         $event->throwOnBeforeCallback(new \RuntimeException('beforeCallback failed'));

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Tracker;
 
-use Cron\CronExpression;
-use Cron\FieldFactory;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -77,6 +75,8 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @SuppressWarnings("PHPMD.StaticAccess")
      */
     public function getMissedDueIfRecoverable(ClockAwareEvent $event, DateTimeInterface $now): ?DateTimeInterface
     {
@@ -85,7 +85,6 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
             return null; // First execution, no missed executions
         }
 
-        // Calculate the previous run date from the cron expression
         // (invalid expressions are wrapped in InvalidArgumentException)
         $evalNow = $now;
         $tz = $event->getResolvedTimezone();
@@ -93,8 +92,7 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
             $evalNow = (new DateTimeImmutable('@' . $now->getTimestamp()))->setTimezone($tz);
         }
         try {
-            $cron = new CronExpression($event->expression, new FieldFactory());
-            $previousRunDate = $cron->getPreviousRunDate($evalNow);
+            $previousRunDate = $event->createCronExpression()->getPreviousRunDate($evalNow);
         } catch (\Exception $e) {
             throw new InvalidArgumentException(
                 sprintf('Invalid cron expression: %s', $event->expression),
@@ -104,12 +102,10 @@ class CacheExecutionTracker implements ExecutionTrackerInterface
         }
         $missedDue = DateTimeImmutable::createFromMutable($previousRunDate);
 
-        // Check for missed execution (compare by timestamp)
         if ($missedDue->getTimestamp() <= $lastExecutedDue->getTimestamp()) {
             return null; // No missed execution
         }
 
-        // Grace period check
         $gracePeriod = $event->getGracePeriod();
         if ($gracePeriod !== null) {
             $deadline = $missedDue->add($gracePeriod);

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
-use Closure;
 use Cron\CronExpression;
 use Cron\FieldFactory;
 use DateInterval;
@@ -36,12 +35,22 @@ class ClockAwareEvent extends Event
      */
     protected $dispatcherType;
 
+    /** @var string[]|null */
+    protected $rawCommand = null;
+
+    /** @var ClockAwareTimeFilter */
+    private $timeFilter;
+
+    /** @var TimezoneResolver */
+    private $timezoneResolver;
+
     /**
      * @param EventMutex $mutex
      * @param string $command
      * @param ClockInterface $clock
      * @param string $defaultDispatcherType
      * @param \DateTimeZone|string|null $timezone
+     * @param TimezoneResolver $timezoneResolver
      * @throws InvalidArgumentException If timezone string is invalid
      */
     public function __construct(
@@ -49,35 +58,15 @@ class ClockAwareEvent extends Event
         $command,
         ClockInterface $clock,
         string $defaultDispatcherType,
-        $timezone = null
+        $timezone,
+        TimezoneResolver $timezoneResolver
     ) {
-        parent::__construct($mutex, $command, self::resolveTimezone($timezone));
+        $resolvedTz = $timezoneResolver->resolve($timezone);
+        parent::__construct($mutex, $command, $resolvedTz);
         $this->clock = $clock;
         $this->dispatcherType = $defaultDispatcherType;
-    }
-
-    /**
-     * @param \DateTimeZone|string|null $timezone
-     * @return \DateTimeZone|null
-     * @throws InvalidArgumentException
-     */
-    private static function resolveTimezone($timezone): ?\DateTimeZone
-    {
-        if ($timezone === null) {
-            return null;
-        }
-        if ($timezone instanceof \DateTimeZone) {
-            return $timezone;
-        }
-        try {
-            return new \DateTimeZone($timezone);
-        } catch (\Exception $e) {
-            throw new InvalidArgumentException(
-                sprintf('Invalid timezone: %s', $timezone),
-                0,
-                $e
-            );
-        }
+        $this->timezoneResolver = $timezoneResolver;
+        $this->timeFilter = new ClockAwareTimeFilter($clock, $resolvedTz);
     }
 
     /**
@@ -89,7 +78,7 @@ class ClockAwareEvent extends Event
             return $this->timezone;
         }
         if ($this->timezone !== null) {
-            return self::resolveTimezone($this->timezone);
+            return $this->timezoneResolver->resolve($this->timezone);
         }
         return null;
     }
@@ -101,33 +90,29 @@ class ClockAwareEvent extends Event
      */
     public function timezone($timezone)
     {
-        /** @var \DateTimeZone $resolved resolveTimezone never returns null for non-null input */
-        $resolved = self::resolveTimezone($timezone);
+        /** @var \DateTimeZone $resolved TimezoneResolver::resolve never returns null for non-null input */
+        $resolved = $this->timezoneResolver->resolve($timezone);
+        $this->timeFilter = new ClockAwareTimeFilter($this->clock, $resolved);
         return parent::timezone($resolved);
     }
 
     /**
-     * Enable recovery (set grace period).
-     *
      * @param int|null $minutes Grace period in minutes. null means unlimited
      * @return $this
      */
     public function withGracePeriod($minutes = null)
     {
         $this->recoverable = true;
+        $this->gracePeriod = null;
 
         if ($minutes !== null && $minutes > 0) {
             $this->gracePeriod = new DateInterval("PT{$minutes}M");
-        } else {
-            $this->gracePeriod = null;
         }
 
         return $this;
     }
 
     /**
-     * Enable recovery (no grace period).
-     *
      * @return $this
      */
     public function enableRecovery()
@@ -138,8 +123,6 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Specify the dispatcher type.
-     *
      * @param string $type 'local' or 'stepfunctions'
      * @return $this
      */
@@ -150,9 +133,7 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Get the dispatcher type.
-     *
-     * @return string Dispatcher type
+     * @return string
      */
     public function getDispatcherType(): string
     {
@@ -160,8 +141,6 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Check whether recovery is enabled.
-     *
      * @return bool
      */
     public function isRecoverable()
@@ -170,8 +149,6 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Get the grace period.
-     *
      * @return DateInterval|null
      */
     public function getGracePeriod()
@@ -180,13 +157,50 @@ class ClockAwareEvent extends Event
     }
 
     /**
+     * @return string[]|null
+     */
+    public function getRawCommand(): ?array
+    {
+        return $this->rawCommand;
+    }
+
+    /**
+     * Get the effective command as an array for this event.
+     *
+     * Returns rawCommand if set, otherwise falls back to splitting the command property.
+     *
+     * @return string[]
+     */
+    public function getEffectiveCommand(): array
+    {
+        return $this->rawCommand ?? explode(' ', $this->command);
+    }
+
+    /**
+     * @param string[] $rawCommand
+     * @return void
+     */
+    public function setRawCommand(array $rawCommand): void
+    {
+        $this->rawCommand = $rawCommand;
+    }
+
+    /**
+     * @return CronExpression
+     */
+    public function createCronExpression(): CronExpression
+    {
+        return new CronExpression($this->expression, new FieldFactory());
+    }
+
+    /**
      * @return bool
      */
     protected function expressionPasses()
     {
-        $date = $this->nowWithTimezone();
+        $date = $this->timeFilter->nowWithTimezone();
 
-        return (new CronExpression($this->expression, new FieldFactory()))->isDue($date->format('Y-m-d H:i:s'));
+        return $this->createCronExpression()->isDue($date->format('Y-m-d H:i:s'));
     }
 
     /**
@@ -196,7 +210,7 @@ class ClockAwareEvent extends Event
      */
     public function between($startTime, $endTime)
     {
-        return $this->when($this->clockAwareTimeInterval($startTime, $endTime));
+        return $this->when($this->timeFilter->createInterval($startTime, $endTime));
     }
 
     /**
@@ -206,66 +220,7 @@ class ClockAwareEvent extends Event
      */
     public function unlessBetween($startTime, $endTime)
     {
-        return $this->skip($this->clockAwareTimeInterval($startTime, $endTime));
-    }
-
-    /**
-     * Generate a closure that checks the time interval using the clock.
-     *
-     * The parent's inTimeInterval() is private and eagerly evaluates Carbon::now() at definition time,
-     * so in long-running workers the time gets fixed at startup.
-     * This implementation lazily evaluates clock->now() inside the closure to use the correct time each time.
-     *
-     * @param string $startTime
-     * @param string $endTime
-     * @return Closure
-     */
-    private function clockAwareTimeInterval($startTime, $endTime)
-    {
-        return function () use ($startTime, $endTime) {
-            $now = $this->nowWithTimezone();
-
-            $start = $this->applyTimeString($now, $startTime);
-            $end = $this->applyTimeString($now, $endTime);
-
-            if ($end < $start) {
-                if ($start > $now) {
-                    $start = $start->modify('-1 day');
-                } else {
-                    $end = $end->modify('+1 day');
-                }
-            }
-
-            return $now >= $start && $now <= $end;
-        };
-    }
-
-    /**
-     * Get current time with timezone applied.
-     *
-     * @return \DateTimeImmutable
-     */
-    private function nowWithTimezone(): \DateTimeImmutable
-    {
-        $now = $this->clock->now();
-
-        $tz = $this->getResolvedTimezone();
-        if ($tz !== null) {
-            $now = $now->setTimezone($tz);
-        }
-
-        return $now;
-    }
-
-    /**
-     * @param \DateTimeImmutable $date
-     * @param string $timeString "HH:MM" or "HH:MM:SS"
-     * @return \DateTimeImmutable
-     */
-    private function applyTimeString(\DateTimeImmutable $date, string $timeString): \DateTimeImmutable
-    {
-        $parts = explode(':', $timeString);
-        return $date->setTime((int) $parts[0], (int) ($parts[1] ?? 0), (int) ($parts[2] ?? 0));
+        return $this->skip($this->timeFilter->createInterval($startTime, $endTime));
     }
 
     /**
@@ -289,6 +244,24 @@ class ClockAwareEvent extends Event
         // Laravel 6 fallback: set exitCode and call afterCallbacks
         $this->exitCode = (int) $exitCode;
         parent::callAfterCallbacks($container);
+    }
+
+    /**
+     * Resolve the lock TTL in seconds.
+     *
+     * When withoutOverlapping is enabled, converts expiresAt (minutes) to seconds.
+     * Otherwise returns the given default value as-is.
+     *
+     * @param int $defaultTtlSeconds Default TTL in seconds
+     * @return int
+     */
+    public function resolveLockTtlSeconds(int $defaultTtlSeconds): int
+    {
+        if ($this->withoutOverlapping) {
+            return $this->expiresAt * 60;
+        }
+
+        return $defaultTtlSeconds;
     }
 
     /**

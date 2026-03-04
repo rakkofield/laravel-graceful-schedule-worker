@@ -21,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\ScheduleOrchestratorInte
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\ExecutionTrackerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
@@ -139,7 +140,14 @@ class ProviderWiringIntegrationTest extends TestCase
         $dispatcher = $this->app->make(ScheduleDispatcherInterface::class);
         $this->assertInstanceOf(TrackingDispatcher::class, $dispatcher);
 
-        $event = new ClockAwareEvent(new FakeEventMutex(), 'echo hello', new SystemClock(), 'local');
+        $event = new ClockAwareEvent(
+            new FakeEventMutex(),
+            'echo hello',
+            new SystemClock(),
+            'local',
+            null,
+            new TimezoneResolver()
+        );
         $dueAt = new DateTimeImmutable();
 
         $result = $dispatcher->dispatchEvent($event, $dueAt);

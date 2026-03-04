@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
-use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -13,48 +12,85 @@ use PHPUnit\Framework\TestCase;
 class PayloadTest extends TestCase
 {
     /**
-     * @testdox PY.1 toJson returns valid JSON with command, mutexName, and dueAt
+     * @testdox PY.1 toJson returns valid JSON with all fields
      */
-    public function testToJsonReturnsValidJson(): void
+    public function testToJsonReturnsValidJsonWithAllFields(): void
     {
-        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
-        $payload = new Payload('php artisan report:daily', 'framework/schedule-abc123', $dueAt);
+        $payload = new Payload(
+            ['php', 'artisan', 'report:daily'],
+            'framework-schedule-run-abc123',
+            '2024-01-15T10:30:00+09:00',
+            'framework-schedule-run-abc123_1705282200',
+            1705285800
+        );
 
         $json = $payload->toJson();
         $decoded = json_decode($json, true);
 
-        $this->assertIsArray($decoded);
-        $this->assertSame('php artisan report:daily', $decoded['command']);
-        $this->assertSame('framework/schedule-abc123', $decoded['mutexName']);
+        $this->assertSame(['php', 'artisan', 'report:daily'], $decoded['command']);
+        $this->assertSame('framework-schedule-run-abc123', $decoded['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $decoded['dueAt']);
+        $this->assertSame('framework-schedule-run-abc123_1705282200', $decoded['lockKey']);
+        $this->assertSame(1705285800, $decoded['expiresAt']);
     }
 
     /**
-     * @testdox PY.2 toJson throws RuntimeException on encoding failure
+     * @testdox PY.2 Getters return constructor values
+     */
+    public function testGettersReturnConstructorValues(): void
+    {
+        $payload = new Payload(
+            ['php', 'artisan', 'test'],
+            'my-mutex',
+            '2024-01-15T10:30:00+09:00',
+            'my-lock-key',
+            3600
+        );
+
+        $this->assertInstanceOf(PayloadInterface::class, $payload);
+        $this->assertSame(['php', 'artisan', 'test'], $payload->getCommand());
+        $this->assertSame('my-mutex', $payload->getMutexName());
+        $this->assertSame('2024-01-15T10:30:00+09:00', $payload->getDueAt());
+        $this->assertSame('my-lock-key', $payload->getLockKey());
+        $this->assertSame(3600, $payload->getExpiresAt());
+    }
+
+    /**
+     * @testdox PY.3 toJson throws PayloadEncodingException on encoding failure
      */
     public function testToJsonThrowsOnEncodingFailure(): void
     {
-        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
-        // Invalid UTF-8 triggers json_encode failure
-        $payload = new Payload("\xFF\xFE", 'mutex', $dueAt);
+        $payload = new Payload(
+            ["\xFF\xFE"],
+            'mutex',
+            '2024-01-15T10:30:00+09:00',
+            'lock-key',
+            3600
+        );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(PayloadEncodingException::class);
         $this->expectExceptionMessage('Failed to encode input JSON');
 
         $payload->toJson();
     }
 
     /**
-     * @testdox PY.3 dueAt is formatted as ATOM
+     * @testdox PY.4 toJson produces exactly 5 keys
      */
-    public function testDueAtFormattedAsAtom(): void
+    public function testToJsonProducesExactlyFiveKeys(): void
     {
-        $dueAt = new DateTimeImmutable('2024-06-01T00:00:00+00:00');
-        $payload = new Payload('echo test', 'mutex', $dueAt);
+        $payload = new Payload(
+            ['command'],
+            'mutex',
+            '2024-01-15T10:30:00+09:00',
+            'lock-key',
+            3600
+        );
 
-        $json = $payload->toJson();
-        $decoded = json_decode($json, true);
+        $decoded = json_decode($payload->toJson(), true);
 
-        $this->assertSame('2024-06-01T00:00:00+00:00', $decoded['dueAt']);
+        $this->assertCount(5, $decoded);
+        $expectedKeys = ['command', 'mutexName', 'dueAt', 'lockKey', 'expiresAt'];
+        $this->assertSame($expectedKeys, array_keys($decoded));
     }
 }

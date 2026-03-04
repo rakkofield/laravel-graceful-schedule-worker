@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Console;
 
+use ErrorException;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Psr\Log\LoggerInterface;
 
@@ -31,7 +32,7 @@ class LegacyExceptionReporter implements ExceptionReporterInterface
         $original = $e;
         try {
             if (!$e instanceof \Exception) {
-                $e = new \ErrorException(
+                $e = new ErrorException(
                     sprintf('[%s] %s', get_class($e), $e->getMessage()),
                     0,
                     E_ERROR,

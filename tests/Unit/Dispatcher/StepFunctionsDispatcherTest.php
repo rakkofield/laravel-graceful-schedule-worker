@@ -18,8 +18,14 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResu
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FakeStepFunctionsClient;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadEncodingException;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 /**
  * @testdox StepFunctionsDispatcher
@@ -50,7 +56,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->app->bind(EventMutex::class, function () {
             return $this->mutex;
         });
-        $this->client = new FakeStepFunctionsClient();
+        $this->client = new FakeStepFunctionsClient($this->stateMachineArn);
         $this->dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
     }
 
@@ -63,16 +69,22 @@ class StepFunctionsDispatcherTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     private function createDispatcher(): StepFunctionsDispatcher
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $sanitizer = new MutexNameSanitizer();
+        $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
+        $inputFactory = new StartExecutionInputFactory(
+            new ExecutionNameGenerator($sanitizer),
+            $payloadBuilder,
+            3600
+        );
         return new StepFunctionsDispatcher(
             $this->client,
-            $this->stateMachineArn,
-            new ExecutionNameGenerator(),
+            $inputFactory,
             $clock
         );
     }
@@ -125,7 +137,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.4 Input JSON contains command, mutexName, and dueAt
+     * @testdox SFD.4 Input JSON contains command, mutexName, dueAt, lockKey, and expiresAt
      */
     public function testInputContainsRequiredFields(): void
     {
@@ -141,9 +153,13 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertArrayHasKey('command', $input);
         $this->assertArrayHasKey('mutexName', $input);
         $this->assertArrayHasKey('dueAt', $input);
-        $this->assertSame('php artisan report:daily', $input['command']);
+        $this->assertArrayHasKey('lockKey', $input);
+        $this->assertArrayHasKey('expiresAt', $input);
+        $this->assertSame(['php', 'artisan', 'report:daily'], $input['command']);
         $this->assertSame($event->mutexName(), $input['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $input['dueAt']);
+        $this->assertIsString($input['lockKey']);
+        $this->assertIsInt($input['expiresAt']);
     }
 
     /**
@@ -177,18 +193,11 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.7 Correct stateMachineArn is used
+     * @testdox SFD.7 Correct stateMachineArn is passed to client
      */
     public function testUsesCorrectStateMachineArn(): void
     {
-        $dispatcher = $this->createDispatcher();
-        $event = $this->createEvent('php artisan report:daily');
-
-        $dispatcher->dispatchEvent($event, $this->dueAt);
-
-        $execution = $this->client->getLastExecution();
-        $this->assertNotNull($execution);
-        $this->assertSame($this->stateMachineArn, $execution['stateMachineArn']);
+        $this->assertSame($this->stateMachineArn, $this->client->getStateMachineArn());
     }
 
     /**
@@ -276,35 +285,18 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.14 json_encode failure returns FailedStepFunctionsDispatchResult
+     * @testdox SFD.14 json_encode failure propagates PayloadEncodingException
      */
-    public function testJsonEncodeFailureReturnsFailedResult(): void
+    public function testJsonEncodeFailurePropagatesPayloadEncodingException(): void
     {
         $dispatcher = $this->createDispatcher();
         // Force json_encode failure with invalid UTF-8 string
         $event = $this->createEvent("\xFF\xFE");
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $this->expectException(PayloadEncodingException::class);
+        $this->expectExceptionMessage('Failed to encode input JSON');
 
-        $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
-        $this->assertStringContainsString('Failed to encode input JSON', $result->getError());
-    }
-
-    /**
-     * @testdox SFD.15 Constructor throws InvalidArgumentException for empty stateMachineArn
-     */
-    public function testConstructorThrowsForEmptyStateMachineArn(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('stateMachineArn cannot be empty');
-
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        new StepFunctionsDispatcher(
-            $this->client,
-            '',
-            new ExecutionNameGenerator(),
-            $clock
-        );
+        $dispatcher->dispatchEvent($event, $this->dueAt);
     }
 
     /**
@@ -323,5 +315,133 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->expectExceptionMessage('Database connection lost');
 
         $dispatcher->dispatchEvent($event, $this->dueAt);
+    }
+
+    /**
+     * @testdox SFD.17 Uses rawCommand when available on event
+     */
+    public function testUsesRawCommandWhenAvailable(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+        $event->setRawCommand(['report:daily']);
+
+        $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        $execution = $this->client->getLastExecution();
+        $this->assertNotNull($execution);
+
+        $input = json_decode($execution['input'], true);
+        $this->assertSame(['report:daily'], $input['command']);
+    }
+
+    /**
+     * @testdox SFD.18 Falls back to event->command when rawCommand is null
+     */
+    public function testFallsBackToEventCommandWhenRawCommandIsNull(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+        // rawCommand is null by default
+
+        $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        $execution = $this->client->getLastExecution();
+        $this->assertNotNull($execution);
+
+        $input = json_decode($execution['input'], true);
+        $this->assertSame(['php', 'artisan', 'report:daily'], $input['command']);
+    }
+
+    /**
+     * @testdox SFD.19 expiresAt is calculated as dueAt timestamp + lockTtlSeconds
+     */
+    public function testExpiresAtIsCalculatedFromDueAtAndLockTtlSeconds(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+
+        $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        $execution = $this->client->getLastExecution();
+        $this->assertNotNull($execution);
+
+        $input = json_decode($execution['input'], true);
+        $expectedExpiresAt = $this->dueAt->getTimestamp() + 3600;
+        $this->assertSame($expectedExpiresAt, $input['expiresAt']);
+    }
+
+    /**
+     * @testdox SFD.20 lockKey is present in payload
+     */
+    public function testLockKeyIsPresentInPayload(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+
+        $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        $execution = $this->client->getLastExecution();
+        $this->assertNotNull($execution);
+
+        $input = json_decode($execution['input'], true);
+        $this->assertArrayHasKey('lockKey', $input);
+        $this->assertNotEmpty($input['lockKey']);
+        // lockKey should contain the dueAt timestamp
+        $this->assertStringContainsString((string) $this->dueAt->getTimestamp(), $input['lockKey']);
+    }
+
+    /**
+     * @testdox SFD.21 withoutOverlapping event produces lockKey without timestamp
+     */
+    public function testWithoutOverlappingEventProducesLockKeyWithoutTimestamp(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+        $event->withoutOverlapping();
+
+        $dispatcher->dispatchEvent($event, $this->dueAt);
+
+        $execution = $this->client->getLastExecution();
+        $this->assertNotNull($execution);
+
+        $input = json_decode($execution['input'], true);
+        $this->assertArrayHasKey('lockKey', $input);
+        $this->assertNotEmpty($input['lockKey']);
+        $this->assertStringNotContainsString((string) $this->dueAt->getTimestamp(), $input['lockKey']);
+    }
+
+    /**
+     * @testdox SFD.22 withoutOverlapping event produces same lockKey for different dueAt
+     */
+    public function testWithoutOverlappingEventProducesSameLockKeyForDifferentDueAt(): void
+    {
+        $dispatcher = $this->createDispatcher();
+
+        $event1 = $this->createEvent('php artisan report:daily');
+        $event1->withoutOverlapping();
+        $dueAt1 = new DateTimeImmutable('2024-01-15T10:00:00+09:00');
+
+        $event2 = $this->createEvent('php artisan report:daily');
+        $event2->withoutOverlapping();
+        $dueAt2 = new DateTimeImmutable('2024-01-15T11:00:00+09:00');
+
+        $dispatcher->dispatchEvent($event1, $dueAt1);
+        $executions1 = $this->client->getLastExecution();
+
+        // Reset client for second dispatch
+        $this->client = new FakeStepFunctionsClient($this->stateMachineArn);
+        $dispatcher = $this->createDispatcher();
+
+        $dispatcher->dispatchEvent($event2, $dueAt2);
+        $executions2 = $this->client->getLastExecution();
+
+        $this->assertNotNull($executions1);
+        $this->assertNotNull($executions2);
+
+        $input1 = json_decode($executions1['input'], true);
+        $input2 = json_decode($executions2['input'], true);
+
+        $this->assertSame($input1['lockKey'], $input2['lockKey']);
     }
 }

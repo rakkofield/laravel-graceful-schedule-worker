@@ -14,12 +14,14 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 use RakkoInc\LaravelGracefulScheduleWorker\SpyLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\CacheExecutionTracker;
 use RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore;
@@ -102,7 +104,27 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
     private function createOrchestrator(): DefaultScheduleOrchestrator
     {
         $tracker = $this->createTracker();
-        $trackingDispatcher = new TrackingDispatcher($this->innerDispatcher, $tracker, $this->logger, $this->clock);
+        $trackingDispatcher = new TrackingDispatcher(
+            $this->innerDispatcher,
+            $tracker,
+            $this->logger,
+            $this->clock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
+        );
 
         return new DefaultScheduleOrchestrator(
             $trackingDispatcher,
@@ -130,7 +152,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testRealScheduleWithFiltersPass(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
         $schedule->exec('echo filtered')
             ->everyMinute()
             ->when(function () {
@@ -149,7 +171,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testWithoutOverlappingBlocksViaMutex(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
         $event = $schedule->exec('echo overlapping')
             ->everyMinute()
             ->withoutOverlapping();
@@ -169,7 +191,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testMixedConstraintsThroughPipeline(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
 
         $schedule->exec('echo pass')
             ->everyMinute()
@@ -205,7 +227,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
      */
     public function testEnvironmentsFilterThroughPipeline(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
         $schedule->exec('echo env-test')
             ->everyMinute()
             ->environments(['production']);
@@ -226,7 +248,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
     {
         $this->app->setIsDownForMaintenance(true);
 
-        $schedule = new ClockAwareSchedule($this->clock);
+        $schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
 
         $schedule->exec('echo maintenance-ok')
             ->everyMinute()
@@ -256,7 +278,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             1
         );
 
-        $schedule = new ClockAwareSchedule($advancingClock);
+        $schedule = new ClockAwareSchedule($advancingClock, 'local', null, new TimezoneResolver());
 
         // between('11:59', '12:01') -> 12:00:00 is within range
         // Without freeze, AdvancingClock could advance during between evaluation
@@ -283,7 +305,22 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             $this->innerDispatcher,
             $tracker,
             $this->logger,
-            $orchestratorClock
+            $orchestratorClock,
+            function (
+                string $eventIdentifier,
+                string $eventCommand,
+                string $reason,
+                \DateTimeImmutable $dispatchedAt,
+                string $dispatcherType
+            ) {
+                return new SkippedDispatchResult(
+                    $eventIdentifier,
+                    $eventCommand,
+                    $reason,
+                    $dispatchedAt,
+                    $dispatcherType
+                );
+            }
         );
 
         $orchestrator = new DefaultScheduleOrchestrator(

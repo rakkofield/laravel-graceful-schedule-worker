@@ -4,43 +4,107 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
-use DateTimeInterface;
-
 /**
- * Value object for Step Functions execution input payload.
+ * Immutable DTO representing the Step Functions StartExecution input payload.
  */
-final class Payload
+class Payload implements PayloadInterface
 {
-    /** @var string */
+    /** @var string[] */
     private $command;
 
     /** @var string */
     private $mutexName;
 
-    /** @var DateTimeInterface */
+    /** @var string */
     private $dueAt;
 
-    public function __construct(string $command, string $mutexName, DateTimeInterface $dueAt)
-    {
+    /** @var string */
+    private $lockKey;
+
+    /** @var int */
+    private $expiresAt;
+
+    /**
+     * @param string[] $command
+     * @param string $mutexName
+     * @param string $dueAt ISO 8601 formatted date string
+     * @param string $lockKey
+     * @param int $expiresAt
+     */
+    public function __construct(
+        array $command,
+        string $mutexName,
+        string $dueAt,
+        string $lockKey,
+        int $expiresAt
+    ) {
         $this->command = $command;
         $this->mutexName = $mutexName;
         $this->dueAt = $dueAt;
+        $this->lockKey = $lockKey;
+        $this->expiresAt = $expiresAt;
     }
 
     /**
-     * @return string JSON string
-     * @throws StepFunctionsException if encoding fails
+     * @return string[]
+     */
+    public function getCommand(): array
+    {
+        return $this->command;
+    }
+
+    /**
+     * @return string
+     */
+    public function getMutexName(): string
+    {
+        return $this->mutexName;
+    }
+
+    /**
+     * @return string
+     */
+    public function getDueAt(): string
+    {
+        return $this->dueAt;
+    }
+
+    /**
+     * @return string
+     */
+    public function getLockKey(): string
+    {
+        return $this->lockKey;
+    }
+
+    /**
+     * @return int
+     */
+    public function getExpiresAt(): int
+    {
+        return $this->expiresAt;
+    }
+
+    /**
+     * Encode the payload as a JSON string.
+     *
+     * @return string
+     * @throws PayloadEncodingException if JSON encoding fails
      */
     public function toJson(): string
     {
         $encoded = json_encode([
             'command' => $this->command,
             'mutexName' => $this->mutexName,
-            'dueAt' => $this->dueAt->format(DateTimeInterface::ATOM),
+            'dueAt' => $this->dueAt,
+            'lockKey' => $this->lockKey,
+            'expiresAt' => $this->expiresAt,
         ]);
+
         if ($encoded === false) {
-            throw new StepFunctionsException('Failed to encode input JSON: ' . json_last_error_msg());
+            throw new PayloadEncodingException('Failed to encode input JSON: ' . json_last_error_msg());
         }
+
         return $encoded;
     }
 }

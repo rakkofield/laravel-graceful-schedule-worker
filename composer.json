@@ -70,7 +70,8 @@
     "extra": {
         "laravel": {
             "providers": [
-                "RakkoInc\\LaravelGracefulScheduleWorker\\Providers\\GracefulScheduleWorkerProvider"
+                "RakkoInc\\LaravelGracefulScheduleWorker\\Providers\\GracefulScheduleWorkerProvider",
+                "RakkoInc\\LaravelGracefulScheduleWorker\\Providers\\StepFunctionsServiceProvider"
             ]
         }
     },
@@ -91,6 +92,7 @@
         "tools:install": "cd tools && composer install --no-interaction --ignore-platform-reqs",
         "phpstan": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpstan analyse -c tools/phpstan.neon --memory-limit=512M",
         "phpcs": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpcs --standard=tools/phpcs.xml",
-        "phpcbf": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpcbf --standard=tools/phpcs.xml"
+        "phpcbf": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpcbf --standard=tools/phpcs.xml",
+        "phpmd": "${PHP_SA_BINARY:-php} tools/vendor/bin/phpmd src text tools/phpmd.xml"
     }
 }

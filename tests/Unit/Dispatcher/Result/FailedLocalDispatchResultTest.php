@@ -18,21 +18,23 @@ class FailedLocalDispatchResultTest extends TestCase
     public function testImplementsFailedDispatchResultInterface(): void
     {
         $now = new DateTimeImmutable();
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', 'Something went wrong', null, $now);
+        $exception = new \RuntimeException('Something went wrong');
+        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', $exception, $now);
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
     }
 
     /**
-     * @testdox FLR.2 Stores error message
+     * @testdox FLR.2 Stores error message generated from exception
      */
     public function testStoresErrorMessage(): void
     {
         $now = new DateTimeImmutable();
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', 'Something went wrong', null, $now);
+        $exception = new \RuntimeException('Something went wrong');
+        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', $exception, $now);
 
-        $this->assertSame('Something went wrong', $result->getError());
+        $this->assertSame('RuntimeException: Something went wrong', $result->getError());
     }
 
     /**
@@ -40,7 +42,8 @@ class FailedLocalDispatchResultTest extends TestCase
      */
     public function testGetDispatcherTypeReturnsLocal(): void
     {
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', 'error', null, new DateTimeImmutable());
+        $exception = new \RuntimeException('error');
+        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', $exception, new DateTimeImmutable());
 
         $this->assertSame('local', $result->getDispatcherType());
     }
@@ -51,31 +54,22 @@ class FailedLocalDispatchResultTest extends TestCase
     public function testStoresEventIdentifierAndCommand(): void
     {
         $now = new DateTimeImmutable();
-        $result = new FailedLocalDispatchResult('failed-event-id', 'php artisan failed:command', 'error', null, $now);
+        $exception = new \RuntimeException('error');
+        $result = new FailedLocalDispatchResult('failed-event-id', 'php artisan failed:command', $exception, $now);
 
         $this->assertSame('failed-event-id', $result->getEventIdentifier());
         $this->assertSame('php artisan failed:command', $result->getEventCommand());
     }
 
     /**
-     * @testdox FLR.5 stores exception when provided
+     * @testdox FLR.5 stores exception
      */
     public function testStoresException(): void
     {
         $exception = new \RuntimeException('Test error');
-        $result = new FailedLocalDispatchResult('id', 'cmd', 'error', $exception, new DateTimeImmutable());
+        $result = new FailedLocalDispatchResult('id', 'cmd', $exception, new DateTimeImmutable());
 
         $this->assertSame($exception, $result->getException());
-    }
-
-    /**
-     * @testdox FLR.6 returns null exception when not provided
-     */
-    public function testReturnsNullExceptionWhenNotProvided(): void
-    {
-        $result = new FailedLocalDispatchResult('id', 'cmd', 'error', null, new DateTimeImmutable());
-
-        $this->assertNull($result->getException());
     }
 
     /**
@@ -84,7 +78,8 @@ class FailedLocalDispatchResultTest extends TestCase
     public function testGetDispatchedAtReturnsDateTimeImmutable(): void
     {
         $now = new DateTimeImmutable();
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', 'error', null, $now);
+        $exception = new \RuntimeException('error');
+        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', $exception, $now);
 
         $dispatchedAt = $result->getDispatchedAt();
 
@@ -98,11 +93,11 @@ class FailedLocalDispatchResultTest extends TestCase
     public function testGetDispatchedAtReturnsExplicitValue(): void
     {
         $explicitTime = new DateTimeImmutable('2024-01-15 12:00:00');
+        $exception = new \RuntimeException('error');
         $result = new FailedLocalDispatchResult(
             'test-id',
             'php artisan test',
-            'error',
-            null,
+            $exception,
             $explicitTime
         );
 

@@ -18,8 +18,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClient
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FixedExecutionNameGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 /**
  * StepFunctionsDispatcher integration test using moto
@@ -112,18 +117,24 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     private function createEvent(string $command): ClockAwareEvent
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        return new ClockAwareEvent($this->mutex, $command, $clock, 'local');
+        return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
     private function createDispatcher(
         ExecutionNameGeneratorInterface $nameGenerator = null
     ): StepFunctionsDispatcher {
-        $adapter = new AwsSfnClientAdapter($this->sfnClient);
+        $adapter = new AwsSfnClientAdapter($this->sfnClient, self::$stateMachineArn);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $sanitizer = new MutexNameSanitizer();
+        $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
+        $inputFactory = new StartExecutionInputFactory(
+            $nameGenerator ?? new ExecutionNameGenerator($sanitizer),
+            $payloadBuilder,
+            3600
+        );
         return new StepFunctionsDispatcher(
             $adapter,
-            self::$stateMachineArn,
-            $nameGenerator ?? new ExecutionNameGenerator(),
+            $inputFactory,
             $clock
         );
     }

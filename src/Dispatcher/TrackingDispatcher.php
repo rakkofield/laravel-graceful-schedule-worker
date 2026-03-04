@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
+use Exception;
 use Psr\Log\LoggerInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -38,22 +38,28 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     /** @var ClockInterface */
     private $clock;
 
+    /** @var callable */
+    private $skippedResultFactory;
+
     /**
      * @param ScheduleDispatcherInterface $inner Inner dispatcher
      * @param ExecutionTrackerInterface $tracker Execution tracker
      * @param LoggerInterface $logger Logger
      * @param ClockInterface $clock Clock
+     * @param callable $skippedResultFactory Factory for creating SkippedDispatchResultInterface instances
      */
     public function __construct(
         ScheduleDispatcherInterface $inner,
         ExecutionTrackerInterface $tracker,
         LoggerInterface $logger,
-        ClockInterface $clock
+        ClockInterface $clock,
+        callable $skippedResultFactory
     ) {
         $this->inner = $inner;
         $this->tracker = $tracker;
         $this->logger = $logger;
         $this->clock = $clock;
+        $this->skippedResultFactory = $skippedResultFactory;
     }
 
     /**
@@ -69,28 +75,36 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
         if (!$lockAcquired) {
             $this->logger->debug('Lock not acquired, skipping dispatch', [
                 'event' => $event->mutexName(),
-                'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
+                'dueAt' => $dueAt->format(DateTimeInterface::ATOM),
             ]);
 
-            return new SkippedDispatchResult(
+            /** @var DispatchResultInterface $result */
+            $result = ($this->skippedResultFactory)(
                 $event->mutexName(),
                 (string) $event->command,
                 'lock_not_acquired',
                 $this->clock->now(),
                 $event->getDispatcherType()
             );
+
+            return $result;
         }
 
         // 2. Delegate to inner dispatcher
-        $result = $this->inner->dispatchEvent($event, $dueAt);
+        try {
+            $result = $this->inner->dispatchEvent($event, $dueAt);
+        } catch (\Throwable $e) {
+            $this->tryReleaseLock($event, $dueAt);
+            throw $e;
+        }
 
-        // 3. Track based on result
+        // 3. Validate result type (programming error - must propagate)
+        $this->assertKnownResultType($result, $event);
+
+        // 4. Track based on result
         try {
             $this->handleResult($result, $event, $dueAt);
-        } catch (\LogicException $e) {
-            // LogicException indicates a programming error, so rethrow as-is
-            throw $e;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // markExecuted failure does not affect the dispatch itself, so continue with warning
             $this->logger->error('Failed to track execution result', [
                 'event' => $event->mutexName(),
@@ -138,7 +152,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             $this->logger->info('Event dispatched', [
                 'event' => $event->mutexName(),
                 'dispatcher_type' => $result->getDispatcherType(),
-                'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
+                'dueAt' => $dueAt->format(DateTimeInterface::ATOM),
             ]);
             $this->tracker->markExecuted($event, $dueAt);
             return;
@@ -148,7 +162,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
             $this->logger->info('Event already running, skipped new execution', [
                 'event' => $event->mutexName(),
                 'dispatcher_type' => $result->getDispatcherType(),
-                'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
+                'dueAt' => $dueAt->format(DateTimeInterface::ATOM),
             ]);
             $this->tracker->markExecuted($event, $dueAt);
             return;
@@ -159,41 +173,69 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
                 'event' => $event->mutexName(),
                 'dispatcher_type' => $result->getDispatcherType(),
                 'reason' => $result->getReason(),
-                'dueAt' => $dueAt->format(\DateTimeInterface::ATOM),
+                'dueAt' => $dueAt->format(DateTimeInterface::ATOM),
             ]);
-            try {
-                $this->tracker->releaseLock($event, $dueAt);
-            } catch (\Exception $e) {
-                $this->logger->error('Failed to release lock', [
-                    'event' => $event->mutexName(),
-                    'error' => $e->getMessage(),
-                    'exception' => $e,
-                ]);
-            }
+            $this->tryReleaseLock($event, $dueAt);
             return;
         }
 
         if ($result instanceof FailedDispatchResultInterface) {
-            try {
-                $this->tracker->releaseLock($event, $dueAt);
-            } catch (\Exception $e) {
-                $this->logger->error('Failed to release lock', [
-                    'event' => $event->mutexName(),
-                    'error' => $e->getMessage(),
-                    'exception' => $e,
-                ]);
-            }
+            $this->tryReleaseLock($event, $dueAt);
             $this->handleDispatchFailure($event, $result);
             return;
         }
+    }
 
-        // Unexpected result type - this indicates a bug
-        throw new \LogicException(sprintf(
+    /**
+     * Assert that the result is a known type.
+     *
+     * Called before the try/catch block so that the exception propagates
+     * without being swallowed by the tracking error handler.
+     *
+     * @param DispatchResultInterface $result
+     * @param ClockAwareEvent $event
+     * @return void
+     * @throws Exception if the result type is unknown
+     */
+    private function assertKnownResultType(
+        DispatchResultInterface $result,
+        ClockAwareEvent $event
+    ): void {
+        if (
+            $result instanceof StartedDispatchResultInterface
+            || $result instanceof AlreadyRunningDispatchResultInterface
+            || $result instanceof SkippedDispatchResultInterface
+            || $result instanceof FailedDispatchResultInterface
+        ) {
+            return;
+        }
+
+        throw new Exception(sprintf(
             'Unexpected dispatch result type: %s (dispatcher: %s, event: %s)',
             get_class($result),
             $result->getDispatcherType(),
             $event->mutexName()
         ));
+    }
+
+    /**
+     * Attempt to release the execution lock, logging on failure.
+     *
+     * @param ClockAwareEvent $event
+     * @param DateTimeInterface $dueAt
+     * @return void
+     */
+    private function tryReleaseLock(ClockAwareEvent $event, DateTimeInterface $dueAt): void
+    {
+        try {
+            $this->tracker->releaseLock($event, $dueAt);
+        } catch (Exception $e) {
+            $this->logger->error('Failed to release lock', [
+                'event' => $event->mutexName(),
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+        }
     }
 
     /**

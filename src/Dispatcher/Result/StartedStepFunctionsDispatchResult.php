@@ -12,22 +12,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
  *
  * Holds execution information and manages Step Functions execution state.
  */
-class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterface
+class StartedStepFunctionsDispatchResult extends AbstractDispatchResult implements StartedDispatchResultInterface
 {
     /** @var string */
     private $executionArn;
 
     /** @var string */
     private $executionName;
-
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var DateTimeImmutable */
-    private $dispatchedAt;
 
     /**
      * @param string $executionArn
@@ -43,43 +34,9 @@ class StartedStepFunctionsDispatchResult implements StartedDispatchResultInterfa
         string $eventCommand,
         DateTimeImmutable $dispatchedAt
     ) {
+        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::STEP_FUNCTIONS, $dispatchedAt);
         $this->executionArn = $executionArn;
         $this->executionName = $executionName;
-        $this->eventIdentifier = $eventIdentifier;
-        $this->eventCommand = $eventCommand;
-        $this->dispatchedAt = $dispatchedAt;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventIdentifier(): string
-    {
-        return $this->eventIdentifier;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventCommand(): string
-    {
-        return $this->eventCommand;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatcherType(): string
-    {
-        return DispatcherType::STEP_FUNCTIONS;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatchedAt(): DateTimeImmutable
-    {
-        return $this->dispatchedAt;
     }
 
     /**

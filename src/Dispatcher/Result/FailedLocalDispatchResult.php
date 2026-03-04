@@ -10,42 +10,29 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 /**
  * Failure result class for LocalDispatcher.
  */
-class FailedLocalDispatchResult implements FailedDispatchResultInterface
+class FailedLocalDispatchResult extends AbstractDispatchResult implements FailedDispatchResultInterface
 {
-    /** @var string */
-    private $eventIdentifier;
-
-    /** @var string */
-    private $eventCommand;
-
-    /** @var DateTimeImmutable */
-    private $dispatchedAt;
-
     /** @var string */
     private $error;
 
-    /** @var \Throwable|null */
+    /** @var \Throwable */
     private $exception;
 
     /**
      * @param string $eventIdentifier
      * @param string $eventCommand
-     * @param string $error
-     * @param \Throwable|null $exception
+     * @param \Throwable $exception
      * @param DateTimeImmutable $dispatchedAt
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
-        string $error,
-        ?\Throwable $exception,
+        \Throwable $exception,
         DateTimeImmutable $dispatchedAt
     ) {
-        $this->eventIdentifier = $eventIdentifier;
-        $this->eventCommand = $eventCommand;
-        $this->error = $error;
+        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::LOCAL, $dispatchedAt);
+        $this->error = self::formatException($exception);
         $this->exception = $exception;
-        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**
@@ -54,38 +41,6 @@ class FailedLocalDispatchResult implements FailedDispatchResultInterface
     public function getError(): string
     {
         return $this->error;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventIdentifier(): string
-    {
-        return $this->eventIdentifier;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getEventCommand(): string
-    {
-        return $this->eventCommand;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatcherType(): string
-    {
-        return DispatcherType::LOCAL;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getDispatchedAt(): DateTimeImmutable
-    {
-        return $this->dispatchedAt;
     }
 
     /**

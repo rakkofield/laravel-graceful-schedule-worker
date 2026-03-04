@@ -48,7 +48,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
         });
 
         $this->clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
-        $this->schedule = new ClockAwareSchedule($this->clock);
+        $this->schedule = new ClockAwareSchedule($this->clock, 'local', null, new TimezoneResolver());
     }
 
     protected function tearDown(): void
@@ -121,7 +121,7 @@ class ClockAwareScheduleCompatibilityTest extends TestCase
      */
     public function testTimezonePropagatesToEvents(): void
     {
-        $schedule = new ClockAwareSchedule($this->clock, 'local', 'Asia/Tokyo');
+        $schedule = new ClockAwareSchedule($this->clock, 'local', 'Asia/Tokyo', new TimezoneResolver());
         $event = $schedule->exec('echo test');
 
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
