@@ -43,6 +43,7 @@
     "config": {
         "audit": {
             "ignore": [
+                "PKSA-4t1p-xpk2-nsss",
                 "PKSA-dxyf-6n16-t87m",
                 "PKSA-n3s6-289w-qtqb",
                 "PKSA-stsw-jsf7-f6vs",

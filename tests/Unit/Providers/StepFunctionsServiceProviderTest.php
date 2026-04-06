@@ -294,9 +294,8 @@ class StepFunctionsServiceProviderTest extends TestCase
     public function testClientConfiguresCallableCredentialsWhenProvided(): void
     {
         $credentials = new \Aws\Credentials\Credentials('callable-key', 'callable-secret');
-        $this->app->make('config')->set('graceful-scheduler.stepfunctions.credentials', function () use ($credentials) {
-            return \GuzzleHttp\Promise\Create::promiseFor($credentials);
-        });
+        $provider = \Aws\Credentials\CredentialProvider::fromCredentials($credentials);
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.credentials', $provider);
 
         $this->provider->register();
 
