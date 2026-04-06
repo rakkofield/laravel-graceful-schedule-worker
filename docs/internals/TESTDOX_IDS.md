@@ -63,7 +63,7 @@
 | Providers/DispatcherServiceRegistrarTest | `DSR` | 5 |
 | Providers/OrchestratorServiceRegistrarTest | `OSR` | 5 |
 | Providers/TrackerServiceRegistrarTest | `TSR` | 5 |
-| Providers/StepFunctionsServiceProviderTest | `SFP` | 11 |
+| Providers/StepFunctionsServiceProviderTest | `SFP` | 12 |
 | Providers/GracefulScheduleWorkerProviderTest | `GP` | 20 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 28 |
 | Tracker/CacheExecutionTrackerTest | `CT` | 22 |

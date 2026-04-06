@@ -51,7 +51,7 @@ class StepFunctionsServiceProvider extends ServiceProvider
             /** @var ConfigRepository $config */
             $config = $app->make('config');
 
-            /** @var array{region?: string, version?: string, credentials?: array{key?: string, secret?: string}, endpoint?: string, state_machine_arn?: string} $sfConfig */
+            /** @var array{region?: string, version?: string, credentials?: array{key?: string, secret?: string}|callable, endpoint?: string, state_machine_arn?: string} $sfConfig */
             $sfConfig = $config->get('graceful-scheduler.stepfunctions', []);
 
             $clientConfig = [
@@ -59,7 +59,14 @@ class StepFunctionsServiceProvider extends ServiceProvider
                 'version' => $sfConfig['version'] ?? 'latest',
             ];
 
-            if (!empty($sfConfig['credentials']['key']) && !empty($sfConfig['credentials']['secret'])) {
+            if (isset($sfConfig['credentials']) && is_callable($sfConfig['credentials'])) {
+                $clientConfig['credentials'] = $sfConfig['credentials'];
+            } elseif (
+                isset($sfConfig['credentials'])
+                && is_array($sfConfig['credentials'])
+                && !empty($sfConfig['credentials']['key'])
+                && !empty($sfConfig['credentials']['secret'])
+            ) {
                 $clientConfig['credentials'] = [
                     'key' => $sfConfig['credentials']['key'],
                     'secret' => $sfConfig['credentials']['secret'],

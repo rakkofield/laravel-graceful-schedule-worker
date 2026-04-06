@@ -287,4 +287,29 @@ class StepFunctionsServiceProviderTest extends TestCase
 
         $this->assertSame($builder1, $builder2);
     }
+
+    /**
+     * @testdox SFP.12 Client configures callable credentials when provided
+     */
+    public function testClientConfiguresCallableCredentialsWhenProvided(): void
+    {
+        $credentials = new \Aws\Credentials\Credentials('callable-key', 'callable-secret');
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.credentials', function () use ($credentials) {
+            return \GuzzleHttp\Promise\Create::promiseFor($credentials);
+        });
+
+        $this->provider->register();
+
+        $client = $this->app->make(StepFunctionsClientInterface::class);
+        $this->assertInstanceOf(AwsSfnClientAdapter::class, $client);
+
+        $adapterRef = new \ReflectionClass($client);
+        $clientProp = $adapterRef->getProperty('client');
+        $clientProp->setAccessible(true);
+        $sfnClient = $clientProp->getValue($client);
+
+        $resolved = $sfnClient->getCredentials()->wait();
+        $this->assertSame('callable-key', $resolved->getAccessKeyId());
+        $this->assertSame('callable-secret', $resolved->getSecretKey());
+    }
 }
