@@ -167,13 +167,41 @@ class ClockAwareEvent extends Event
     /**
      * Get the effective command as an array for this event.
      *
-     * Returns rawCommand if set, otherwise falls back to splitting the command property.
+     * Returns rawCommand if set, otherwise falls back to splitting the command property
+     * on whitespace via splitCommandString().
      *
      * @return string[]
      */
     public function getEffectiveCommand(): array
     {
-        return $this->rawCommand ?? explode(' ', $this->command);
+        if ($this->rawCommand !== null) {
+            return $this->rawCommand;
+        }
+        $tokens = self::splitCommandString($this->command);
+        return $tokens === [] ? [$this->command] : $tokens;
+    }
+
+    /**
+     * Split a command string into argv-style tokens on whitespace.
+     *
+     * Leading/trailing whitespace is trimmed and runs of whitespace (spaces,
+     * tabs, newlines) collapse to a single separator. Not a shell lexer: quoted
+     * or backslash-escaped whitespace is not honored.
+     *
+     * Returns [] when the input is empty or whitespace-only; callers decide
+     * whether to treat that as an error or a no-op fallback.
+     *
+     * @param string $command
+     * @return string[]
+     */
+    public static function splitCommandString(string $command): array
+    {
+        $trimmed = trim($command);
+        if ($trimmed === '') {
+            return [];
+        }
+        $tokens = preg_split('/\s+/', $trimmed);
+        return $tokens === false ? [] : $tokens;
     }
 
     /**

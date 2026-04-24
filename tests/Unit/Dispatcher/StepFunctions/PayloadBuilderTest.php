@@ -6,11 +6,14 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\EventMutex;
+use Illuminate\Console\Scheduling\SchedulingMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 /**
@@ -37,6 +40,9 @@ class PayloadBuilderTest extends TestCase
         Container::setInstance($this->app);
         $this->app->bind(EventMutex::class, function () {
             return $this->mutex;
+        });
+        $this->app->bind(SchedulingMutex::class, function () {
+            return new FakeSchedulingMutex();
         });
     }
 
@@ -197,5 +203,25 @@ class PayloadBuilderTest extends TestCase
 
         $expectedExpiresAt = $dueAt->getTimestamp() + (1440 * 60);
         $this->assertSame($expectedExpiresAt, $payload->getExpiresAt());
+    }
+
+    /**
+     * @testdox PB.11 end-to-end: schedule->command() with inline args produces split command array in payload
+     */
+    public function testEndToEndScheduleCommandWithInlineArgsProducesSplitCommandArray(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $event = $schedule->command('update-header-announces 1');
+        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+
+        $payload = $this->builder->build($event, $dueAt, 3600);
+        $decoded = json_decode($payload->toJson(), true);
+
+        $this->assertSame(
+            ['update-header-announces', '1'],
+            $decoded['command']
+        );
     }
 }

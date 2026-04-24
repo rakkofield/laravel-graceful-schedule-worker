@@ -698,6 +698,60 @@ class ClockAwareEventTest extends TestCase
     }
 
     /**
+     * @testdox CE.33a getEffectiveCommand fallback collapses tabs and multiple spaces
+     */
+    public function testGetEffectiveCommandFallbackCollapsesWhitespace(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            "php   artisan\treport:daily",
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+
+        $this->assertSame(['php', 'artisan', 'report:daily'], $event->getEffectiveCommand());
+    }
+
+    /**
+     * @testdox CE.33b getEffectiveCommand fallback trims surrounding whitespace
+     */
+    public function testGetEffectiveCommandFallbackTrimsSurroundingWhitespace(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            '  php artisan test  ',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+
+        $this->assertSame(['php', 'artisan', 'test'], $event->getEffectiveCommand());
+    }
+
+    /**
+     * @testdox CE.33c getEffectiveCommand returns [command] when command is empty
+     */
+    public function testGetEffectiveCommandReturnsOriginalWhenCommandIsEmpty(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $event = new ClockAwareEvent(
+            $this->mutex,
+            '',
+            $clock,
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+
+        $this->assertSame([''], $event->getEffectiveCommand());
+    }
+
+    /**
      * @testdox CE.34 resolveLockTtlSeconds returns default when withoutOverlapping is not set
      */
     public function testResolveLockTtlSecondsReturnsDefaultWhenNotWithoutOverlapping(): void
