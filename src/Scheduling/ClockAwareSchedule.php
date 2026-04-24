@@ -120,13 +120,22 @@ class ClockAwareSchedule extends Schedule
      * this builds an array where each element is a separate argument
      * without shell escaping (unnecessary for array-based command passing).
      *
+     * Inline arguments in $command (e.g. 'command:name arg1 arg2') are split on
+     * whitespace only. This is not a shell lexer: quoted values or
+     * backslash-escaped spaces are not honored. Use the $parameters array to
+     * pass values containing whitespace.
+     *
      * @param string $command
      * @param array<string, mixed> $parameters
      * @return string[]
+     * @throws \InvalidArgumentException When $command is empty or whitespace-only.
      */
     private function buildRawCommandArray(string $command, array $parameters): array
     {
-        $result = [$command];
+        $result = ClockAwareEvent::splitCommandString($command);
+        if ($result === []) {
+            throw new \InvalidArgumentException('Command must not be empty.');
+        }
 
         foreach ($parameters as $key => $value) {
             if (is_array($value)) {

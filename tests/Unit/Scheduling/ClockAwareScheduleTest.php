@@ -276,7 +276,59 @@ class ClockAwareScheduleTest extends TestCase
             'non-flag string key with array values' => [
                 'deploy:run', ['foo' => ['bar', 'baz']], ['deploy:run', 'bar', 'baz'],
             ],
+            'command string with inline single argument' => [
+                'update-header-announces 1', [], ['update-header-announces', '1'],
+            ],
+            'command string with inline multiple arguments' => [
+                'post-knowledge-content twitter', [], ['post-knowledge-content', 'twitter'],
+            ],
+            'command string with inline argument and extra parameters' => [
+                'report:daily yesterday',
+                ['--verbose' => 'yes'],
+                ['report:daily', 'yesterday', '--verbose=yes'],
+            ],
+            'command string with multiple spaces collapsed' => [
+                "foo   bar\tbaz", [], ['foo', 'bar', 'baz'],
+            ],
+            'command string with surrounding whitespace is trimmed' => [
+                '  report:daily  ', [], ['report:daily'],
+            ],
+            'command string trimmed then split with parameters' => [
+                "\treport:daily yesterday\n", ['--verbose' => 'yes'],
+                ['report:daily', 'yesterday', '--verbose=yes'],
+            ],
+            'command string with embedded newline is split' => [
+                "foo\nbar", [], ['foo', 'bar'],
+            ],
         ];
+    }
+
+    /**
+     * @testdox CS.26 command() throws InvalidArgumentException for empty command
+     */
+    public function testCommandThrowsForEmptyCommand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Command must not be empty.');
+
+        $schedule->command('');
+    }
+
+    /**
+     * @testdox CS.27 command() throws InvalidArgumentException for whitespace-only command
+     */
+    public function testCommandThrowsForWhitespaceOnlyCommand(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Command must not be empty.');
+
+        $schedule->command("  \t\n  ");
     }
 
     /**
