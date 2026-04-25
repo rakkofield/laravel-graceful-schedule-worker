@@ -86,7 +86,6 @@ final class MotoConfigurator
             ],
         ]);
 
-        $headers = [];
         $result = @file_get_contents($url, false, $context);
         if ($result === false) {
             throw new RuntimeException(sprintf('Failed to POST to motoserver at %s', $url));

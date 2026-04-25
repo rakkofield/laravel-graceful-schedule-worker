@@ -260,6 +260,9 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     private function buildLambdaZipStub(): string
     {
         $tmp = tempnam(sys_get_temp_dir(), 'lambda-stub-');
+        if ($tmp === false) {
+            $this->fail('Failed to create a temporary file for the Lambda zip stub');
+        }
         $zip = new \ZipArchive();
         $zip->open($tmp, \ZipArchive::OVERWRITE);
         $zip->addFromString('index.py', "def handler(event, context):\n    return event\n");
