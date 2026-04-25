@@ -22,6 +22,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuild
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoConfigurator;
+use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoLambdaFixture;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
@@ -187,8 +188,9 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     public function testLayerCLambdaInvokeIntegration(): void
     {
         $arn = $this->ensureStateMachine(self::STATE_MACHINE_LAMBDA, 'state-machine-lambda.json');
-        $roleArn = $this->ensureLambdaRole();
-        $this->ensureLambdaFunction(self::LAMBDA_NAME, $roleArn);
+        $lambdaFixture = new MotoLambdaFixture($this->lambdaClient, $this->iamClient);
+        $roleArn = $lambdaFixture->ensureRole(self::LAMBDA_ROLE_NAME);
+        $lambdaFixture->ensureEchoFunction(self::LAMBDA_NAME, $roleArn);
 
         // No queued response: moto's lambda_simple backend echoes the request
         // body back as the Payload, so $output.lambda.workerResult ends up
@@ -234,80 +236,6 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         }
 
         return $arn;
-    }
-
-    private function ensureLambdaRole(): string
-    {
-        $assumeRolePolicy = json_encode([
-            'Version' => '2012-10-17',
-            'Statement' => [[
-                'Effect' => 'Allow',
-                'Principal' => ['Service' => 'lambda.amazonaws.com'],
-                'Action' => 'sts:AssumeRole',
-            ]],
-        ]);
-        if ($assumeRolePolicy === false) {
-            $this->fail('Failed to encode the Lambda assume-role policy');
-        }
-
-        try {
-            $response = $this->iamClient->createRole([
-                'RoleName' => self::LAMBDA_ROLE_NAME,
-                'AssumeRolePolicyDocument' => $assumeRolePolicy,
-            ]);
-            return $response['Role']['Arn'];
-        } catch (\Aws\Exception\AwsException $e) {
-            if ($e->getAwsErrorCode() !== 'EntityAlreadyExists') {
-                throw $e;
-            }
-            $existing = $this->iamClient->getRole(['RoleName' => self::LAMBDA_ROLE_NAME]);
-            return $existing['Role']['Arn'];
-        }
-    }
-
-    private function ensureLambdaFunction(string $name, string $roleArn): void
-    {
-        try {
-            $this->lambdaClient->createFunction([
-                'FunctionName' => $name,
-                'Runtime' => 'python3.12',
-                'Role' => $roleArn,
-                'Handler' => 'index.handler',
-                'Code' => ['ZipFile' => $this->buildLambdaZipStub()],
-            ]);
-        } catch (\Aws\Exception\AwsException $e) {
-            if ($e->getAwsErrorCode() !== 'ResourceConflictException') {
-                throw $e;
-            }
-        }
-    }
-
-    private function buildLambdaZipStub(): string
-    {
-        $tmp = tempnam(sys_get_temp_dir(), 'lambda-stub-');
-        if ($tmp === false) {
-            $this->fail('Failed to create a temporary file for the Lambda zip stub');
-        }
-        $zip = new \ZipArchive();
-        // ZipArchive::open returns true on success or an int error code; without
-        // the check, addFromString silently no-ops and an empty zip ships to
-        // moto, surfacing as an opaque CreateFunction failure.
-        $opened = $zip->open($tmp, \ZipArchive::OVERWRITE);
-        if ($opened !== true) {
-            @unlink($tmp);
-            $this->fail(sprintf('ZipArchive::open failed for %s with code %d', $tmp, (int) $opened));
-        }
-        $zip->addFromString('index.py', "def handler(event, context):\n    return event\n");
-        if ($zip->close() !== true) {
-            @unlink($tmp);
-            $this->fail('ZipArchive::close failed for the Lambda zip stub');
-        }
-        $contents = file_get_contents($tmp);
-        @unlink($tmp);
-        if ($contents === false) {
-            $this->fail('Failed to build Lambda zip stub');
-        }
-        return $contents;
     }
 
     private function dispatch(string $stateMachineArn, string $command): StartedDispatchResultInterface
