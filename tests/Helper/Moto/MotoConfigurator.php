@@ -86,9 +86,36 @@ final class MotoConfigurator
             ],
         ]);
 
+        $headers = [];
         $result = @file_get_contents($url, false, $context);
         if ($result === false) {
             throw new RuntimeException(sprintf('Failed to POST to motoserver at %s', $url));
         }
+
+        // ignore_errors=true makes file_get_contents return the body for 4xx/5xx
+        // too, so inspect $http_response_header to surface server-side errors.
+        $headers = isset($http_response_header) ? $http_response_header : [];
+        $statusCode = self::parseStatusCode($headers);
+        if ($statusCode === null || $statusCode < 200 || $statusCode >= 300) {
+            throw new RuntimeException(sprintf(
+                'motoserver POST %s returned status %s: %s',
+                $url,
+                $statusCode === null ? 'unknown' : (string) $statusCode,
+                $result
+            ));
+        }
+    }
+
+    /**
+     * @param array<int, string> $headers Raw HTTP response headers from $http_response_header
+     */
+    private static function parseStatusCode(array $headers): ?int
+    {
+        foreach ($headers as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $matches) === 1) {
+                return (int) $matches[1];
+            }
+        }
+        return null;
     }
 }
