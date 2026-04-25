@@ -16,7 +16,9 @@ use ZipArchive;
  *
  * moto's CreateFunction validates that the role exists in IAM and has a
  * Lambda assume-role policy (moto/awslambda/models.py:1743), so callers
- * must provision the role first.
+ * must provision the role first. The Lambda's runtime behavior (echo vs.
+ * canned) is governed by `MotoConfigurator::enableStepFunctionsExecution`,
+ * which flips moto into the no-Docker `lambda_simple` backend.
  */
 final class MotoLambdaFixture
 {
@@ -32,10 +34,6 @@ final class MotoLambdaFixture
         $this->iam = $iam;
     }
 
-    /**
-     * Idempotently ensure an IAM role with a Lambda assume-role policy.
-     * Returns the role ARN.
-     */
     public function ensureRole(string $roleName): string
     {
         $assumeRolePolicy = json_encode([
@@ -66,11 +64,10 @@ final class MotoLambdaFixture
     }
 
     /**
-     * Idempotently create a Lambda function whose handler echoes the
-     * invocation event back as the response. Combined with moto's
-     * lambda_simple backend (use_docker=false), this makes the function
-     * round-trip the request body — useful for verifying that a state
-     * machine's Task input reaches the worker.
+     * Create a Lambda function whose handler echoes the invocation event.
+     * The echo round-trip is what proves a state machine's Task input
+     * reached the worker; the actual echoing is done by moto's
+     * `lambda_simple` backend (see class docblock).
      */
     public function ensureEchoFunction(string $functionName, string $roleArn): void
     {
@@ -96,27 +93,28 @@ final class MotoLambdaFixture
             throw new RuntimeException('Failed to create a temporary file for the Lambda zip stub');
         }
 
-        $zip = new ZipArchive();
-        $opened = $zip->open($tmp, ZipArchive::OVERWRITE);
-        if ($opened !== true) {
-            @unlink($tmp);
-            throw new RuntimeException(sprintf(
-                'ZipArchive::open failed for %s with code %d',
-                $tmp,
-                (int) $opened
-            ));
-        }
-        $zip->addFromString('index.py', "def handler(event, context):\n    return event\n");
-        if ($zip->close() !== true) {
-            @unlink($tmp);
-            throw new RuntimeException('ZipArchive::close failed for the Lambda zip stub');
-        }
+        try {
+            $zip = new ZipArchive();
+            $opened = $zip->open($tmp, ZipArchive::OVERWRITE);
+            if ($opened !== true) {
+                throw new RuntimeException(sprintf(
+                    'ZipArchive::open failed for %s with code %d',
+                    $tmp,
+                    (int) $opened
+                ));
+            }
+            $zip->addFromString('index.py', "def handler(event, context):\n    return event\n");
+            if ($zip->close() !== true) {
+                throw new RuntimeException('ZipArchive::close failed for the Lambda zip stub');
+            }
 
-        $contents = file_get_contents($tmp);
-        @unlink($tmp);
-        if ($contents === false) {
-            throw new RuntimeException('Failed to read the Lambda zip stub');
+            $contents = file_get_contents($tmp);
+            if ($contents === false) {
+                throw new RuntimeException('Failed to read the Lambda zip stub');
+            }
+            return $contents;
+        } finally {
+            @unlink($tmp);
         }
-        return $contents;
     }
 }

@@ -40,7 +40,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
 {
     private const ACCOUNT_ID = '000000000000';
     private const REGION = 'ap-northeast-1';
-    private const ROLE_ARN = 'arn:aws:iam::000000000000:role/stepfunctions-role';
+    private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
     private const LAMBDA_NAME = 'graceful-scheduler-worker';
     private const LAMBDA_ROLE_NAME = 'graceful-scheduler-lambda-role';
 
@@ -68,9 +68,6 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     /** @var SfnExecutionWaiter */
     private $waiter;
 
-    /** @var string */
-    private $endpoint;
-
     /** @var Container */
     private $app;
 
@@ -88,8 +85,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         if (!is_string($endpoint) || $endpoint === '') {
             $this->markTestSkipped('SFN_ENDPOINT is not set; motoserver required for E2E');
         }
-        $this->endpoint = $endpoint;
-        $this->moto = new MotoConfigurator($this->endpoint);
+        $this->moto = new MotoConfigurator($endpoint);
 
         // moto's execute_state_machine mode hits an RLock pickling crash once a
         // state machine has been executed and another StartExecution is issued
@@ -101,7 +97,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         $clientConfig = [
             'region' => self::REGION,
             'version' => 'latest',
-            'endpoint' => $this->endpoint,
+            'endpoint' => $endpoint,
             'credentials' => ['key' => 'test', 'secret' => 'test'],
             'suppress_php_deprecation_warning' => true,
         ];
@@ -112,7 +108,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
             $this->sfnClient,
             self::ACCOUNT_ID,
             self::REGION,
-            self::ROLE_ARN
+            sprintf('arn:aws:iam::%s:role/%s', self::ACCOUNT_ID, self::STEP_FUNCTIONS_ROLE_NAME)
         );
         $this->waiter = new SfnExecutionWaiter($this->sfnClient);
 

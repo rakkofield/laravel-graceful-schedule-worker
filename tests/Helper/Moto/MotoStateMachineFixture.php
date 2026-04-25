@@ -36,9 +36,6 @@ final class MotoStateMachineFixture
         $this->roleArn = $roleArn;
     }
 
-    /**
-     * Create the state machine from a definition file. Returns the ARN.
-     */
     public function ensureFromFile(string $name, string $definitionPath): string
     {
         $definition = file_get_contents($definitionPath);

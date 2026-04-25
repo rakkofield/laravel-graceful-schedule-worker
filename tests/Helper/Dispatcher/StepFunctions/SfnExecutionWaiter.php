@@ -11,13 +11,13 @@ use RuntimeException;
  * Polls a Step Functions execution until it leaves the RUNNING state.
  *
  * On timeout, surfaces the final status, error, cause, and the most
- * recent execution history events so a permanent-RUNNING (typically a
- * moto bug) is debuggable.
+ * recent execution history events so a stuck execution (e.g. moto's
+ * deepcopy/RLock crash leaving the executor unable to advance) is
+ * debuggable.
  */
 final class SfnExecutionWaiter
 {
     private const POLL_INTERVAL_MICROSECONDS = 100000;
-    private const POLL_INTERVAL_MILLISECONDS = 100;
 
     /** @var SfnClient */
     private $sfn;
@@ -60,7 +60,7 @@ final class SfnExecutionWaiter
         return sprintf(
             'Execution %s did not finish within %dms. status=%s error=%s cause=%s history=%s',
             $executionArn,
-            $maxAttempts * self::POLL_INTERVAL_MILLISECONDS,
+            $maxAttempts * intdiv(self::POLL_INTERVAL_MICROSECONDS, 1000),
             $final['status'] ?? 'unknown',
             $final['error'] ?? '',
             $final['cause'] ?? '',
