@@ -107,11 +107,15 @@ final class MotoConfigurator
     }
 
     /**
+     * Return the final response's status code from $http_response_header.
+     * The variable accumulates headers across the entire redirect chain, so
+     * iterate from the end to skip past any 3xx hops.
+     *
      * @param array<int, string> $headers Raw HTTP response headers from $http_response_header
      */
     private static function parseStatusCode(array $headers): ?int
     {
-        foreach ($headers as $header) {
+        foreach (array_reverse($headers) as $header) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $matches) === 1) {
                 return (int) $matches[1];
             }
