@@ -37,9 +37,11 @@ final class MotoConfigurator
     }
 
     /**
-     * Wipe all moto state. Required before each PHPUnit run because moto's
-     * Step Functions execution mode hits a deepcopy/RLock crash once
-     * accumulated state machines and Lambda functions pile up.
+     * Wipe all moto state. Required between tests because moto's Step
+     * Functions execution mode hits a deepcopy crash when StartExecution
+     * is issued against a state machine that has already executed: the
+     * cached state machine carries a non-picklable RLock from the prior
+     * run (moto/stepfunctions/parser/models.py:175).
      */
     public function reset(): void
     {

@@ -88,6 +88,7 @@
 |---|---|---|
 | GracefulScheduleWorkerCommandTest | `E2E` | 1 |
 | BackgroundCommandOutputTest | `E2E` | 2 |
+| StepFunctionsExecutionE2ETest | `E2E` | 4 |
 
 ## TI Prefix Number Ranges
 
@@ -98,3 +99,13 @@ The `TI` prefix is shared across Orchestrator Integration files, with number ran
 | OrchestratorFlowIntegrationTest | TI.1 - TI.4, TI.20 |
 | OrchestratorFiltersPassIntegrationTest | TI.5 - TI.10 |
 | ScheduleRunCompatibilityIntegrationTest | TI.11 - TI.15, TI.21 - TI.22 |
+
+## E2E Prefix Number Ranges
+
+The `E2E` prefix is shared across all end-to-end test files. Number ranges keep IDs unique per file:
+
+| Test File | Number Range |
+|---|---|
+| GracefulScheduleWorkerCommandTest | E2E.1 |
+| BackgroundCommandOutputTest | E2E.2 - E2E.3 |
+| StepFunctionsExecutionE2ETest | E2E.10 - E2E.13 |

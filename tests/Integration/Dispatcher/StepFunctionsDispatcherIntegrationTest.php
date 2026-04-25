@@ -69,8 +69,10 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         // Use SFN_ENDPOINT (set in phpunit.xml.dist)
         $this->endpoint = getenv('SFN_ENDPOINT') ?: 'http://localhost:5001';
 
-        // Reset between tests to avoid moto's deepcopy/RLock crash
-        // accumulating across executions (see parser/models.py:175).
+        // Reset between tests to avoid moto's deepcopy/RLock crash: once a
+        // state machine has been executed, deepcopy in
+        // moto/stepfunctions/parser/models.py:175 fails because the cached
+        // state machine carries an RLock from the prior run.
         $moto = new MotoConfigurator($this->endpoint);
         $moto->reset();
         $moto->enableStepFunctionsExecution();
@@ -229,9 +231,13 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
             usleep(100000);
         }
 
+        $final = $this->sfnClient->describeExecution(['executionArn' => $executionArn])->toArray();
         $this->fail(sprintf(
-            'Execution did not finish within %dms (last status: RUNNING)',
-            $maxAttempts * 100
+            'Execution did not finish within %dms. status=%s error=%s cause=%s',
+            $maxAttempts * 100,
+            $final['status'] ?? 'unknown',
+            $final['error'] ?? '',
+            $final['cause'] ?? ''
         ));
     }
 }

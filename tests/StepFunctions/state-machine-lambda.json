@@ -1,5 +1,5 @@
 {
-  "Comment": "Test state machine that hands the payload off to a Lambda worker",
+  "Comment": "Asserts that lambda:invoke receives the SFN input as Payload and ResultSelector pipes Lambda's response back into $.lambda.workerResult",
   "StartAt": "InvokeWorker",
   "States": {
     "InvokeWorker": {

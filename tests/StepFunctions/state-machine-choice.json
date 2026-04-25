@@ -1,5 +1,5 @@
 {
-  "Comment": "Test state machine that branches on the dispatched payload",
+  "Comment": "Asserts that $.command[1] is exposed as a Choice variable (verifies payload reaches state machine input)",
   "StartAt": "Inspect",
   "States": {
     "Inspect": {
