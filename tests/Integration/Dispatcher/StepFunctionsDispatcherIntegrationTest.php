@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
-use Aws\Sfn\SfnClient;
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
@@ -21,10 +20,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FixedExecuti
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\SfnExecutionWaiter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
-use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoConfigurator;
-use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoStateMachineFixture;
+use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoSfnTestEnvironment;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
@@ -45,17 +42,14 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     /** @var string */
     private $stateMachineArn;
 
+    /** @var MotoSfnTestEnvironment */
+    private $env;
+
     /** @var Container */
     private $app;
 
     /** @var FakeEventMutex */
     private $mutex;
-
-    /** @var SfnClient|null */
-    private $sfnClient;
-
-    /** @var string */
-    private $endpoint;
 
     /** @var DateTimeImmutable */
     private $dueAt;
@@ -64,16 +58,11 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        // Use SFN_ENDPOINT (set in phpunit.xml.dist)
-        $this->endpoint = getenv('SFN_ENDPOINT') ?: 'http://localhost:5001';
-
-        // Reset between tests to avoid moto's deepcopy/RLock crash: once a
-        // state machine has been executed, deepcopy in
-        // moto/stepfunctions/parser/models.py:175 fails because the cached
-        // state machine carries an RLock from the prior run.
-        $moto = new MotoConfigurator($this->endpoint);
-        $moto->reset();
-        $moto->enableStepFunctionsExecution();
+        $env = MotoSfnTestEnvironment::tryFromEnv(self::ACCOUNT_ID, self::REGION, self::ROLE_ARN);
+        if ($env === null) {
+            $this->markTestSkipped('SFN_ENDPOINT is not set; motoserver required for integration');
+        }
+        $this->env = $env;
 
         $this->app = new Container();
         Container::setInstance($this->app);
@@ -83,23 +72,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         });
         $this->dueAt = new DateTimeImmutable();
 
-        $this->sfnClient = new SfnClient([
-            'region' => self::REGION,
-            'version' => 'latest',
-            'endpoint' => $this->endpoint,
-            'credentials' => [
-                'key' => 'test',
-                'secret' => 'test',
-            ],
-            'suppress_php_deprecation_warning' => true,
-        ]);
-
-        $this->stateMachineArn = (new MotoStateMachineFixture(
-            $this->sfnClient,
-            self::ACCOUNT_ID,
-            self::REGION,
-            self::ROLE_ARN
-        ))->ensureFromFile(
+        $this->stateMachineArn = $env->stateMachineFixture()->ensureFromFile(
             self::STATE_MACHINE_NAME,
             __DIR__ . '/../../StepFunctions/state-machine.json'
         );
@@ -120,7 +93,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     private function createDispatcher(
         ExecutionNameGeneratorInterface $nameGenerator = null
     ): StepFunctionsDispatcher {
-        $adapter = new AwsSfnClientAdapter($this->sfnClient, $this->stateMachineArn);
+        $adapter = new AwsSfnClientAdapter($this->env->sfnClient(), $this->stateMachineArn);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $sanitizer = new MutexNameSanitizer();
         $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
@@ -197,7 +170,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $executionArn = $result->getExecutionArn();
         $this->assertNotNull($executionArn);
 
-        $description = (new SfnExecutionWaiter($this->sfnClient))->waitForFinish($executionArn);
+        $description = $this->env->waiter()->waitForFinish($executionArn);
 
         $this->assertSame('SUCCEEDED', $description['status']);
     }

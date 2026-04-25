@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\E2E;
 
-use Aws\Iam\IamClient;
-use Aws\Lambda\LambdaClient;
-use Aws\Sfn\SfnClient;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Console\Scheduling\EventMutex;
@@ -14,11 +11,9 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\SfnExecutionWaiter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTestDispatcherFactory;
-use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoConfigurator;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoLambdaFixture;
-use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoStateMachineFixture;
+use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoSfnTestEnvironment;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
@@ -50,23 +45,8 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     private const STATE_MACHINE_CHOICE = 'GracefulSchedulerE2EChoice';
     private const STATE_MACHINE_LAMBDA = 'GracefulSchedulerE2ELambda';
 
-    /** @var SfnClient */
-    private $sfnClient;
-
-    /** @var LambdaClient */
-    private $lambdaClient;
-
-    /** @var IamClient */
-    private $iamClient;
-
-    /** @var MotoConfigurator */
-    private $moto;
-
-    /** @var MotoStateMachineFixture */
-    private $stateMachineFixture;
-
-    /** @var SfnExecutionWaiter */
-    private $waiter;
+    /** @var MotoSfnTestEnvironment */
+    private $env;
 
     /** @var Container */
     private $app;
@@ -81,36 +61,15 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     {
         parent::setUp();
 
-        $endpoint = getenv('SFN_ENDPOINT');
-        if (!is_string($endpoint) || $endpoint === '') {
-            $this->markTestSkipped('SFN_ENDPOINT is not set; motoserver required for E2E');
-        }
-        $this->moto = new MotoConfigurator($endpoint);
-
-        // moto's execute_state_machine mode hits an RLock pickling crash once a
-        // state machine has been executed and another StartExecution is issued
-        // (see /moto/moto/stepfunctions/parser/models.py:175). Reset between
-        // tests so each scenario starts from a clean backend.
-        $this->moto->reset();
-        $this->moto->enableStepFunctionsExecution();
-
-        $clientConfig = [
-            'region' => self::REGION,
-            'version' => 'latest',
-            'endpoint' => $endpoint,
-            'credentials' => ['key' => 'test', 'secret' => 'test'],
-            'suppress_php_deprecation_warning' => true,
-        ];
-        $this->sfnClient = new SfnClient($clientConfig);
-        $this->lambdaClient = new LambdaClient($clientConfig);
-        $this->iamClient = new IamClient($clientConfig);
-        $this->stateMachineFixture = new MotoStateMachineFixture(
-            $this->sfnClient,
+        $env = MotoSfnTestEnvironment::tryFromEnv(
             self::ACCOUNT_ID,
             self::REGION,
             sprintf('arn:aws:iam::%s:role/%s', self::ACCOUNT_ID, self::STEP_FUNCTIONS_ROLE_NAME)
         );
-        $this->waiter = new SfnExecutionWaiter($this->sfnClient);
+        if ($env === null) {
+            $this->markTestSkipped('SFN_ENDPOINT is not set; motoserver required for E2E');
+        }
+        $this->env = $env;
 
         $this->app = new Container();
         Container::setInstance($this->app);
@@ -132,7 +91,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
      */
     public function testLayerAPassStateMachineSucceeds(): void
     {
-        $arn = $this->stateMachineFixture->ensureFromFile(
+        $arn = $this->env->stateMachineFixture()->ensureFromFile(
             self::STATE_MACHINE_PASS,
             $this->definitionPath('state-machine.json')
         );
@@ -141,7 +100,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         $command = 'php artisan ' . $taskName;
         $result = $this->dispatch($arn, $command);
 
-        $description = $this->waiter->waitForFinish($result->getExecutionArn());
+        $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
         $this->assertSame('SUCCEEDED', $description['status']);
 
         $output = json_decode((string) $description['output'], true);
@@ -165,13 +124,13 @@ final class StepFunctionsExecutionE2ETest extends TestCase
      */
     public function testLayerBChoiceTakesArtisanBranch(): void
     {
-        $arn = $this->stateMachineFixture->ensureFromFile(
+        $arn = $this->env->stateMachineFixture()->ensureFromFile(
             self::STATE_MACHINE_CHOICE,
             $this->definitionPath('state-machine-choice.json')
         );
 
         $result = $this->dispatch($arn, 'php artisan layer-b:artisan-' . uniqid());
-        $description = $this->waiter->waitForFinish($result->getExecutionArn());
+        $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
 
         $this->assertSame('SUCCEEDED', $description['status']);
         $output = json_decode((string) $description['output'], true);
@@ -183,13 +142,13 @@ final class StepFunctionsExecutionE2ETest extends TestCase
      */
     public function testLayerBChoiceFallsThroughToDefault(): void
     {
-        $arn = $this->stateMachineFixture->ensureFromFile(
+        $arn = $this->env->stateMachineFixture()->ensureFromFile(
             self::STATE_MACHINE_CHOICE,
             $this->definitionPath('state-machine-choice.json')
         );
 
         $result = $this->dispatch($arn, '/bin/echo layer-b-' . uniqid());
-        $description = $this->waiter->waitForFinish($result->getExecutionArn());
+        $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
 
         $this->assertSame('SUCCEEDED', $description['status']);
         $output = json_decode((string) $description['output'], true);
@@ -201,11 +160,11 @@ final class StepFunctionsExecutionE2ETest extends TestCase
      */
     public function testLayerCLambdaInvokeIntegration(): void
     {
-        $arn = $this->stateMachineFixture->ensureFromFile(
+        $arn = $this->env->stateMachineFixture()->ensureFromFile(
             self::STATE_MACHINE_LAMBDA,
             $this->definitionPath('state-machine-lambda.json')
         );
-        $lambdaFixture = new MotoLambdaFixture($this->lambdaClient, $this->iamClient);
+        $lambdaFixture = new MotoLambdaFixture($this->env->newLambdaClient(), $this->env->newIamClient());
         $roleArn = $lambdaFixture->ensureRole(self::LAMBDA_ROLE_NAME);
         $lambdaFixture->ensureEchoFunction(self::LAMBDA_NAME, $roleArn);
 
@@ -218,7 +177,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         $command = 'php artisan ' . $taskName;
 
         $result = $this->dispatch($arn, $command);
-        $description = $this->waiter->waitForFinish($result->getExecutionArn());
+        $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
 
         $this->assertSame('SUCCEEDED', $description['status']);
         $output = json_decode((string) $description['output'], true);
@@ -236,7 +195,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = StepFunctionsTestDispatcherFactory::create(
-            $this->sfnClient,
+            $this->env->sfnClient(),
             $stateMachineArn,
             $clock,
             self::LOCK_TTL_SECONDS
