@@ -1,0 +1,29 @@
+{
+  "Comment": "Test state machine that branches on the dispatched payload",
+  "StartAt": "Inspect",
+  "States": {
+    "Inspect": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.command[1]",
+          "StringEquals": "artisan",
+          "Next": "ArtisanBranch"
+        }
+      ],
+      "Default": "OtherBranch"
+    },
+    "ArtisanBranch": {
+      "Type": "Pass",
+      "Result": "artisan",
+      "ResultPath": "$.branch",
+      "End": true
+    },
+    "OtherBranch": {
+      "Type": "Pass",
+      "Result": "other",
+      "ResultPath": "$.branch",
+      "End": true
+    }
+  }
+}

@@ -22,6 +22,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGener
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
+use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoConfigurator;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
@@ -67,6 +68,12 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
 
         // Use SFN_ENDPOINT (set in phpunit.xml.dist)
         $this->endpoint = getenv('SFN_ENDPOINT') ?: 'http://localhost:5001';
+
+        // Reset between tests to avoid moto's deepcopy/RLock crash
+        // accumulating across executions (see parser/models.py:175).
+        $moto = new MotoConfigurator($this->endpoint);
+        $moto->reset();
+        $moto->enableStepFunctionsExecution();
 
         $this->app = new Container();
         Container::setInstance($this->app);
@@ -200,12 +207,31 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $executionArn = $result->getExecutionArn();
         $this->assertNotNull($executionArn);
 
-        // Verify execution status
-        $description = $this->sfnClient->describeExecution([
-            'executionArn' => $executionArn,
-        ]);
+        $description = $this->waitForExecutionToFinish($executionArn);
 
-        // It's a Pass State, so it completes almost immediately
-        $this->assertContains($description['status'], ['RUNNING', 'SUCCEEDED']);
+        $this->assertSame('SUCCEEDED', $description['status']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function waitForExecutionToFinish(string $executionArn, int $maxAttempts = 50): array
+    {
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            $description = $this->sfnClient->describeExecution([
+                'executionArn' => $executionArn,
+            ])->toArray();
+
+            if ($description['status'] !== 'RUNNING') {
+                return $description;
+            }
+
+            usleep(100000);
+        }
+
+        $this->fail(sprintf(
+            'Execution did not finish within %dms (last status: RUNNING)',
+            $maxAttempts * 100
+        ));
     }
 }
