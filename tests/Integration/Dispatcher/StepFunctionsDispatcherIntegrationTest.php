@@ -21,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FixedExecuti
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\SfnExecutionWaiter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoConfigurator;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -209,35 +210,8 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $executionArn = $result->getExecutionArn();
         $this->assertNotNull($executionArn);
 
-        $description = $this->waitForExecutionToFinish($executionArn);
+        $description = (new SfnExecutionWaiter($this->sfnClient))->waitForFinish($executionArn);
 
         $this->assertSame('SUCCEEDED', $description['status']);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function waitForExecutionToFinish(string $executionArn, int $maxAttempts = 50): array
-    {
-        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-            $description = $this->sfnClient->describeExecution([
-                'executionArn' => $executionArn,
-            ])->toArray();
-
-            if ($description['status'] !== 'RUNNING') {
-                return $description;
-            }
-
-            usleep(100000);
-        }
-
-        $final = $this->sfnClient->describeExecution(['executionArn' => $executionArn])->toArray();
-        $this->fail(sprintf(
-            'Execution did not finish within %dms. status=%s error=%s cause=%s',
-            $maxAttempts * 100,
-            $final['status'] ?? 'unknown',
-            $final['error'] ?? '',
-            $final['cause'] ?? ''
-        ));
     }
 }

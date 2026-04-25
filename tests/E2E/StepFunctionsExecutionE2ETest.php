@@ -14,15 +14,11 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\SfnExecutionWaiter;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTestDispatcherFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoConfigurator;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoLambdaFixture;
+use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoStateMachineFixture;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
@@ -66,6 +62,12 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     /** @var MotoConfigurator */
     private $moto;
 
+    /** @var MotoStateMachineFixture */
+    private $stateMachineFixture;
+
+    /** @var SfnExecutionWaiter */
+    private $waiter;
+
     /** @var string */
     private $endpoint;
 
@@ -106,6 +108,13 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         $this->sfnClient = new SfnClient($clientConfig);
         $this->lambdaClient = new LambdaClient($clientConfig);
         $this->iamClient = new IamClient($clientConfig);
+        $this->stateMachineFixture = new MotoStateMachineFixture(
+            $this->sfnClient,
+            self::ACCOUNT_ID,
+            self::REGION,
+            self::ROLE_ARN
+        );
+        $this->waiter = new SfnExecutionWaiter($this->sfnClient);
 
         $this->app = new Container();
         Container::setInstance($this->app);
@@ -127,13 +136,16 @@ final class StepFunctionsExecutionE2ETest extends TestCase
      */
     public function testLayerAPassStateMachineSucceeds(): void
     {
-        $arn = $this->ensureStateMachine(self::STATE_MACHINE_PASS, 'state-machine.json');
+        $arn = $this->stateMachineFixture->ensureFromFile(
+            self::STATE_MACHINE_PASS,
+            $this->definitionPath('state-machine.json')
+        );
 
         $taskName = 'layer-a:run-' . uniqid();
         $command = 'php artisan ' . $taskName;
         $result = $this->dispatch($arn, $command);
 
-        $description = $this->waitForExecutionToFinish($result->getExecutionArn());
+        $description = $this->waiter->waitForFinish($result->getExecutionArn());
         $this->assertSame('SUCCEEDED', $description['status']);
 
         $output = json_decode((string) $description['output'], true);
@@ -157,10 +169,13 @@ final class StepFunctionsExecutionE2ETest extends TestCase
      */
     public function testLayerBChoiceTakesArtisanBranch(): void
     {
-        $arn = $this->ensureStateMachine(self::STATE_MACHINE_CHOICE, 'state-machine-choice.json');
+        $arn = $this->stateMachineFixture->ensureFromFile(
+            self::STATE_MACHINE_CHOICE,
+            $this->definitionPath('state-machine-choice.json')
+        );
 
         $result = $this->dispatch($arn, 'php artisan layer-b:artisan-' . uniqid());
-        $description = $this->waitForExecutionToFinish($result->getExecutionArn());
+        $description = $this->waiter->waitForFinish($result->getExecutionArn());
 
         $this->assertSame('SUCCEEDED', $description['status']);
         $output = json_decode((string) $description['output'], true);
@@ -172,10 +187,13 @@ final class StepFunctionsExecutionE2ETest extends TestCase
      */
     public function testLayerBChoiceFallsThroughToDefault(): void
     {
-        $arn = $this->ensureStateMachine(self::STATE_MACHINE_CHOICE, 'state-machine-choice.json');
+        $arn = $this->stateMachineFixture->ensureFromFile(
+            self::STATE_MACHINE_CHOICE,
+            $this->definitionPath('state-machine-choice.json')
+        );
 
         $result = $this->dispatch($arn, '/bin/echo layer-b-' . uniqid());
-        $description = $this->waitForExecutionToFinish($result->getExecutionArn());
+        $description = $this->waiter->waitForFinish($result->getExecutionArn());
 
         $this->assertSame('SUCCEEDED', $description['status']);
         $output = json_decode((string) $description['output'], true);
@@ -187,7 +205,10 @@ final class StepFunctionsExecutionE2ETest extends TestCase
      */
     public function testLayerCLambdaInvokeIntegration(): void
     {
-        $arn = $this->ensureStateMachine(self::STATE_MACHINE_LAMBDA, 'state-machine-lambda.json');
+        $arn = $this->stateMachineFixture->ensureFromFile(
+            self::STATE_MACHINE_LAMBDA,
+            $this->definitionPath('state-machine-lambda.json')
+        );
         $lambdaFixture = new MotoLambdaFixture($this->lambdaClient, $this->iamClient);
         $roleArn = $lambdaFixture->ensureRole(self::LAMBDA_ROLE_NAME);
         $lambdaFixture->ensureEchoFunction(self::LAMBDA_NAME, $roleArn);
@@ -201,7 +222,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         $command = 'php artisan ' . $taskName;
 
         $result = $this->dispatch($arn, $command);
-        $description = $this->waitForExecutionToFinish($result->getExecutionArn());
+        $description = $this->waiter->waitForFinish($result->getExecutionArn());
 
         $this->assertSame('SUCCEEDED', $description['status']);
         $output = json_decode((string) $description['output'], true);
@@ -215,43 +236,14 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         $this->assertSame($output['dueAt'], $workerResult['dueAt']);
     }
 
-    private function ensureStateMachine(string $name, string $definitionFile): string
-    {
-        $arn = sprintf('arn:aws:states:%s:%s:stateMachine:%s', self::REGION, self::ACCOUNT_ID, $name);
-        $definition = file_get_contents(__DIR__ . '/../StepFunctions/' . $definitionFile);
-        if ($definition === false) {
-            $this->fail('Failed to read state machine definition: ' . $definitionFile);
-        }
-
-        try {
-            $this->sfnClient->createStateMachine([
-                'name' => $name,
-                'definition' => $definition,
-                'roleArn' => self::ROLE_ARN,
-            ]);
-        } catch (\Aws\Exception\AwsException $e) {
-            if ($e->getAwsErrorCode() !== 'StateMachineAlreadyExists') {
-                throw $e;
-            }
-        }
-
-        return $arn;
-    }
-
     private function dispatch(string $stateMachineArn, string $command): StartedDispatchResultInterface
     {
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
-        $sanitizer = new MutexNameSanitizer();
-        $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
-        $inputFactory = new StartExecutionInputFactory(
-            new ExecutionNameGenerator($sanitizer),
-            $payloadBuilder,
+        $dispatcher = StepFunctionsTestDispatcherFactory::create(
+            $this->sfnClient,
+            $stateMachineArn,
+            $clock,
             self::LOCK_TTL_SECONDS
-        );
-        $dispatcher = new StepFunctionsDispatcher(
-            new AwsSfnClientAdapter($this->sfnClient, $stateMachineArn),
-            $inputFactory,
-            $clock
         );
 
         $event = new ClockAwareEvent(
@@ -264,65 +256,16 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         );
         $result = $dispatcher->dispatchEvent($event, $this->dueAt);
         if (!$result instanceof StartedDispatchResultInterface) {
-            $this->fail('Dispatch did not start an execution: ' . self::describeDispatchFailure($result));
+            $this->fail(
+                'Dispatch did not start an execution: '
+                . StepFunctionsTestDispatcherFactory::describeFailure($result)
+            );
         }
         return $result;
     }
 
-    private static function describeDispatchFailure(object $result): string
+    private function definitionPath(string $fileName): string
     {
-        $parts = [get_class($result)];
-        if (method_exists($result, 'getError')) {
-            $error = $result->getError();
-            $parts[] = $error instanceof \Throwable
-                ? get_class($error) . ': ' . $error->getMessage()
-                : (string) $error;
-        }
-        if (method_exists($result, 'getException')) {
-            $exception = $result->getException();
-            if ($exception instanceof \Throwable) {
-                for ($prev = $exception->getPrevious(); $prev !== null; $prev = $prev->getPrevious()) {
-                    $parts[] = 'caused by ' . get_class($prev) . ': ' . $prev->getMessage();
-                }
-            }
-        }
-        return implode(' | ', $parts);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function waitForExecutionToFinish(string $executionArn, int $maxAttempts = 50): array
-    {
-        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-            $description = $this->sfnClient->describeExecution([
-                'executionArn' => $executionArn,
-            ])->toArray();
-
-            if ($description['status'] !== 'RUNNING') {
-                return $description;
-            }
-
-            usleep(100000);
-        }
-
-        // Surface the last known status, error, and recent history events so a
-        // permanent-RUNNING failure (often a moto bug) is debuggable.
-        $final = $this->sfnClient->describeExecution(['executionArn' => $executionArn])->toArray();
-        $history = $this->sfnClient->getExecutionHistory([
-            'executionArn' => $executionArn,
-            'maxResults' => 5,
-            'reverseOrder' => true,
-        ])->toArray();
-
-        $this->fail(sprintf(
-            "Execution %s did not finish within %dms. status=%s error=%s cause=%s history=%s",
-            $executionArn,
-            $maxAttempts * 100,
-            $final['status'] ?? 'unknown',
-            $final['error'] ?? '',
-            $final['cause'] ?? '',
-            json_encode($history['events'] ?? [])
-        ));
+        return __DIR__ . '/../StepFunctions/' . $fileName;
     }
 }
