@@ -37,7 +37,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     private const ACCOUNT_ID = '000000000000';
     private const REGION = 'ap-northeast-1';
     private const STATE_MACHINE_NAME = 'GracefulSchedulerStateMachine';
-    private const ROLE_ARN = 'arn:aws:iam::000000000000:role/stepfunctions-role';
+    private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
 
     /** @var string */
     private $stateMachineArn;
@@ -58,7 +58,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        $env = MotoSfnTestEnvironment::tryFromEnv(self::ACCOUNT_ID, self::REGION, self::ROLE_ARN);
+        $env = MotoSfnTestEnvironment::tryFromEnv(self::ACCOUNT_ID, self::REGION, self::STEP_FUNCTIONS_ROLE_NAME);
         if ($env === null) {
             $this->markTestSkipped('SFN_ENDPOINT is not set; motoserver required for integration');
         }

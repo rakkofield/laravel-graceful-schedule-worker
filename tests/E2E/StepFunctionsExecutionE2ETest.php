@@ -64,7 +64,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         $env = MotoSfnTestEnvironment::tryFromEnv(
             self::ACCOUNT_ID,
             self::REGION,
-            sprintf('arn:aws:iam::%s:role/%s', self::ACCOUNT_ID, self::STEP_FUNCTIONS_ROLE_NAME)
+            self::STEP_FUNCTIONS_ROLE_NAME
         );
         if ($env === null) {
             $this->markTestSkipped('SFN_ENDPOINT is not set; motoserver required for E2E');

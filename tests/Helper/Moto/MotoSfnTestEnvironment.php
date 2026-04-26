@@ -15,16 +15,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\SfnExecution
  * the `execute_state_machine` config flip, the shared SfnClient,
  * `MotoStateMachineFixture`, and `SfnExecutionWaiter`.
  *
- * Lambda/IAM clients are lazy because only Layer C tests need them —
- * keeping them off the hot path saves a few ms per test.
+ * Lambda/IAM clients are exposed as fresh-per-call factories because
+ * only Layer C tests need them — there is no shared instance to cache.
  */
 final class MotoSfnTestEnvironment
 {
     /** @var string */
     private $endpoint;
-
-    /** @var string */
-    private $accountId;
 
     /** @var string */
     private $region;
@@ -45,10 +42,9 @@ final class MotoSfnTestEnvironment
         string $endpoint,
         string $accountId,
         string $region,
-        string $stepFunctionsRoleArn
+        string $stepFunctionsRoleName
     ) {
         $this->endpoint = $endpoint;
-        $this->accountId = $accountId;
         $this->region = $region;
 
         $this->moto = new MotoConfigurator($endpoint);
@@ -64,7 +60,7 @@ final class MotoSfnTestEnvironment
             $this->sfnClient,
             $accountId,
             $region,
-            $stepFunctionsRoleArn
+            sprintf('arn:aws:iam::%s:role/%s', $accountId, $stepFunctionsRoleName)
         );
         $this->waiter = new SfnExecutionWaiter($this->sfnClient);
     }
@@ -77,13 +73,13 @@ final class MotoSfnTestEnvironment
     public static function tryFromEnv(
         string $accountId,
         string $region,
-        string $stepFunctionsRoleArn
+        string $stepFunctionsRoleName
     ): ?self {
         $endpoint = getenv('SFN_ENDPOINT');
         if (!is_string($endpoint) || $endpoint === '') {
             return null;
         }
-        return new self($endpoint, $accountId, $region, $stepFunctionsRoleArn);
+        return new self($endpoint, $accountId, $region, $stepFunctionsRoleName);
     }
 
     public function moto(): MotoConfigurator
@@ -104,16 +100,6 @@ final class MotoSfnTestEnvironment
     public function waiter(): SfnExecutionWaiter
     {
         return $this->waiter;
-    }
-
-    public function accountId(): string
-    {
-        return $this->accountId;
-    }
-
-    public function region(): string
-    {
-        return $this->region;
     }
 
     public function newLambdaClient(): LambdaClient
