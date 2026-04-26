@@ -25,19 +25,16 @@ use ZipArchive;
  */
 final class MotoLambdaFixture
 {
+    private const FIXTURE_DIR = __DIR__ . '/../../StepFunctions/lambda';
+    private const ASSUME_ROLE_POLICY_PATH = self::FIXTURE_DIR . '/assume-role-policy.json';
+    private const ECHO_HANDLER_PATH = self::FIXTURE_DIR . '/echo_handler.py';
+    private const ECHO_HANDLER_ENTRY = 'index.py';
+    private const ECHO_HANDLER_TARGET = 'index.handler';
+    private const PYTHON_RUNTIME = 'python3.12';
+
     public static function ensureRole(IamClient $iam, string $roleName): string
     {
-        $assumeRolePolicy = json_encode([
-            'Version' => '2012-10-17',
-            'Statement' => [[
-                'Effect' => 'Allow',
-                'Principal' => ['Service' => 'lambda.amazonaws.com'],
-                'Action' => 'sts:AssumeRole',
-            ]],
-        ]);
-        if ($assumeRolePolicy === false) {
-            throw new RuntimeException('Failed to encode the Lambda assume-role policy');
-        }
+        $assumeRolePolicy = self::readFixture(self::ASSUME_ROLE_POLICY_PATH);
 
         try {
             $response = $iam->createRole([
@@ -65,9 +62,9 @@ final class MotoLambdaFixture
         try {
             $lambda->createFunction([
                 'FunctionName' => $functionName,
-                'Runtime' => 'python3.12',
+                'Runtime' => self::PYTHON_RUNTIME,
                 'Role' => $roleArn,
-                'Handler' => 'index.handler',
+                'Handler' => self::ECHO_HANDLER_TARGET,
                 'Code' => ['ZipFile' => self::buildEchoZip()],
             ]);
         } catch (AwsException $e) {
@@ -77,8 +74,19 @@ final class MotoLambdaFixture
         }
     }
 
+    private static function readFixture(string $path): string
+    {
+        $contents = file_get_contents($path);
+        if ($contents === false) {
+            throw new RuntimeException('Failed to read fixture: ' . $path);
+        }
+        return $contents;
+    }
+
     private static function buildEchoZip(): string
     {
+        $handlerSource = self::readFixture(self::ECHO_HANDLER_PATH);
+
         $tmp = tempnam(sys_get_temp_dir(), 'lambda-stub-');
         if ($tmp === false) {
             throw new RuntimeException('Failed to create a temporary file for the Lambda zip stub');
@@ -94,7 +102,7 @@ final class MotoLambdaFixture
                     (int) $opened
                 ));
             }
-            $zip->addFromString('index.py', "def handler(event, context):\n    return event\n");
+            $zip->addFromString(self::ECHO_HANDLER_ENTRY, $handlerSource);
             if ($zip->close() !== true) {
                 throw new RuntimeException('ZipArchive::close failed for the Lambda zip stub');
             }
