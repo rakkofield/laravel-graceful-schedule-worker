@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\E2E;
 
 use DateTimeImmutable;
-use DateTimeInterface;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExpectedSfnOutput;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTestDispatcherFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoSfnTestEnvironment;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -92,27 +92,21 @@ final class StepFunctionsExecutionE2ETest extends TestCase
             $this->definitionPath('state-machine.json')
         );
 
-        $taskName = 'layer-a:run-' . uniqid();
-        $command = 'php artisan ' . $taskName;
+        $command = 'php artisan layer-a:run-' . uniqid();
         $result = $this->dispatch($arn, $command);
-
         $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
+
+        $expected = StepFunctionsTestDispatcherFactory::buildExpectedPayload(
+            $this->mutex,
+            $command,
+            $this->dueAt,
+            self::LOCK_TTL_SECONDS
+        );
         $this->assertSame('SUCCEEDED', $description['status']);
-
-        $output = json_decode((string) $description['output'], true);
-        $this->assertIsArray($output);
-        $this->assertSame(['php', 'artisan', $taskName], $output['command']);
-
-        // Verify exact shape — these fields are this library's contract with
-        // the consumer state machine. Loose key-existence checks would let a
-        // PayloadBuilder regression slip through.
-        $this->assertSame($this->dueAt->format(DateTimeInterface::ATOM), $output['dueAt']);
-        $this->assertSame($this->dueAt->getTimestamp() + self::LOCK_TTL_SECONDS, $output['expiresAt']);
-        $this->assertIsString($output['mutexName']);
-        $this->assertStringStartsWith('framework/schedule-', $output['mutexName']);
-        $this->assertIsString($output['lockKey']);
-        $this->assertStringStartsWith('framework-schedule-', $output['lockKey']);
-        $this->assertStringEndsWith('_' . $this->dueAt->getTimestamp(), $output['lockKey']);
+        $this->assertJsonStringEqualsJsonString(
+            ExpectedSfnOutput::passThroughOf($expected),
+            (string) $description['output']
+        );
     }
 
     /**
@@ -125,12 +119,21 @@ final class StepFunctionsExecutionE2ETest extends TestCase
             $this->definitionPath('state-machine-choice.json')
         );
 
-        $result = $this->dispatch($arn, 'php artisan layer-b:artisan-' . uniqid());
+        $command = 'php artisan layer-b:artisan-' . uniqid();
+        $result = $this->dispatch($arn, $command);
         $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
 
+        $expected = StepFunctionsTestDispatcherFactory::buildExpectedPayload(
+            $this->mutex,
+            $command,
+            $this->dueAt,
+            self::LOCK_TTL_SECONDS
+        );
         $this->assertSame('SUCCEEDED', $description['status']);
-        $output = json_decode((string) $description['output'], true);
-        $this->assertSame('artisan', $output['branch']);
+        $this->assertJsonStringEqualsJsonString(
+            ExpectedSfnOutput::choiceBranch($expected, 'artisan'),
+            (string) $description['output']
+        );
     }
 
     /**
@@ -143,12 +146,21 @@ final class StepFunctionsExecutionE2ETest extends TestCase
             $this->definitionPath('state-machine-choice.json')
         );
 
-        $result = $this->dispatch($arn, '/bin/echo layer-b-' . uniqid());
+        $command = '/bin/echo layer-b-' . uniqid();
+        $result = $this->dispatch($arn, $command);
         $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
 
+        $expected = StepFunctionsTestDispatcherFactory::buildExpectedPayload(
+            $this->mutex,
+            $command,
+            $this->dueAt,
+            self::LOCK_TTL_SECONDS
+        );
         $this->assertSame('SUCCEEDED', $description['status']);
-        $output = json_decode((string) $description['output'], true);
-        $this->assertSame('other', $output['branch']);
+        $this->assertJsonStringEqualsJsonString(
+            ExpectedSfnOutput::choiceBranch($expected, 'other'),
+            (string) $description['output']
+        );
     }
 
     private function dispatch(string $stateMachineArn, string $command): StartedDispatchResultInterface

@@ -10,6 +10,7 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExpectedSfnOutput;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTestDispatcherFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoSfnLambdaTestEnvironment;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -90,27 +91,27 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
             $this->definitionPath('state-machine-lambda.json')
         );
 
-        // No queued response: moto's lambda_simple backend echoes the request
-        // body back as the Payload, so $output.lambda.workerResult ends up
-        // equal to the SFN input. That single round-trip proves both that
-        // our payload reaches the Task's Lambda invocation AND that the
-        // ResultSelector mapping (`Payload -> workerResult`) works.
-        $taskName = 'layer-c:run-' . uniqid();
-        $command = 'php artisan ' . $taskName;
-
+        // moto's lambda_simple backend echoes the request body back as the
+        // Payload, so the Task's ResultSelector lands the dispatched
+        // payload under `lambda.workerResult`. Asserting against
+        // ExpectedSfnOutput::lambdaEchoOf in one shot proves both that
+        // our payload reached the Lambda invocation AND that the
+        // ResultSelector mapping is intact.
+        $command = 'php artisan layer-c:run-' . uniqid();
         $result = $this->dispatch($arn, $command);
         $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
 
+        $expected = StepFunctionsTestDispatcherFactory::buildExpectedPayload(
+            $this->mutex,
+            $command,
+            $this->dueAt,
+            self::LOCK_TTL_SECONDS
+        );
         $this->assertSame('SUCCEEDED', $description['status']);
-        $output = json_decode((string) $description['output'], true);
-        $this->assertIsArray($output);
-        $this->assertArrayHasKey('lambda', $output);
-
-        $workerResult = $output['lambda']['workerResult'];
-        $this->assertSame(['php', 'artisan', $taskName], $workerResult['command']);
-        $this->assertSame($output['mutexName'], $workerResult['mutexName']);
-        $this->assertSame($output['lockKey'], $workerResult['lockKey']);
-        $this->assertSame($output['dueAt'], $workerResult['dueAt']);
+        $this->assertJsonStringEqualsJsonString(
+            ExpectedSfnOutput::lambdaEchoOf($expected),
+            (string) $description['output']
+        );
     }
 
     private function dispatch(string $stateMachineArn, string $command): StartedDispatchResultInterface

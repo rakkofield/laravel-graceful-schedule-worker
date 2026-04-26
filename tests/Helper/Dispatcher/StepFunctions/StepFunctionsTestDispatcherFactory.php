@@ -5,10 +5,16 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 
 use Aws\Sfn\SfnClient;
+use DateTimeImmutable;
+use DateTimeInterface;
+use Illuminate\Console\Scheduling\EventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 /**
  * Wires a `StepFunctionsDispatcher` with the same collaborator graph the
@@ -37,6 +43,29 @@ final class StepFunctionsTestDispatcherFactory
             $inputFactory,
             $clock
         );
+    }
+
+    /**
+     * Build the same `Payload` the production graph would produce for a
+     * given dispatch. Tests use this to compare the SFN execution output
+     * against an expected value computed by the same components, so the
+     * test never has to know how `mutexName` / `lockKey` etc. are derived.
+     */
+    public static function buildExpectedPayload(
+        EventMutex $mutex,
+        string $command,
+        DateTimeInterface $dueAt,
+        int $lockTtlSeconds
+    ): Payload {
+        // FixedClock value is irrelevant to PayloadBuilder — only `dueAt`
+        // and the event's command/mutex flow into the payload — but
+        // ClockAwareEvent requires *some* clock, so any fixed instant works.
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $event = new ClockAwareEvent($mutex, $command, $clock, 'local', null, new TimezoneResolver());
+
+        $sanitizer = new MutexNameSanitizer();
+        return (new PayloadBuilder(new LockKeyGenerator($sanitizer)))
+            ->build($event, $dueAt, $lockTtlSeconds);
     }
 
     /**
