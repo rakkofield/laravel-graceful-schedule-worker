@@ -102,12 +102,12 @@ class MotoSfnTestEnvironment
         return $this->waiter;
     }
 
-    public function newLambdaClient(): LambdaClient
+    protected function newLambdaClient(): LambdaClient
     {
         return new LambdaClient(self::clientConfig($this->endpoint, $this->region));
     }
 
-    public function newIamClient(): IamClient
+    protected function newIamClient(): IamClient
     {
         return new IamClient(self::clientConfig($this->endpoint, $this->region));
     }

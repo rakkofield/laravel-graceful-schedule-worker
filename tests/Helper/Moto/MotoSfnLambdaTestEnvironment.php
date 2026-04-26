@@ -14,16 +14,16 @@ use ZipArchive;
  * Specialization of `MotoSfnTestEnvironment` for tests that exercise a
  * Lambda service integration from a Step Functions Task state.
  *
- * The constructor inherits the SFN-side bootstrap (moto reset, config
- * flip, SfnClient, state-machine fixture, waiter) and then provisions
- * the IAM role and Lambda function moto requires before the SFN parser
- * can resolve `arn:aws:states:::lambda:invoke`. The IAM trust policy
- * and Python handler live as fixture files under
- * tests/StepFunctions/lambda/ so they read as their native types.
+ * moto's SFN parser refuses to resolve `arn:aws:states:::lambda:invoke`
+ * unless the IAM role exists with a Lambda assume-role policy and the
+ * Lambda function exists in the moto Lambda backend. The constructor
+ * provisions both on top of the parent's SFN-side bootstrap, so a test
+ * that types its env as this subclass is statically guaranteed those
+ * prerequisites are in place.
  *
- * The type itself declares — at compile time — that callers are running
- * a Lambda-integration scenario; tests that only need plain SFN
- * execution should use the parent `MotoSfnTestEnvironment` directly.
+ * The function name is fixed because it is also hardcoded into the
+ * Layer C state-machine fixture (state-machine-lambda.json); making it
+ * configurable from the test would be a misleading injection point.
  */
 final class MotoSfnLambdaTestEnvironment extends MotoSfnTestEnvironment
 {
@@ -34,64 +34,31 @@ final class MotoSfnLambdaTestEnvironment extends MotoSfnTestEnvironment
     private const ECHO_HANDLER_TARGET = 'index.handler';
     private const PYTHON_RUNTIME = 'python3.12';
 
-    /** @var string */
-    private $lambdaFunctionName;
-
-    /** @var string */
-    private $lambdaRoleArn;
+    private const LAMBDA_FUNCTION_NAME = 'graceful-scheduler-worker';
+    private const LAMBDA_ROLE_NAME = 'graceful-scheduler-lambda-role';
 
     private function __construct(
         string $endpoint,
         string $accountId,
         string $region,
-        string $stepFunctionsRoleName,
-        string $lambdaFunctionName,
-        string $lambdaRoleName
+        string $stepFunctionsRoleName
     ) {
         parent::__construct($endpoint, $accountId, $region, $stepFunctionsRoleName);
 
-        $this->lambdaFunctionName = $lambdaFunctionName;
-        $this->lambdaRoleArn = self::ensureRole($this->newIamClient(), $lambdaRoleName);
-        self::ensureEchoFunction($this->newLambdaClient(), $lambdaFunctionName, $this->lambdaRoleArn);
+        $roleArn = self::ensureRole($this->newIamClient(), self::LAMBDA_ROLE_NAME);
+        self::ensureEchoFunction($this->newLambdaClient(), self::LAMBDA_FUNCTION_NAME, $roleArn);
     }
 
-    /**
-     * Bootstrap the Lambda-integration env from `SFN_ENDPOINT`. Returns
-     * null when the env var is unset so the caller can decide between
-     * markTestSkipped() and a hard failure. Distinct from the parent's
-     * `tryFromEnv` because the Lambda variant requires more prerequisites
-     * (function name + role name) — a renamed factory keeps PHP's LSP
-     * signature check happy without collapsing the parent's API.
-     */
-    public static function tryFromEnvWithLambda(
+    public static function tryFromEnv(
         string $accountId,
         string $region,
-        string $stepFunctionsRoleName,
-        string $lambdaFunctionName,
-        string $lambdaRoleName
+        string $stepFunctionsRoleName
     ): ?self {
         $endpoint = getenv('SFN_ENDPOINT');
         if (!is_string($endpoint) || $endpoint === '') {
             return null;
         }
-        return new self(
-            $endpoint,
-            $accountId,
-            $region,
-            $stepFunctionsRoleName,
-            $lambdaFunctionName,
-            $lambdaRoleName
-        );
-    }
-
-    public function lambdaFunctionName(): string
-    {
-        return $this->lambdaFunctionName;
-    }
-
-    public function lambdaRoleArn(): string
-    {
-        return $this->lambdaRoleArn;
+        return new self($endpoint, $accountId, $region, $stepFunctionsRoleName);
     }
 
     private static function ensureRole(IamClient $iam, string $roleName): string

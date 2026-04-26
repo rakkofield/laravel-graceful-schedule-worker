@@ -34,8 +34,6 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
     private const ACCOUNT_ID = '000000000000';
     private const REGION = 'ap-northeast-1';
     private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
-    private const LAMBDA_NAME = 'graceful-scheduler-worker';
-    private const LAMBDA_ROLE_NAME = 'graceful-scheduler-lambda-role';
 
     private const LOCK_TTL_SECONDS = 3600;
 
@@ -57,12 +55,10 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
     {
         parent::setUp();
 
-        $env = MotoSfnLambdaTestEnvironment::tryFromEnvWithLambda(
+        $env = MotoSfnLambdaTestEnvironment::tryFromEnv(
             self::ACCOUNT_ID,
             self::REGION,
-            self::STEP_FUNCTIONS_ROLE_NAME,
-            self::LAMBDA_NAME,
-            self::LAMBDA_ROLE_NAME
+            self::STEP_FUNCTIONS_ROLE_NAME
         );
         if ($env === null) {
             $this->markTestSkipped('SFN_ENDPOINT is not set; motoserver required for E2E');
