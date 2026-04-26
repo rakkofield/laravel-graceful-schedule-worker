@@ -49,25 +49,6 @@ final class MotoConfigurator
     }
 
     /**
-     * Queue canned response payloads for upcoming Lambda invocations.
-     *
-     * Each invocation pops the next entry. Region/account must match where
-     * the Lambda was created — moto's set_lambda_simple_result targets
-     * `lambda_simple_backends[account_id][region]`, and falls back to
-     * DEFAULT_ACCOUNT_ID (123456789012) when accountId is omitted.
-     *
-     * @param array<int, string> $results JSON-encoded string payloads
-     */
-    public function queueLambdaResponses(array $results, string $region, string $accountId): void
-    {
-        $this->postJson('/moto-api/static/lambda-simple/response', [
-            'results' => $results,
-            'region' => $region,
-            'account_id' => $accountId,
-        ]);
-    }
-
-    /**
      * @param array<string, mixed> $body
      */
     private function postJson(string $path, array $body): void
