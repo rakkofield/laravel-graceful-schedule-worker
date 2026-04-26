@@ -19,22 +19,13 @@ use ZipArchive;
  * must provision the role first. The Lambda's runtime behavior (echo vs.
  * canned) is governed by `MotoConfigurator::enableStepFunctionsExecution`,
  * which flips moto into the no-Docker `lambda_simple` backend.
+ *
+ * All operations are static because the helper has no state worth keeping
+ * across calls — each entry point takes exactly the AWS client it needs.
  */
 final class MotoLambdaFixture
 {
-    /** @var LambdaClient */
-    private $lambda;
-
-    /** @var IamClient */
-    private $iam;
-
-    public function __construct(LambdaClient $lambda, IamClient $iam)
-    {
-        $this->lambda = $lambda;
-        $this->iam = $iam;
-    }
-
-    public function ensureRole(string $roleName): string
+    public static function ensureRole(IamClient $iam, string $roleName): string
     {
         $assumeRolePolicy = json_encode([
             'Version' => '2012-10-17',
@@ -49,7 +40,7 @@ final class MotoLambdaFixture
         }
 
         try {
-            $response = $this->iam->createRole([
+            $response = $iam->createRole([
                 'RoleName' => $roleName,
                 'AssumeRolePolicyDocument' => $assumeRolePolicy,
             ]);
@@ -58,7 +49,7 @@ final class MotoLambdaFixture
             if ($e->getAwsErrorCode() !== 'EntityAlreadyExists') {
                 throw $e;
             }
-            $existing = $this->iam->getRole(['RoleName' => $roleName]);
+            $existing = $iam->getRole(['RoleName' => $roleName]);
             return $existing['Role']['Arn'];
         }
     }
@@ -69,10 +60,10 @@ final class MotoLambdaFixture
      * reached the worker; the actual echoing is done by moto's
      * `lambda_simple` backend (see class docblock).
      */
-    public function ensureEchoFunction(string $functionName, string $roleArn): void
+    public static function ensureEchoFunction(LambdaClient $lambda, string $functionName, string $roleArn): void
     {
         try {
-            $this->lambda->createFunction([
+            $lambda->createFunction([
                 'FunctionName' => $functionName,
                 'Runtime' => 'python3.12',
                 'Role' => $roleArn,

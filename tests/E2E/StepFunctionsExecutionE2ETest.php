@@ -164,9 +164,8 @@ final class StepFunctionsExecutionE2ETest extends TestCase
             self::STATE_MACHINE_LAMBDA,
             $this->definitionPath('state-machine-lambda.json')
         );
-        $lambdaFixture = new MotoLambdaFixture($this->env->newLambdaClient(), $this->env->newIamClient());
-        $roleArn = $lambdaFixture->ensureRole(self::LAMBDA_ROLE_NAME);
-        $lambdaFixture->ensureEchoFunction(self::LAMBDA_NAME, $roleArn);
+        $roleArn = MotoLambdaFixture::ensureRole($this->env->newIamClient(), self::LAMBDA_ROLE_NAME);
+        MotoLambdaFixture::ensureEchoFunction($this->env->newLambdaClient(), self::LAMBDA_NAME, $roleArn);
 
         // No queued response: moto's lambda_simple backend echoes the request
         // body back as the Payload, so $output.lambda.workerResult ends up
