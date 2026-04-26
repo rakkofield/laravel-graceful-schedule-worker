@@ -11,19 +11,21 @@ use RuntimeException;
 use ZipArchive;
 
 /**
- * Sets up the IAM role + Lambda function pair that motoserver requires
- * before the SFN parser can resolve a `Task::lambda:invoke` target.
+ * Specialization of `MotoSfnTestEnvironment` for tests that exercise a
+ * Lambda service integration from a Step Functions Task state.
  *
- * moto's CreateFunction validates that the role exists in IAM and has a
- * Lambda assume-role policy (moto/awslambda/models.py:1743), so callers
- * must provision the role first. The Lambda's runtime behavior (echo vs.
- * canned) is governed by `MotoConfigurator::enableStepFunctionsExecution`,
- * which flips moto into the no-Docker `lambda_simple` backend.
+ * The constructor inherits the SFN-side bootstrap (moto reset, config
+ * flip, SfnClient, state-machine fixture, waiter) and then provisions
+ * the IAM role and Lambda function moto requires before the SFN parser
+ * can resolve `arn:aws:states:::lambda:invoke`. The IAM trust policy
+ * and Python handler live as fixture files under
+ * tests/StepFunctions/lambda/ so they read as their native types.
  *
- * All operations are static because the helper has no state worth keeping
- * across calls — each entry point takes exactly the AWS client it needs.
+ * The type itself declares — at compile time — that callers are running
+ * a Lambda-integration scenario; tests that only need plain SFN
+ * execution should use the parent `MotoSfnTestEnvironment` directly.
  */
-final class MotoLambdaFixture
+final class MotoSfnLambdaTestEnvironment extends MotoSfnTestEnvironment
 {
     private const FIXTURE_DIR = __DIR__ . '/../../StepFunctions/lambda';
     private const ASSUME_ROLE_POLICY_PATH = self::FIXTURE_DIR . '/assume-role-policy.json';
@@ -32,7 +34,67 @@ final class MotoLambdaFixture
     private const ECHO_HANDLER_TARGET = 'index.handler';
     private const PYTHON_RUNTIME = 'python3.12';
 
-    public static function ensureRole(IamClient $iam, string $roleName): string
+    /** @var string */
+    private $lambdaFunctionName;
+
+    /** @var string */
+    private $lambdaRoleArn;
+
+    private function __construct(
+        string $endpoint,
+        string $accountId,
+        string $region,
+        string $stepFunctionsRoleName,
+        string $lambdaFunctionName,
+        string $lambdaRoleName
+    ) {
+        parent::__construct($endpoint, $accountId, $region, $stepFunctionsRoleName);
+
+        $this->lambdaFunctionName = $lambdaFunctionName;
+        $this->lambdaRoleArn = self::ensureRole($this->newIamClient(), $lambdaRoleName);
+        self::ensureEchoFunction($this->newLambdaClient(), $lambdaFunctionName, $this->lambdaRoleArn);
+    }
+
+    /**
+     * Bootstrap the Lambda-integration env from `SFN_ENDPOINT`. Returns
+     * null when the env var is unset so the caller can decide between
+     * markTestSkipped() and a hard failure. Distinct from the parent's
+     * `tryFromEnv` because the Lambda variant requires more prerequisites
+     * (function name + role name) — a renamed factory keeps PHP's LSP
+     * signature check happy without collapsing the parent's API.
+     */
+    public static function tryFromEnvWithLambda(
+        string $accountId,
+        string $region,
+        string $stepFunctionsRoleName,
+        string $lambdaFunctionName,
+        string $lambdaRoleName
+    ): ?self {
+        $endpoint = getenv('SFN_ENDPOINT');
+        if (!is_string($endpoint) || $endpoint === '') {
+            return null;
+        }
+        return new self(
+            $endpoint,
+            $accountId,
+            $region,
+            $stepFunctionsRoleName,
+            $lambdaFunctionName,
+            $lambdaRoleName
+        );
+    }
+
+    public function lambdaFunctionName(): string
+    {
+        return $this->lambdaFunctionName;
+    }
+
+    public function lambdaRoleArn(): string
+    {
+        return $this->lambdaRoleArn;
+    }
+
+    private static function ensureRole(IamClient $iam, string $roleName): string
     {
         $assumeRolePolicy = self::readFixture(self::ASSUME_ROLE_POLICY_PATH);
 
@@ -51,13 +113,7 @@ final class MotoLambdaFixture
         }
     }
 
-    /**
-     * Create a Lambda function whose handler echoes the invocation event.
-     * The echo round-trip is what proves a state machine's Task input
-     * reached the worker; the actual echoing is done by moto's
-     * `lambda_simple` backend (see class docblock).
-     */
-    public static function ensureEchoFunction(LambdaClient $lambda, string $functionName, string $roleArn): void
+    private static function ensureEchoFunction(LambdaClient $lambda, string $functionName, string $roleArn): void
     {
         try {
             $lambda->createFunction([

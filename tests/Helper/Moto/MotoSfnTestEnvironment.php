@@ -18,7 +18,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\SfnExecution
  * Lambda/IAM clients are exposed as fresh-per-call factories because
  * only Layer C tests need them — there is no shared instance to cache.
  */
-final class MotoSfnTestEnvironment
+class MotoSfnTestEnvironment
 {
     /** @var string */
     private $endpoint;
@@ -38,7 +38,7 @@ final class MotoSfnTestEnvironment
     /** @var SfnExecutionWaiter */
     private $waiter;
 
-    private function __construct(
+    protected function __construct(
         string $endpoint,
         string $accountId,
         string $region,

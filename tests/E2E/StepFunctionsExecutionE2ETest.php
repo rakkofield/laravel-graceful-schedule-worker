@@ -12,21 +12,20 @@ use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTestDispatcherFactory;
-use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoLambdaFixture;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoSfnTestEnvironment;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 /**
- * End-to-end tests that verify dispatched executions actually run on motoserver's
- * Step Functions emulator. Requires the moto/redis docker stack and
- * `execute_state_machine=true` enabled (handled by tests/bootstrap.php).
+ * End-to-end tests that verify dispatched executions reach an
+ * internal-only state machine and that the dispatched payload flows
+ * through the execution. Cross-service integrations (Lambda, etc.) are
+ * covered by sibling test classes.
  *
  * Layered approach:
  *   - E2E.10 (Layer A): minimal Pass state machine — payload flows through to output
  *   - E2E.11/12 (Layer B): Choice branches on payload contents
- *   - E2E.13 (Layer C): Lambda invoke service integration
  *
  * @group e2e
  * @group stepfunctions
@@ -36,14 +35,11 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     private const ACCOUNT_ID = '000000000000';
     private const REGION = 'ap-northeast-1';
     private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
-    private const LAMBDA_NAME = 'graceful-scheduler-worker';
-    private const LAMBDA_ROLE_NAME = 'graceful-scheduler-lambda-role';
 
     private const LOCK_TTL_SECONDS = 3600;
 
     private const STATE_MACHINE_PASS = 'GracefulSchedulerE2EPass';
     private const STATE_MACHINE_CHOICE = 'GracefulSchedulerE2EChoice';
-    private const STATE_MACHINE_LAMBDA = 'GracefulSchedulerE2ELambda';
 
     /** @var MotoSfnTestEnvironment */
     private $env;
@@ -153,41 +149,6 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         $this->assertSame('SUCCEEDED', $description['status']);
         $output = json_decode((string) $description['output'], true);
         $this->assertSame('other', $output['branch']);
-    }
-
-    /**
-     * @testdox E2E.13 LayerC: lambda:invoke Task receives our payload and pipes the response back via ResultSelector
-     */
-    public function testLayerCLambdaInvokeIntegration(): void
-    {
-        $arn = $this->env->stateMachineFixture()->ensureFromFile(
-            self::STATE_MACHINE_LAMBDA,
-            $this->definitionPath('state-machine-lambda.json')
-        );
-        $roleArn = MotoLambdaFixture::ensureRole($this->env->newIamClient(), self::LAMBDA_ROLE_NAME);
-        MotoLambdaFixture::ensureEchoFunction($this->env->newLambdaClient(), self::LAMBDA_NAME, $roleArn);
-
-        // No queued response: moto's lambda_simple backend echoes the request
-        // body back as the Payload, so $output.lambda.workerResult ends up
-        // equal to the SFN input. That single round-trip proves both that
-        // our payload reaches the Task's Lambda invocation AND that the
-        // ResultSelector mapping (`Payload -> workerResult`) works.
-        $taskName = 'layer-c:run-' . uniqid();
-        $command = 'php artisan ' . $taskName;
-
-        $result = $this->dispatch($arn, $command);
-        $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
-
-        $this->assertSame('SUCCEEDED', $description['status']);
-        $output = json_decode((string) $description['output'], true);
-        $this->assertIsArray($output);
-        $this->assertArrayHasKey('lambda', $output);
-
-        $workerResult = $output['lambda']['workerResult'];
-        $this->assertSame(['php', 'artisan', $taskName], $workerResult['command']);
-        $this->assertSame($output['mutexName'], $workerResult['mutexName']);
-        $this->assertSame($output['lockKey'], $workerResult['lockKey']);
-        $this->assertSame($output['dueAt'], $workerResult['dueAt']);
     }
 
     private function dispatch(string $stateMachineArn, string $command): StartedDispatchResultInterface
