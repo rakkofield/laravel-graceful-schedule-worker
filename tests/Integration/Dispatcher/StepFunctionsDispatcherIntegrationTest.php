@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
-use Aws\Sfn\SfnClient;
 use DateTimeImmutable;
 use Illuminate\Console\Scheduling\EventMutex;
 use Illuminate\Container\Container;
@@ -22,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGener
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
+use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoSfnTestEnvironment;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
@@ -34,8 +34,16 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
  */
 class StepFunctionsDispatcherIntegrationTest extends TestCase
 {
+    private const ACCOUNT_ID = '000000000000';
+    private const REGION = 'ap-northeast-1';
+    private const STATE_MACHINE_NAME = 'GracefulSchedulerStateMachine';
+    private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
+
     /** @var string */
-    private static $stateMachineArn;
+    private $stateMachineArn;
+
+    /** @var MotoSfnTestEnvironment */
+    private $env;
 
     /** @var Container */
     private $app;
@@ -43,30 +51,18 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     /** @var FakeEventMutex */
     private $mutex;
 
-    /** @var SfnClient|null */
-    private $sfnClient;
-
-    /** @var string */
-    private $endpoint;
-
     /** @var DateTimeImmutable */
     private $dueAt;
-
-    public static function setUpBeforeClass(): void
-    {
-        parent::setUpBeforeClass();
-
-        // State Machine ARN
-        self::$stateMachineArn =
-            'arn:aws:states:ap-northeast-1:000000000000:stateMachine:GracefulSchedulerStateMachine';
-    }
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Use SFN_ENDPOINT (set in phpunit.xml.dist)
-        $this->endpoint = getenv('SFN_ENDPOINT') ?: 'http://localhost:5001';
+        $env = MotoSfnTestEnvironment::tryFromEnv(self::ACCOUNT_ID, self::REGION, self::STEP_FUNCTIONS_ROLE_NAME);
+        if ($env === null) {
+            $this->markTestSkipped('SFN_ENDPOINT is not set; motoserver required for integration');
+        }
+        $this->env = $env;
 
         $this->app = new Container();
         Container::setInstance($this->app);
@@ -76,42 +72,16 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         });
         $this->dueAt = new DateTimeImmutable();
 
-        $this->sfnClient = new SfnClient([
-            'region' => 'ap-northeast-1',
-            'version' => 'latest',
-            'endpoint' => $this->endpoint,
-            'credentials' => [
-                'key' => 'test',
-                'secret' => 'test',
-            ],
-            'suppress_php_deprecation_warning' => true,
-        ]);
-
-        $this->ensureStateMachineExists();
+        $this->stateMachineArn = $env->stateMachineFixture()->ensureFromFile(
+            self::STATE_MACHINE_NAME,
+            __DIR__ . '/../../StepFunctions/state-machine.json'
+        );
     }
 
     protected function tearDown(): void
     {
         Container::setInstance(null);
         parent::tearDown();
-    }
-
-    private function ensureStateMachineExists(): void
-    {
-        $definition = file_get_contents(__DIR__ . '/../../StepFunctions/state-machine.json');
-
-        try {
-            $this->sfnClient->createStateMachine([
-                'name' => 'GracefulSchedulerStateMachine',
-                'definition' => $definition,
-                'roleArn' => 'arn:aws:iam::000000000000:role/stepfunctions-role',
-            ]);
-        } catch (\Aws\Exception\AwsException $e) {
-            // State machine already exists, ignore
-            if ($e->getAwsErrorCode() !== 'StateMachineAlreadyExists') {
-                throw $e;
-            }
-        }
     }
 
     private function createEvent(string $command): ClockAwareEvent
@@ -123,7 +93,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     private function createDispatcher(
         ExecutionNameGeneratorInterface $nameGenerator = null
     ): StepFunctionsDispatcher {
-        $adapter = new AwsSfnClientAdapter($this->sfnClient, self::$stateMachineArn);
+        $adapter = new AwsSfnClientAdapter($this->env->sfnClient(), $this->stateMachineArn);
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $sanitizer = new MutexNameSanitizer();
         $payloadBuilder = new PayloadBuilder(new LockKeyGenerator($sanitizer));
@@ -200,12 +170,8 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $executionArn = $result->getExecutionArn();
         $this->assertNotNull($executionArn);
 
-        // Verify execution status
-        $description = $this->sfnClient->describeExecution([
-            'executionArn' => $executionArn,
-        ]);
+        $description = $this->env->waiter()->waitForFinish($executionArn);
 
-        // It's a Pass State, so it completes almost immediately
-        $this->assertContains($description['status'], ['RUNNING', 'SUCCEEDED']);
+        $this->assertSame('SUCCEEDED', $description['status']);
     }
 }

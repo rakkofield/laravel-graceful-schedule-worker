@@ -1,0 +1,29 @@
+{
+  "Comment": "Asserts that $.command[1] is exposed as a Choice variable (verifies payload reaches state machine input)",
+  "StartAt": "Inspect",
+  "States": {
+    "Inspect": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.command[1]",
+          "StringEquals": "artisan",
+          "Next": "ArtisanBranch"
+        }
+      ],
+      "Default": "OtherBranch"
+    },
+    "ArtisanBranch": {
+      "Type": "Pass",
+      "Result": "artisan",
+      "ResultPath": "$.branch",
+      "End": true
+    },
+    "OtherBranch": {
+      "Type": "Pass",
+      "Result": "other",
+      "ResultPath": "$.branch",
+      "End": true
+    }
+  }
+}

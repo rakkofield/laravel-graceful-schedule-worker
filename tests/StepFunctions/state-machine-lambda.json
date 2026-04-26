@@ -1,0 +1,19 @@
+{
+  "Comment": "Asserts that lambda:invoke receives the SFN input as Payload and ResultSelector pipes Lambda's response back into $.lambda.workerResult",
+  "StartAt": "InvokeWorker",
+  "States": {
+    "InvokeWorker": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "graceful-scheduler-worker",
+        "Payload.$": "$"
+      },
+      "ResultSelector": {
+        "workerResult.$": "$.Payload"
+      },
+      "ResultPath": "$.lambda",
+      "End": true
+    }
+  }
+}
