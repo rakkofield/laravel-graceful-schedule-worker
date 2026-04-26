@@ -11,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExpectedSfnOutput;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\Payload;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTestDispatcherFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoSfnLambdaTestEnvironment;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -101,12 +102,7 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
         $result = $this->dispatch($arn, $command);
         $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
 
-        $expected = StepFunctionsTestDispatcherFactory::buildExpectedPayload(
-            $this->mutex,
-            $command,
-            $this->dueAt,
-            self::LOCK_TTL_SECONDS
-        );
+        $expected = $this->expectedPayload($command);
         $this->assertSame('SUCCEEDED', $description['status']);
         $this->assertJsonStringEqualsJsonString(
             ExpectedSfnOutput::lambdaEchoOf($expected),
@@ -140,6 +136,16 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
             );
         }
         return $result;
+    }
+
+    private function expectedPayload(string $command): Payload
+    {
+        return StepFunctionsTestDispatcherFactory::buildExpectedPayload(
+            $this->mutex,
+            $command,
+            $this->dueAt,
+            self::LOCK_TTL_SECONDS
+        );
     }
 
     private function definitionPath(string $fileName): string

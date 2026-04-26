@@ -7,13 +7,10 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions;
 use RuntimeException;
 
 /**
- * Builds the expected SFN execution `output` JSON for each test state
- * machine. Each method names the transformation a particular state
- * machine fixture applies to the dispatched payload, so the assertion
- * site reads as "the execution output equals the X-of the dispatched
- * payload" instead of inspecting raw `$output[...]` paths.
+ * Mirrors the output shape produced by each test state-machine fixture
+ * so assertions read as "the execution output equals the X-of the
+ * dispatched payload" rather than inspecting raw `$output[...]` paths:
  *
- * Mirrors the shapes declared by:
  * - `tests/StepFunctions/state-machine.json` (Pass)
  * - `tests/StepFunctions/state-machine-choice.json` (Choice + branch tag)
  * - `tests/StepFunctions/state-machine-lambda.json` (lambda:invoke +
@@ -21,9 +18,6 @@ use RuntimeException;
  */
 final class ExpectedSfnOutput
 {
-    /**
-     * Layer A: a Pass state machine emits the input payload unchanged.
-     */
     public static function passThroughOf(Payload $payload): string
     {
         return $payload->toJson();
@@ -49,7 +43,12 @@ final class ExpectedSfnOutput
     public static function lambdaEchoOf(Payload $payload): string
     {
         $data = self::decode($payload);
-        $data['lambda'] = ['workerResult' => $data];
+        // Snapshot before adding the `lambda` key so the nested copy
+        // mirrors the SFN input pre-Task; PHP's copy-on-write makes the
+        // self-referential assignment safe but the intent reads better
+        // with the explicit alias.
+        $workerResult = $data;
+        $data['lambda'] = ['workerResult' => $workerResult];
         return self::encode($data);
     }
 
