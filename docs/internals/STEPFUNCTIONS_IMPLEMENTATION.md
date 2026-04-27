@@ -353,7 +353,8 @@ Information required as input to the State Machine:
   "mutexName": "schedule-reports:generate",
   "dueAt": "2024-01-01T03:00:00Z",
   "lockKey": "schedule-reports-generate-1704067200",
-  "expiresAt": 1704070800
+  "expiresAt": 1704070800,
+  "dispatchedAt": 1704067205
 }
 ```
 
@@ -362,6 +363,7 @@ Information required as input to the State Machine:
 - `dueAt`: The original due time (can be used for idempotency checks)
 - `lockKey`: DynamoDB lock key (generated from mutexName and dueAt)
 - `expiresAt`: Lock expiration time (Unix timestamp, calculated as dueAt + lockTtlSeconds)
+- `dispatchedAt`: Actual dispatch time (Unix timestamp, captured by the Dispatcher at the moment `dispatchEvent` runs). Used by `AcquireLock` as `:now` to compare against `expiresAt` of any preexisting lock so that an expired lock can be overwritten.
 
 ---
 
@@ -425,12 +427,15 @@ Attributes:
     "Parameters": {
       "TableName": "ScheduleExecutionLocks",
       "Item": {
-        "lockKey": {"S.$": "$.mutexName"},
+        "lockKey": {"S.$": "$.lockKey"},
         "executionArn": {"S.$": "$$.Execution.Id"},
         "acquiredAt": {"S.$": "$$.State.EnteredTime"},
-        "expiresAt": {"N.$": "$.expiresAt"}
+        "expiresAt": {"N.$": "States.JsonToString($.expiresAt)"}
       },
-      "ConditionExpression": "attribute_not_exists(lockKey)"
+      "ConditionExpression": "attribute_not_exists(lockKey) OR expiresAt < :now",
+      "ExpressionAttributeValues": {
+        ":now": {"N.$": "States.JsonToString($.dispatchedAt)"}
+      }
     },
     "Catch": [
       {
@@ -443,6 +448,8 @@ Attributes:
   }
 }
 ```
+
+The `ConditionExpression` allows lock acquisition either when no lock exists or when an existing lock has already expired (`expiresAt < :now`). `:now` is taken from `$.dispatchedAt` in the input, so a re-dispatch after a previous run's TTL recovers from stale lock state without manual cleanup.
 
 #### Notes
 

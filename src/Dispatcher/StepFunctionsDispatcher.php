@@ -56,7 +56,7 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();
         $command = implode(' ', $event->getEffectiveCommand());
-        $input = $this->inputFactory->create($event, $dueAt);
+        $input = $this->inputFactory->create($event, $dueAt, $this->clock->now());
 
         try {
             $result = $this->client->startExecution($input);

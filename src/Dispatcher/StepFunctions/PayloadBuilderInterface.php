@@ -22,7 +22,14 @@ interface PayloadBuilderInterface
      * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
      * @param int $lockTtlSeconds
+     * @param DateTimeInterface $dispatchedAt Representative dispatch instant supplied by the Orchestrator
+     *        (used by AcquireLock as `:now`).
      * @return PayloadInterface
      */
-    public function build(ClockAwareEvent $event, DateTimeInterface $dueAt, int $lockTtlSeconds): PayloadInterface;
+    public function build(
+        ClockAwareEvent $event,
+        DateTimeInterface $dueAt,
+        int $lockTtlSeconds,
+        DateTimeInterface $dispatchedAt
+    ): PayloadInterface;
 }

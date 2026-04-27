@@ -14,7 +14,13 @@ interface StartExecutionInputFactoryInterface
      *
      * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
+     * @param DateTimeInterface $dispatchedAt Representative dispatch instant supplied by the Orchestrator
+     *        (used by AcquireLock as `:now`).
      * @return StartExecutionInput
      */
-    public function create(ClockAwareEvent $event, DateTimeInterface $dueAt): StartExecutionInput;
+    public function create(
+        ClockAwareEvent $event,
+        DateTimeInterface $dueAt,
+        DateTimeInterface $dispatchedAt
+    ): StartExecutionInput;
 }
