@@ -117,7 +117,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
@@ -141,7 +141,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $uniqueCommand = 'php artisan test:duplicate-' . $uniqueTime->format('U.u');
         $event = $this->createEvent($uniqueCommand);
 
-        $result1 = $dispatcher1->dispatchEvent($event, $dueAt1);
+        $result1 = $dispatcher1->dispatchEvent($event, $dueAt1, $dueAt1);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result1);
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result1);
 
@@ -151,7 +151,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $dueAt2 = $uniqueTime->modify('+1 second');
         $dispatcher2 = $this->createDispatcher($nameGenerator);
 
-        $result2 = $dispatcher2->dispatchEvent($event, $dueAt2);
+        $result2 = $dispatcher2->dispatchEvent($event, $dueAt2, $dueAt2);
         $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result2);
         $this->assertInstanceOf(AlreadyRunningStepFunctionsDispatchResult::class, $result2);
     }
@@ -164,7 +164,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan test:execution');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $executionArn = $result->getExecutionArn();

@@ -67,7 +67,8 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        DateTimeInterface $dueAt
+        DateTimeInterface $dueAt,
+        \DateTimeImmutable $dispatchedAt
     ): DispatchResultInterface {
         // 1. Acquire lock (cache connection failure propagates as exception and stops the worker)
         $lockAcquired = $this->tracker->acquireLock($event, $dueAt);
@@ -92,7 +93,7 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
 
         // 2. Delegate to inner dispatcher
         try {
-            $result = $this->inner->dispatchEvent($event, $dueAt);
+            $result = $this->inner->dispatchEvent($event, $dueAt, $dispatchedAt);
         } catch (\Throwable $e) {
             $this->tryReleaseLock($event, $dueAt);
             throw $e;

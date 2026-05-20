@@ -13,7 +13,7 @@ class FakeDispatcher implements ScheduleDispatcherInterface
     /** @var DispatchResultInterface */
     private $resultToReturn;
 
-    /** @var array<array{event: ClockAwareEvent, dueAt: DateTimeInterface}> */
+    /** @var array<array{event: ClockAwareEvent, dueAt: DateTimeInterface, dispatchedAt: \DateTimeImmutable}> */
     private $dispatched = [];
 
     /** @var int */
@@ -35,20 +35,22 @@ class FakeDispatcher implements ScheduleDispatcherInterface
      *
      * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
+     * @param \DateTimeImmutable $dispatchedAt
      * @return DispatchResultInterface
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        DateTimeInterface $dueAt
+        DateTimeInterface $dueAt,
+        \DateTimeImmutable $dispatchedAt
     ): DispatchResultInterface {
-        $this->dispatched[] = ['event' => $event, 'dueAt' => $dueAt];
+        $this->dispatched[] = ['event' => $event, 'dueAt' => $dueAt, 'dispatchedAt' => $dispatchedAt];
         return $this->resultToReturn;
     }
 
     /**
      * Get dispatched events.
      *
-     * @return array<array{event: ClockAwareEvent, dueAt: DateTimeInterface}>
+     * @return array<array{event: ClockAwareEvent, dueAt: DateTimeInterface, dispatchedAt: \DateTimeImmutable}>
      */
     public function getDispatched(): array
     {

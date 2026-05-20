@@ -84,11 +84,13 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      *
      * @param ClockAwareEvent $event The schedule event to execute
      * @param DateTimeInterface $dueAt Scheduled due time (unused in LocalDispatcher)
+     * @param \DateTimeImmutable $dispatchedAt Representative dispatch instant from the Orchestrator
      * @return DispatchResultInterface Dispatch result
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        DateTimeInterface $dueAt
+        DateTimeInterface $dueAt,
+        \DateTimeImmutable $dispatchedAt
     ): DispatchResultInterface {
         $identifier = $event->mutexName();
         $mutexAcquired = false;

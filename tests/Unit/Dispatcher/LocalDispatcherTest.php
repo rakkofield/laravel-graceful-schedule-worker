@@ -112,7 +112,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
@@ -127,7 +127,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
     }
@@ -141,7 +141,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertSame($event->mutexName(), $result->getEventIdentifier());
     }
@@ -155,7 +155,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // buildCommand() returns the full command containing the original command
         $this->assertStringContainsString('php artisan report:daily', $result->getEventCommand());
@@ -170,7 +170,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertSame('local', $result->getDispatcherType());
     }
@@ -185,7 +185,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('sleep 0.1');
         $event->runInBackground = true;
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
@@ -203,7 +203,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createEvent('echo test');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $dispatchedAt = $result->getDispatchedAt();
 
@@ -220,7 +220,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('sleep 2');
         $event->runInBackground = true;
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertTrue($result->isRunning());
 
@@ -236,7 +236,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('echo test');
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertTrue($event->wasBeforeCallbacksCalled());
     }
@@ -251,7 +251,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $event->runInBackground = true;
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // schedule:finish is NOT included (afterCallbacks are called directly by LocalDispatcher)
         $this->assertStringNotContainsString('schedule:finish', $result->getEventCommand());
@@ -269,7 +269,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $event->runInBackground = false;
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // runInBackground is not changed (respects Event's setting)
         $this->assertFalse($event->runInBackground);
@@ -285,7 +285,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $event->sendOutputTo('/tmp/test-output.log');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // buildCommand() includes output redirection
         $this->assertStringContainsString('/tmp/test-output.log', $result->getEventCommand());
@@ -301,7 +301,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createSpyEvent('echo test');
         $event->throwOnBeforeCallback(new \RuntimeException('Test exception'));
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
         $this->assertStringContainsString('RuntimeException', $result->getError());
@@ -321,7 +321,7 @@ class LocalDispatcherTest extends TestCase
         $this->expectException(\Error::class);
         $this->expectExceptionMessage('Test error');
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
     }
 
     /**
@@ -335,7 +335,7 @@ class LocalDispatcherTest extends TestCase
         // Dispatch a process that completes immediately (background)
         $event1 = $this->createEvent('echo test1');
         $event1->runInBackground = true;
-        $result1 = $dispatcher->dispatchEvent($event1, $this->dueAt);
+        $result1 = $dispatcher->dispatchEvent($event1, $this->dueAt, $this->dueAt);
 
         // Wait for the process to complete
         $result1->getProcess()->wait();
@@ -343,7 +343,7 @@ class LocalDispatcherTest extends TestCase
         // Dispatch a long-running process (background)
         $event2 = $this->createEvent('sleep 10');
         $event2->runInBackground = true;
-        $result2 = $dispatcher->dispatchEvent($event2, $this->dueAt);
+        $result2 = $dispatcher->dispatchEvent($event2, $this->dueAt, $this->dueAt);
 
         // Call cleanup
         $dispatcher->cleanup();
@@ -402,7 +402,7 @@ class LocalDispatcherTest extends TestCase
         // Dispatch a process that completes immediately (background)
         $event = $this->createEvent('echo test');
         $event->runInBackground = true;
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // Wait for the process to complete
         $result->getProcess()->wait();
@@ -425,7 +425,7 @@ class LocalDispatcherTest extends TestCase
 
         $event = $this->createEvent('sleep 5');
         $event->runInBackground = true;
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // Indirectly verify it was added to the internal list by stopping via stopAll
         $dispatcher->stopAll();
@@ -433,7 +433,7 @@ class LocalDispatcherTest extends TestCase
         // Verify dispatching again works fine (internal list has been cleared)
         $event2 = $this->createEvent('echo test');
         $event2->runInBackground = true;
-        $result = $dispatcher->dispatchEvent($event2, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event2, $this->dueAt, $this->dueAt);
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
 
         $result->getProcess()->wait();
@@ -572,7 +572,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo foreground');
         // runInBackground defaults to false
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // Synchronous execution, so the process has already finished by the time it returns
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
@@ -590,7 +590,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createSpyEvent('echo test');
         // runInBackground defaults to false
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
         $this->assertSame(0, $event->getAfterCallbacksExitCode());
@@ -606,7 +606,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         // runInBackground defaults to false
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // Verify stopAll has nothing to do (internal list is empty)
         // No exception after cleanup + stopAll = not added to tracking list
@@ -626,7 +626,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('sleep 2');
         $event->runInBackground = true;
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // Asynchronous execution, so the process is still running when it returns
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
@@ -646,7 +646,7 @@ class LocalDispatcherTest extends TestCase
         $event = new ClockAwareEvent($this->mutex, 'echo clockaware', $clock, 'local', null, new TimezoneResolver());
         $event->runInBackground = true;
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // buildProcessCommand() uses exec prefix
         $this->assertStringStartsWith('exec ', $result->getEventCommand());
@@ -665,7 +665,7 @@ class LocalDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($fixedClock);
         $event = $this->createSpyEvent('exit 42');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
         $this->assertTrue($event->wasAfterCallbacksWithExitCodeCalled());
@@ -682,7 +682,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createSpyEvent('echo test');
         $event->throwOnAfterCallback(new \RuntimeException('afterCallback error'));
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(StartedLocalDispatchResult::class, $result);
         $this->assertFalse($result->isRunning());
@@ -703,7 +703,7 @@ class LocalDispatcherTest extends TestCase
         $this->mutex->create($event);
 
         // Second call should fail because mutex already exists
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(SkippedDispatchResult::class, $result);
@@ -721,7 +721,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $event->withoutOverlapping();
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertSame(1, $this->mutex->getCreateCount($event->mutexName()));
     }
@@ -736,7 +736,7 @@ class LocalDispatcherTest extends TestCase
         $event = $this->createEvent('echo test');
         $event->withoutOverlapping();
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
     }
@@ -968,7 +968,7 @@ class LocalDispatcherTest extends TestCase
         $event->withoutOverlapping();
         $event->throwOnBeforeCallback(new \RuntimeException('beforeCallback failed'));
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // Should return failed result
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
@@ -1004,7 +1004,7 @@ class LocalDispatcherTest extends TestCase
         $event->withoutOverlapping();
         $event->throwOnBeforeCallback(new \RuntimeException('beforeCallback failed'));
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         // Should still return failed result (not crash)
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
@@ -1025,7 +1025,7 @@ class LocalDispatcherTest extends TestCase
         // withoutOverlapping() is NOT called
         $event->throwOnBeforeCallback(new \RuntimeException('beforeCallback failed'));
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
         // forget() should NOT have been called since withoutOverlapping was not set

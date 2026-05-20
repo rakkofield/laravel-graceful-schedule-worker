@@ -128,7 +128,7 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
             null,
             new TimezoneResolver()
         );
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
         if (!$result instanceof StartedDispatchResultInterface) {
             $this->fail(
                 'Dispatch did not start an execution: '

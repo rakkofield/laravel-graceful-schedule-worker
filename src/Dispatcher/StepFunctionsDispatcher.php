@@ -52,11 +52,12 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        DateTimeInterface $dueAt
+        DateTimeInterface $dueAt,
+        \DateTimeImmutable $dispatchedAt
     ): DispatchResultInterface {
         $mutexName = $event->mutexName();
         $command = implode(' ', $event->getEffectiveCommand());
-        $input = $this->inputFactory->create($event, $dueAt, $this->clock->now());
+        $input = $this->inputFactory->create($event, $dueAt, $dispatchedAt);
 
         try {
             $result = $this->client->startExecution($input);
