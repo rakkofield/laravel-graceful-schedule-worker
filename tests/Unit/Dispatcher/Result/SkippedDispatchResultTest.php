@@ -16,7 +16,8 @@ class SkippedDispatchResultTest extends TestCase
             'echo test',
             'lock_not_acquired',
             new DateTimeImmutable(),
-            $dispatcherType
+            $dispatcherType,
+            new DateTimeImmutable()
         );
     }
 
@@ -71,25 +72,29 @@ class SkippedDispatchResultTest extends TestCase
             'echo test',
             'lock_not_acquired',
             $dispatchedAt,
-            'local'
+            'local',
+            new DateTimeImmutable()
         );
 
         $this->assertSame($dispatchedAt, $result->getDispatchedAt());
     }
 
     /**
-     * @testdox SD.6 getDispatchedAt returns current time when omitted
+     * @testdox SD.6 getRecordedAt returns constructor value
      */
-    public function testGetDispatchedAtWithDefaultValue(): void
+    public function testGetRecordedAt(): void
     {
-        $before = new DateTimeImmutable();
-        $result = $this->createSkippedResult();
-        $after = new DateTimeImmutable();
+        $recordedAt = new DateTimeImmutable('2024-01-15 10:00:01');
+        $result = new SkippedDispatchResult(
+            'test-mutex',
+            'echo test',
+            'lock_not_acquired',
+            new DateTimeImmutable('2024-01-15 10:00:00'),
+            'local',
+            $recordedAt
+        );
 
-        $dispatchedAt = $result->getDispatchedAt();
-
-        $this->assertGreaterThanOrEqual($before, $dispatchedAt);
-        $this->assertLessThanOrEqual($after, $dispatchedAt);
+        $this->assertSame($recordedAt, $result->getRecordedAt());
     }
 
     /**

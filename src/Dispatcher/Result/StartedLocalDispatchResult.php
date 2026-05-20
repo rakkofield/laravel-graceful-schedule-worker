@@ -29,6 +29,7 @@ class StartedLocalDispatchResult extends AbstractDispatchResult implements Start
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable $dispatchedAt
+     * @param DateTimeImmutable $recordedAt
      * @param ClockAwareEvent|null $event The event to run afterCallbacks on
      */
     public function __construct(
@@ -36,9 +37,10 @@ class StartedLocalDispatchResult extends AbstractDispatchResult implements Start
         string $eventIdentifier,
         string $eventCommand,
         DateTimeImmutable $dispatchedAt,
+        DateTimeImmutable $recordedAt,
         ?ClockAwareEvent $event = null
     ) {
-        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::LOCAL, $dispatchedAt);
+        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::LOCAL, $dispatchedAt, $recordedAt);
         $this->process = $process;
         $this->event = $event;
     }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Providers;
 
-use DateTimeImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
@@ -12,7 +11,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\Sleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\DispatcherType;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\LocalDispatchResultFactory;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\RunningProcessManager;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
@@ -50,9 +50,20 @@ class DispatcherServiceRegistrar
      */
     public function register(): void
     {
+        $this->registerSkippedResultFactory();
         $this->registerLocalDispatcher();
         $this->registerCompositeDispatcher();
         $this->registerTrackingDispatcher();
+    }
+
+    private function registerSkippedResultFactory(): void
+    {
+        $this->container->singleton(SkippedDispatchResultFactory::class, function (Container $app) {
+            /** @var ClockInterface $clock */
+            $clock = $app->make(ClockInterface::class);
+
+            return new SkippedDispatchResultFactory($clock);
+        });
     }
 
     private function registerLocalDispatcher(): void
@@ -65,23 +76,19 @@ class DispatcherServiceRegistrar
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
+            /** @var SkippedDispatchResultFactory $skippedResultFactory */
+            $skippedResultFactory = $app->make(SkippedDispatchResultFactory::class);
+
             $processManager = new RunningProcessManager($app, $logger, new Sleeper(10000), 10.0);
+            $resultFactory = new LocalDispatchResultFactory($clock, $skippedResultFactory);
 
-            $skippedResultFactory = function (
-                string $eventIdentifier,
-                string $eventCommand,
-                DateTimeImmutable $dispatchedAt
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    'withoutOverlapping',
-                    $dispatchedAt,
-                    DispatcherType::LOCAL
-                );
-            };
-
-            return new LocalDispatcher($app, $basePath, $logger, $clock, $processManager, $skippedResultFactory);
+            return new LocalDispatcher(
+                $app,
+                $basePath,
+                $logger,
+                $processManager,
+                $resultFactory
+            );
         });
     }
 
@@ -126,30 +133,13 @@ class DispatcherServiceRegistrar
             /** @var PrefixedLogger $logger */
             $logger = $app->make('graceful-scheduler.logger');
 
-            /** @var ClockInterface $clock */
-            $clock = $app->make(ClockInterface::class);
-
-            $skippedResultFactory = function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            };
+            /** @var SkippedDispatchResultFactory $skippedResultFactory */
+            $skippedResultFactory = $app->make(SkippedDispatchResultFactory::class);
 
             return new TrackingDispatcher(
                 $compositeDispatcher,
                 $tracker,
                 $logger,
-                $clock,
                 $skippedResultFactory
             );
         });

@@ -62,7 +62,14 @@ class RunningProcessManagerTest extends TestCase
         string $identifier = 'test',
         ?SpyCallbackEvent $event = null
     ): StartedLocalDispatchResult {
-        return new StartedLocalDispatchResult($process, $identifier, 'echo stub', new DateTimeImmutable(), $event);
+        return new StartedLocalDispatchResult(
+            $process,
+            $identifier,
+            'echo stub',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event
+        );
     }
 
     /**
@@ -286,7 +293,14 @@ class RunningProcessManagerTest extends TestCase
         $event1 = new SpyCallbackEvent($throwingMutex, 'echo test1', $fixedClock);
         $event1->withoutOverlapping();
         $throwingMutex->create($event1);
-        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test1', new DateTimeImmutable(), $event1);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test1',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event1
+        );
         $manager->add($result1);
 
         // event2: normal mutex
@@ -295,7 +309,14 @@ class RunningProcessManagerTest extends TestCase
         $event2 = $this->createSpyEvent('echo test2');
         $event2->withoutOverlapping();
         $this->mutex->create($event2);
-        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test2', new DateTimeImmutable(), $event2);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test2',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event2
+        );
         $manager->add($result2);
 
         $manager->stopAll();

@@ -20,6 +20,9 @@ class FakeSkippedDispatchResult implements SkippedDispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
+    /** @var DateTimeImmutable */
+    private $recordedAt;
+
     /** @var string */
     private $dispatcherType;
 
@@ -29,19 +32,22 @@ class FakeSkippedDispatchResult implements SkippedDispatchResultInterface
      * @param string $reason
      * @param string $dispatcherType
      * @param DateTimeImmutable|null $dispatchedAt
+     * @param DateTimeImmutable|null $recordedAt
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
         string $reason,
         string $dispatcherType = 'fake',
-        ?DateTimeImmutable $dispatchedAt = null
+        ?DateTimeImmutable $dispatchedAt = null,
+        ?DateTimeImmutable $recordedAt = null
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->reason = $reason;
         $this->dispatcherType = $dispatcherType;
         $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
+        $this->recordedAt = $recordedAt ?? new DateTimeImmutable();
     }
 
     /**
@@ -92,6 +98,14 @@ class FakeSkippedDispatchResult implements SkippedDispatchResultInterface
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getRecordedAt(): DateTimeImmutable
+    {
+        return $this->recordedAt;
     }
 
     /**

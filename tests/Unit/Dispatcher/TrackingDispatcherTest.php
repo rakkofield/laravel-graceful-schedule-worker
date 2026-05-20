@@ -15,6 +15,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeFailedDispatchR
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeSkippedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
@@ -69,30 +70,21 @@ class TrackingDispatcherTest extends TestCase
         return new ClockAwareEvent($this->mutex, $command, $clock, 'local', null, new TimezoneResolver());
     }
 
+    private function createSkippedFactory(): SkippedDispatchResultFactory
+    {
+        return new SkippedDispatchResultFactory(
+            new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'))
+        );
+    }
+
     private function createDispatcher(DispatchResultInterface $resultToReturn): TrackingDispatcher
     {
         $this->innerDispatcher = new FakeDispatcher($resultToReturn);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         return new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            $this->createSkippedFactory()
         );
     }
 
@@ -105,14 +97,18 @@ class TrackingDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher($startedResult);
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
+        $dispatchedAt = new DateTimeImmutable('2024-01-15 10:00:01');
 
-        $result = $dispatcher->dispatchEvent($event, $dueAt, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt, $dispatchedAt);
 
         $this->assertSame($startedResult, $result);
         $this->assertCount(1, $this->innerDispatcher->getDispatched());
         $dispatched = $this->innerDispatcher->getDispatched()[0];
         $this->assertSame($event, $dispatched['event']);
         $this->assertSame($dueAt, $dispatched['dueAt']);
+        // $dispatchedAt is forwarded distinctly so the inner dispatcher can timestamp
+        // results with the recovery wallclock when $dispatchedAt != $dueAt.
+        $this->assertSame($dispatchedAt, $dispatched['dispatchedAt']);
     }
 
     /**
@@ -253,30 +249,19 @@ class TrackingDispatcherTest extends TestCase
             {
                 return new \DateTimeImmutable();
             }
+
+            public function getRecordedAt(): \DateTimeImmutable
+            {
+                return new \DateTimeImmutable();
+            }
         };
 
         $this->innerDispatcher = new FakeDispatcher($unexpectedResult);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            $this->createSkippedFactory()
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -363,27 +348,11 @@ class TrackingDispatcherTest extends TestCase
         $throwingTracker = new StubThrowingExecutionTracker($exception);
         $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
         $innerDispatcher = new FakeDispatcher($startedResult);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TrackingDispatcher(
             $innerDispatcher,
             $throwingTracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            $this->createSkippedFactory()
         );
 
         $event = $this->createEvent('echo test');
@@ -453,27 +422,11 @@ class TrackingDispatcherTest extends TestCase
         $throwingTracker = new StubThrowingExecutionTracker($logicException);
         $startedResult = FakeStartedDispatchResult::create('test-mutex', 'echo test', 'fake');
         $innerDispatcher = new FakeDispatcher($startedResult);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TrackingDispatcher(
             $innerDispatcher,
             $throwingTracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            $this->createSkippedFactory()
         );
 
         $event = $this->createEvent('echo test');
@@ -498,27 +451,11 @@ class TrackingDispatcherTest extends TestCase
     {
         $skippedResult = FakeSkippedDispatchResult::create('test-mutex', 'echo test', 'withoutOverlapping', 'local');
         $this->innerDispatcher = new FakeDispatcher($skippedResult);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            $this->createSkippedFactory()
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -596,28 +533,12 @@ class TrackingDispatcherTest extends TestCase
     {
         $skippedResult = FakeSkippedDispatchResult::create('test-mutex', 'echo test', 'withoutOverlapping', 'local');
         $this->innerDispatcher = new FakeDispatcher($skippedResult);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $this->tracker->setReleaseLockException(new \RuntimeException('Redis connection lost'));
         $dispatcher = new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            $this->createSkippedFactory()
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -644,27 +565,11 @@ class TrackingDispatcherTest extends TestCase
         $throwingInner = new ThrowingFakeDispatcher($startedResult);
         $dispatchException = new \RuntimeException('Payload encoding failed');
         $throwingInner->willThrowOnDispatch($dispatchException);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $dispatcher = new TrackingDispatcher(
             $throwingInner,
             $this->tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            $this->createSkippedFactory()
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');
@@ -701,28 +606,12 @@ class TrackingDispatcherTest extends TestCase
             'stepfunctions'
         );
         $this->innerDispatcher = new FakeDispatcher($failedResult);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $this->tracker->setReleaseLockException(new \RuntimeException('Redis connection lost'));
         $dispatcher = new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            $this->createSkippedFactory()
         );
         $event = $this->createEvent('echo test');
         $dueAt = new DateTimeImmutable('2024-01-15 10:00:00');

@@ -84,14 +84,20 @@ class CompositeDispatcherTest extends TestCase
         );
 
         $event = $this->createClockAwareEvent('echo test', 'stepfunctions');
+        $dispatchedAt = new DateTimeImmutable('2024-01-15 12:00:01');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $dispatchedAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertSame('stepfunctions', $result->getDispatcherType());
         $this->assertEquals(1, $sfnDispatcher->getDispatchCount());
         $this->assertEquals(0, $localDispatcher->getDispatchCount());
+
+        // $dispatchedAt is forwarded to the inner dispatcher independently of $dueAt
+        $forwarded = $sfnDispatcher->getDispatched()[0];
+        $this->assertSame($dispatchedAt, $forwarded['dispatchedAt']);
+        $this->assertNotSame($this->dueAt, $forwarded['dispatchedAt']);
     }
 
     /**

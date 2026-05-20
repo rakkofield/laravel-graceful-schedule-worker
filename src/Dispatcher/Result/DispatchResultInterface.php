@@ -41,7 +41,24 @@ interface DispatchResultInterface
     /**
      * Get the dispatch timestamp.
      *
+     * Single representative time of the dispatch event, sourced from the
+     * Orchestrator. Shared with the Step Functions Payload's `dispatchedAt`
+     * so the wire-level value and the Result-level value agree.
+     *
      * @return \DateTimeImmutable Dispatch timestamp
      */
     public function getDispatchedAt(): \DateTimeImmutable;
+
+    /**
+     * Get the moment this Result object was constructed.
+     *
+     * Captured by the Result factory's clock at construction time, so it
+     * differs from `getDispatchedAt()` by the latency of the dispatch
+     * action (process start, StartExecution call, etc.). Use this when
+     * you need the physical "result confirmed" timestamp rather than the
+     * dispatch event's representative timestamp.
+     *
+     * @return \DateTimeImmutable Result-construction timestamp
+     */
+    public function getRecordedAt(): \DateTimeImmutable;
 }

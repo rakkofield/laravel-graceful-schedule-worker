@@ -14,7 +14,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResul
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeAlreadyRunningDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeFailedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -72,27 +72,11 @@ class TrackingDispatcherRedisIntegrationTest extends TestCase
 
         $defaultResult = FakeStartedDispatchResult::create('test-id', 'echo test', 'fake');
         $this->innerDispatcher = new FakeDispatcher($defaultResult);
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $this->dispatcher = new TrackingDispatcher(
             $this->innerDispatcher,
             $this->tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory(new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00')))
         );
     }
 

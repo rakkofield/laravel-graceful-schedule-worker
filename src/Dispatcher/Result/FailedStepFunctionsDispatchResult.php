@@ -27,15 +27,23 @@ class FailedStepFunctionsDispatchResult extends AbstractDispatchResult implement
      * @param string $eventCommand
      * @param \Throwable $exception
      * @param DateTimeImmutable $dispatchedAt
+     * @param DateTimeImmutable $recordedAt
      */
     public function __construct(
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
         \Throwable $exception,
-        DateTimeImmutable $dispatchedAt
+        DateTimeImmutable $dispatchedAt,
+        DateTimeImmutable $recordedAt
     ) {
-        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::STEP_FUNCTIONS, $dispatchedAt);
+        parent::__construct(
+            $eventIdentifier,
+            $eventCommand,
+            DispatcherType::STEP_FUNCTIONS,
+            $dispatchedAt,
+            $recordedAt
+        );
         $this->executionName = $executionName;
         $this->error = self::formatException($exception);
         $this->exception = $exception;

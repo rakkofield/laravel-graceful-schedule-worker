@@ -23,14 +23,16 @@ class FailedLocalDispatchResult extends AbstractDispatchResult implements Failed
      * @param string $eventCommand
      * @param \Throwable $exception
      * @param DateTimeImmutable $dispatchedAt
+     * @param DateTimeImmutable $recordedAt
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
         \Throwable $exception,
-        DateTimeImmutable $dispatchedAt
+        DateTimeImmutable $dispatchedAt,
+        DateTimeImmutable $recordedAt
     ) {
-        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::LOCAL, $dispatchedAt);
+        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::LOCAL, $dispatchedAt, $recordedAt);
         $this->error = self::formatException($exception);
         $this->exception = $exception;
     }

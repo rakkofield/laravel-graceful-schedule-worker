@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 
 use DateTimeInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedStepFunctionsDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StepFunctionsDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionAlreadyExistsException;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactoryInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
@@ -29,22 +26,22 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
     /** @var StartExecutionInputFactoryInterface */
     private $inputFactory;
 
-    /** @var ClockInterface */
-    private $clock;
+    /** @var StepFunctionsDispatchResultFactory */
+    private $resultFactory;
 
     /**
      * @param StepFunctionsClientInterface $client
      * @param StartExecutionInputFactoryInterface $inputFactory
-     * @param ClockInterface $clock
+     * @param StepFunctionsDispatchResultFactory $resultFactory
      */
     public function __construct(
         StepFunctionsClientInterface $client,
         StartExecutionInputFactoryInterface $inputFactory,
-        ClockInterface $clock
+        StepFunctionsDispatchResultFactory $resultFactory
     ) {
         $this->client = $client;
         $this->inputFactory = $inputFactory;
-        $this->clock = $clock;
+        $this->resultFactory = $resultFactory;
     }
 
     /**
@@ -62,27 +59,27 @@ class StepFunctionsDispatcher implements ScheduleDispatcherInterface
         try {
             $result = $this->client->startExecution($input);
 
-            return new StartedStepFunctionsDispatchResult(
+            return $this->resultFactory->started(
                 $result->getExecutionArn(),
                 $input->getName(),
                 $mutexName,
                 $command,
-                $this->clock->now()
+                $dispatchedAt
             );
         } catch (ExecutionAlreadyExistsException $e) {
-            return new AlreadyRunningStepFunctionsDispatchResult(
+            return $this->resultFactory->alreadyRunning(
                 $input->getName(),
                 $mutexName,
                 $command,
-                $this->clock->now()
+                $dispatchedAt
             );
         } catch (StepFunctionsException $e) {
-            return new FailedStepFunctionsDispatchResult(
+            return $this->resultFactory->failed(
                 $input->getName(),
                 $mutexName,
                 $command,
                 $e,
-                $this->clock->now()
+                $dispatchedAt
             );
         }
     }

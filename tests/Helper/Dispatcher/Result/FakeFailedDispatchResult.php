@@ -20,6 +20,9 @@ class FakeFailedDispatchResult implements FailedDispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
+    /** @var DateTimeImmutable */
+    private $recordedAt;
+
     /** @var string */
     private $error;
 
@@ -33,6 +36,7 @@ class FakeFailedDispatchResult implements FailedDispatchResultInterface
      * @param string $dispatcherType
      * @param \Throwable|null $exception
      * @param DateTimeImmutable|null $dispatchedAt
+     * @param DateTimeImmutable|null $recordedAt
      */
     public function __construct(
         string $eventIdentifier,
@@ -40,7 +44,8 @@ class FakeFailedDispatchResult implements FailedDispatchResultInterface
         string $error,
         string $dispatcherType,
         ?\Throwable $exception = null,
-        ?DateTimeImmutable $dispatchedAt = null
+        ?DateTimeImmutable $dispatchedAt = null,
+        ?DateTimeImmutable $recordedAt = null
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
@@ -48,6 +53,7 @@ class FakeFailedDispatchResult implements FailedDispatchResultInterface
         $this->dispatcherType = $dispatcherType;
         $this->exception = $exception;
         $this->dispatchedAt = $dispatchedAt ?? new DateTimeImmutable();
+        $this->recordedAt = $recordedAt ?? new DateTimeImmutable();
     }
 
     /**
@@ -100,6 +106,14 @@ class FakeFailedDispatchResult implements FailedDispatchResultInterface
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getRecordedAt(): DateTimeImmutable
+    {
+        return $this->recordedAt;
     }
 
     /**

@@ -21,6 +21,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
+            new DateTimeImmutable(),
             new DateTimeImmutable()
         );
 
@@ -36,6 +37,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
+            new DateTimeImmutable(),
             new DateTimeImmutable()
         );
 
@@ -51,6 +53,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
             'my-execution',
             'framework/schedule-mutex',
             'php artisan schedule:run',
+            new DateTimeImmutable(),
             new DateTimeImmutable()
         );
 
@@ -66,6 +69,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
+            new DateTimeImmutable(),
             new DateTimeImmutable()
         );
 
@@ -81,6 +85,7 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
+            new DateTimeImmutable(),
             new DateTimeImmutable()
         );
 
@@ -97,7 +102,8 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            $now
+            $now,
+            new DateTimeImmutable()
         );
 
         $this->assertInstanceOf(DateTimeImmutable::class, $result->getDispatchedAt());
@@ -114,9 +120,27 @@ class AlreadyRunningStepFunctionsDispatchResultTest extends TestCase
             'exec-1',
             'framework/schedule-mutex',
             'php artisan schedule:run',
-            $customTime
+            $customTime,
+            new DateTimeImmutable()
         );
 
         $this->assertSame($customTime, $result->getDispatchedAt());
+    }
+
+    /**
+     * @testdox ARR.8 getRecordedAt returns constructor value
+     */
+    public function testGetRecordedAtReturnsConstructorValue(): void
+    {
+        $recordedAt = new DateTimeImmutable('2024-01-15 12:00:01');
+        $result = new AlreadyRunningStepFunctionsDispatchResult(
+            'exec-1',
+            'framework/schedule-mutex',
+            'php artisan schedule:run',
+            new DateTimeImmutable('2024-01-15 12:00:00'),
+            $recordedAt
+        );
+
+        $this->assertSame($recordedAt, $result->getRecordedAt());
     }
 }

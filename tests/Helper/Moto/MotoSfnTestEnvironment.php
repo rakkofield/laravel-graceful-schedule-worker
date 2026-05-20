@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RakkoInc\LaravelGracefulScheduleWorker\Moto;
 
+use Aws\DynamoDb\DynamoDbClient;
 use Aws\Iam\IamClient;
 use Aws\Lambda\LambdaClient;
 use Aws\Sfn\SfnClient;
@@ -110,6 +111,11 @@ class MotoSfnTestEnvironment
     protected function newIamClient(): IamClient
     {
         return new IamClient(self::clientConfig($this->endpoint, $this->region));
+    }
+
+    public function newDynamoDbClient(): DynamoDbClient
+    {
+        return new DynamoDbClient(self::clientConfig($this->endpoint, $this->region));
     }
 
     /**

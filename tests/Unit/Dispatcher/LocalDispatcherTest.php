@@ -14,7 +14,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\LocalDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
@@ -83,24 +85,15 @@ class LocalDispatcherTest extends TestCase
     {
         $logger = $logger ?? new NullLogger();
         $processManager = new RunningProcessManager($this->app, $logger, new NullSleeper(), 10.0);
+        $skippedResultFactory = new SkippedDispatchResultFactory($clock);
+        $resultFactory = new LocalDispatchResultFactory($clock, $skippedResultFactory);
         return new LocalDispatcher(
             $this->app,
             null,
             $logger,
-            $clock,
             $processManager,
-            $this->createSkippedResultFactory()
+            $resultFactory
         );
-    }
-
-    /**
-     * @return callable(string, string, \DateTimeImmutable): SkippedDispatchResult
-     */
-    private function createSkippedResultFactory(): callable
-    {
-        return function (string $id, string $cmd, \DateTimeImmutable $at): SkippedDispatchResult {
-            return new SkippedDispatchResult($id, $cmd, 'withoutOverlapping', $at, DispatcherType::LOCAL);
-        };
     }
 
     /**
@@ -441,7 +434,13 @@ class LocalDispatcherTest extends TestCase
 
     private function createStubResult(StubProcess $process, string $identifier = 'test'): StartedLocalDispatchResult
     {
-        return new StartedLocalDispatchResult($process, $identifier, 'echo stub', new DateTimeImmutable());
+        return new StartedLocalDispatchResult(
+            $process,
+            $identifier,
+            'echo stub',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
     }
 
     /**
@@ -707,7 +706,7 @@ class LocalDispatcherTest extends TestCase
 
         $this->assertInstanceOf(SkippedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(SkippedDispatchResult::class, $result);
-        $this->assertSame('withoutOverlapping', $result->getReason());
+        $this->assertSame('lock_not_acquired', $result->getReason());
         $this->assertSame('local', $result->getDispatcherType());
     }
 
@@ -753,12 +752,26 @@ class LocalDispatcherTest extends TestCase
         // Completed process with event
         $proc1 = new StubProcess(false);
         $event1 = $this->createSpyEvent('echo test');
-        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test', new DateTimeImmutable(), $event1);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event1
+        );
 
         // Running process with event
         $proc2 = new StubProcess(true);
         $event2 = $this->createSpyEvent('echo test');
-        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test', new DateTimeImmutable(), $event2);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event2
+        );
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
@@ -788,12 +801,26 @@ class LocalDispatcherTest extends TestCase
         $proc1 = new StubProcess(true);
         $proc1->setTerminateOnSignal(true);
         $event1 = $this->createSpyEvent('echo test');
-        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test', new DateTimeImmutable(), $event1);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event1
+        );
 
         $proc2 = new StubProcess(true);
         $proc2->setTerminateOnSignal(true);
         $event2 = $this->createSpyEvent('echo test');
-        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test', new DateTimeImmutable(), $event2);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event2
+        );
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
@@ -817,11 +844,25 @@ class LocalDispatcherTest extends TestCase
         $proc1 = new StubProcess(false);
         $event1 = $this->createSpyEvent('echo test');
         $event1->throwOnAfterCallback(new \RuntimeException('afterCallback failed'));
-        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test', new DateTimeImmutable(), $event1);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event1
+        );
 
         $proc2 = new StubProcess(false);
         $event2 = $this->createSpyEvent('echo test');
-        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test', new DateTimeImmutable(), $event2);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event2
+        );
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
@@ -854,13 +895,27 @@ class LocalDispatcherTest extends TestCase
         $event1->withoutOverlapping();
         // Simulate mutex acquired state
         $this->mutex->create($event1);
-        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test1', new DateTimeImmutable(), $event1);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test1',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event1
+        );
 
         $proc2 = new StubProcess(true);
         $proc2->setTerminateOnSignal(true);
         $event2 = $this->createSpyEvent('echo test2');
         // event2 does NOT have withoutOverlapping
-        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test2', new DateTimeImmutable(), $event2);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test2',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event2
+        );
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
@@ -896,7 +951,14 @@ class LocalDispatcherTest extends TestCase
         $event1 = new SpyCallbackEvent($throwingMutex, 'echo test1', $fixedClock);
         $event1->withoutOverlapping();
         $throwingMutex->create($event1);
-        $result1 = new StartedLocalDispatchResult($proc1, 'event1', 'echo test1', new DateTimeImmutable(), $event1);
+        $result1 = new StartedLocalDispatchResult(
+            $proc1,
+            'event1',
+            'echo test1',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event1
+        );
 
         // event2: withoutOverlapping + normal mutex
         $proc2 = new StubProcess(true);
@@ -904,7 +966,14 @@ class LocalDispatcherTest extends TestCase
         $event2 = $this->createSpyEvent('echo test2');
         $event2->withoutOverlapping();
         $this->mutex->create($event2);
-        $result2 = new StartedLocalDispatchResult($proc2, 'event2', 'echo test2', new DateTimeImmutable(), $event2);
+        $result2 = new StartedLocalDispatchResult(
+            $proc2,
+            'event2',
+            'echo test2',
+            new DateTimeImmutable(),
+            new DateTimeImmutable(),
+            $event2
+        );
 
         $dispatcher->addRunningProcess($result1);
         $dispatcher->addRunningProcess($result2);
@@ -945,6 +1014,7 @@ class LocalDispatcherTest extends TestCase
             $proc,
             $event->mutexName(),
             'echo test',
+            new DateTimeImmutable(),
             new DateTimeImmutable(),
             $event
         );
@@ -991,13 +1061,14 @@ class LocalDispatcherTest extends TestCase
 
         $fixedClock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
         $processManager = new RunningProcessManager($this->app, $logger, new NullSleeper(), 10.0);
+        $skippedResultFactory = new SkippedDispatchResultFactory($fixedClock);
+        $resultFactory = new LocalDispatchResultFactory($fixedClock, $skippedResultFactory);
         $dispatcher = new LocalDispatcher(
             $this->app,
             null,
             $logger,
-            $fixedClock,
             $processManager,
-            $this->createSkippedResultFactory()
+            $resultFactory
         );
         $clock = new FixedClock(new DateTimeImmutable('2024-01-15 12:00:00'));
         $event = new SpyCallbackEvent($throwingMutex, 'echo test', $clock);

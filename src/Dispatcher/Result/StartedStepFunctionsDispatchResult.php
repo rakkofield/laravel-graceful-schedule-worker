@@ -26,15 +26,23 @@ class StartedStepFunctionsDispatchResult extends AbstractDispatchResult implemen
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable $dispatchedAt
+     * @param DateTimeImmutable $recordedAt
      */
     public function __construct(
         string $executionArn,
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
-        DateTimeImmutable $dispatchedAt
+        DateTimeImmutable $dispatchedAt,
+        DateTimeImmutable $recordedAt
     ) {
-        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::STEP_FUNCTIONS, $dispatchedAt);
+        parent::__construct(
+            $eventIdentifier,
+            $eventCommand,
+            DispatcherType::STEP_FUNCTIONS,
+            $dispatchedAt,
+            $recordedAt
+        );
         $this->executionArn = $executionArn;
         $this->executionName = $executionName;
     }

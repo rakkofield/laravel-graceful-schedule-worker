@@ -13,7 +13,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\CompositeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeFailedDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -120,22 +120,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             $this->innerDispatcher,
             $tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory($clock)
         );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
@@ -176,22 +161,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             $this->innerDispatcher,
             $tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory($clock)
         );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
@@ -240,22 +210,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             $composite,
             $tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory($clock)
         );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
@@ -327,22 +282,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             $this->innerDispatcher,
             $tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory($clock)
         );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
@@ -370,22 +310,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             $this->innerDispatcher,
             $tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory($clock)
         );
         $orchestrator2 = new DefaultScheduleOrchestrator(
             $trackingDispatcher2,
@@ -427,22 +352,7 @@ class OrchestratorFlowIntegrationTest extends TestCase
             $composite,
             $tracker,
             $this->logger,
-            $clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory($clock)
         );
         $orchestrator = new DefaultScheduleOrchestrator(
             $trackingDispatcher,
