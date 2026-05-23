@@ -7,10 +7,10 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use DateTimeInterface;
 use Exception;
 use Psr\Log\LoggerInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\AlreadyRunningDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -35,30 +35,25 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
     /** @var LoggerInterface */
     private $logger;
 
-    /** @var ClockInterface */
-    private $clock;
-
-    /** @var callable */
+    /** @var SkippedDispatchResultFactory */
     private $skippedResultFactory;
 
     /**
      * @param ScheduleDispatcherInterface $inner Inner dispatcher
      * @param ExecutionTrackerInterface $tracker Execution tracker
      * @param LoggerInterface $logger Logger
-     * @param ClockInterface $clock Clock
-     * @param callable $skippedResultFactory Factory for creating SkippedDispatchResultInterface instances
+     * @param SkippedDispatchResultFactory $skippedResultFactory Factory shared with the inner dispatchers;
+     *        the dispatcher type is passed at call time because the inner dispatcher is resolved per event.
      */
     public function __construct(
         ScheduleDispatcherInterface $inner,
         ExecutionTrackerInterface $tracker,
         LoggerInterface $logger,
-        ClockInterface $clock,
-        callable $skippedResultFactory
+        SkippedDispatchResultFactory $skippedResultFactory
     ) {
         $this->inner = $inner;
         $this->tracker = $tracker;
         $this->logger = $logger;
-        $this->clock = $clock;
         $this->skippedResultFactory = $skippedResultFactory;
     }
 
@@ -67,7 +62,8 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        DateTimeInterface $dueAt
+        DateTimeInterface $dueAt,
+        \DateTimeImmutable $dispatchedAt
     ): DispatchResultInterface {
         // 1. Acquire lock (cache connection failure propagates as exception and stops the worker)
         $lockAcquired = $this->tracker->acquireLock($event, $dueAt);
@@ -78,21 +74,18 @@ class TrackingDispatcher implements ScheduleDispatcherInterface
                 'dueAt' => $dueAt->format(DateTimeInterface::ATOM),
             ]);
 
-            /** @var DispatchResultInterface $result */
-            $result = ($this->skippedResultFactory)(
+            return $this->skippedResultFactory->create(
                 $event->mutexName(),
                 (string) $event->command,
-                'lock_not_acquired',
-                $this->clock->now(),
+                SkippedDispatchResultInterface::REASON_LOCK_NOT_ACQUIRED,
+                $dispatchedAt,
                 $event->getDispatcherType()
             );
-
-            return $result;
         }
 
         // 2. Delegate to inner dispatcher
         try {
-            $result = $this->inner->dispatchEvent($event, $dueAt);
+            $result = $this->inner->dispatchEvent($event, $dueAt, $dispatchedAt);
         } catch (\Throwable $e) {
             $this->tryReleaseLock($event, $dueAt);
             throw $e;

@@ -326,6 +326,9 @@ class DefaultScheduleOrchestratorTest extends TestCase
         $this->assertInstanceOf(\DateTimeInterface::class, $dueAt);
         // Verify the minute matches (seconds are normalized to 0)
         $this->assertSame('2024-01-15 12:00:00', $dueAt->format('Y-m-d H:i:s'));
+        // Ordinary dispatch hands the same instant in as $dispatchedAt so the dispatcher
+        // does not need an internal clock to stamp Result.dispatchedAt.
+        $this->assertSame($dueAt, $dispatched[0]['dispatchedAt']);
     }
 
     /**
@@ -361,6 +364,15 @@ class DefaultScheduleOrchestratorTest extends TestCase
         // Verify dueAt is missedDue
         $dispatched = $this->dispatcher->getDispatched();
         $this->assertSame($missedDue->getTimestamp(), $dispatched[0]['dueAt']->getTimestamp());
+        // Recovery passes the wallclock now (≠ missedDue) as $dispatchedAt so AcquireLock
+        // and Result timestamps reflect the recovery moment instead of the past
+        // due. The exact value is the orchestrator's clock, which is later than
+        // missedDue here.
+        $this->assertNotSame(
+            $missedDue->getTimestamp(),
+            $dispatched[0]['dispatchedAt']->getTimestamp(),
+            '$dispatchedAt should be the recovery wallclock, not the past missedDue'
+        );
     }
 
     /**

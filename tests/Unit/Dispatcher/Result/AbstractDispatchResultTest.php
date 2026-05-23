@@ -17,7 +17,13 @@ class AbstractDispatchResultTest extends TestCase
      */
     public function testGetEventIdentifierReturnsConstructorValue(): void
     {
-        $result = new ConcreteDispatchResult('my-identifier', 'php artisan test', 'local', new DateTimeImmutable());
+        $result = new ConcreteDispatchResult(
+            'my-identifier',
+            'php artisan test',
+            'local',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('my-identifier', $result->getEventIdentifier());
     }
@@ -27,7 +33,13 @@ class AbstractDispatchResultTest extends TestCase
      */
     public function testGetEventCommandReturnsConstructorValue(): void
     {
-        $result = new ConcreteDispatchResult('id', 'php artisan schedule:run', 'local', new DateTimeImmutable());
+        $result = new ConcreteDispatchResult(
+            'id',
+            'php artisan schedule:run',
+            'local',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('php artisan schedule:run', $result->getEventCommand());
     }
@@ -37,7 +49,13 @@ class AbstractDispatchResultTest extends TestCase
      */
     public function testGetDispatcherTypeReturnsConstructorValue(): void
     {
-        $result = new ConcreteDispatchResult('id', 'cmd', 'stepfunctions', new DateTimeImmutable());
+        $result = new ConcreteDispatchResult(
+            'id',
+            'cmd',
+            'stepfunctions',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('stepfunctions', $result->getDispatcherType());
     }
@@ -48,7 +66,7 @@ class AbstractDispatchResultTest extends TestCase
     public function testGetDispatchedAtReturnsConstructorValue(): void
     {
         $now = new DateTimeImmutable('2024-01-15 12:00:00');
-        $result = new ConcreteDispatchResult('id', 'cmd', 'local', $now);
+        $result = new ConcreteDispatchResult('id', 'cmd', 'local', $now, new DateTimeImmutable());
 
         $this->assertSame($now, $result->getDispatchedAt());
     }
@@ -58,8 +76,25 @@ class AbstractDispatchResultTest extends TestCase
      */
     public function testImplementsDispatchResultInterface(): void
     {
-        $result = new ConcreteDispatchResult('id', 'cmd', 'local', new DateTimeImmutable());
+        $result = new ConcreteDispatchResult('id', 'cmd', 'local', new DateTimeImmutable(), new DateTimeImmutable());
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
+    }
+
+    /**
+     * @testdox ADR.6 getRecordedAt returns constructor value
+     */
+    public function testGetRecordedAtReturnsConstructorValue(): void
+    {
+        $recordedAt = new DateTimeImmutable('2024-01-15 12:00:01');
+        $result = new ConcreteDispatchResult(
+            'id',
+            'cmd',
+            'local',
+            new DateTimeImmutable('2024-01-15 12:00:00'),
+            $recordedAt
+        );
+
+        $this->assertSame($recordedAt, $result->getRecordedAt());
     }
 }

@@ -26,7 +26,13 @@ class StartedLocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
@@ -40,7 +46,13 @@ class StartedLocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertSame($process, $result->getProcess());
         $process->wait();
@@ -53,7 +65,13 @@ class StartedLocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('local', $result->getDispatcherType());
         $process->wait();
@@ -67,7 +85,13 @@ class StartedLocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $now = new DateTimeImmutable();
-        $result = new StartedLocalDispatchResult($process, 'my-event-identifier', 'php artisan test', $now);
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'my-event-identifier',
+            'php artisan test',
+            $now,
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('my-event-identifier', $result->getEventIdentifier());
         $process->wait();
@@ -81,7 +105,13 @@ class StartedLocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $now = new DateTimeImmutable();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan report:daily', $now);
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan report:daily',
+            $now,
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('php artisan report:daily', $result->getEventCommand());
         $process->wait();
@@ -95,7 +125,13 @@ class StartedLocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $now = new DateTimeImmutable();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', $now);
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            $now,
+            new DateTimeImmutable()
+        );
 
         $dispatchedAt = $result->getDispatchedAt();
 
@@ -111,7 +147,13 @@ class StartedLocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('sleep 2');
         $process->start();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertTrue($result->isRunning());
         $process->stop(0);
@@ -125,7 +167,13 @@ class StartedLocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $process->wait();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertFalse($result->isRunning());
     }
@@ -138,7 +186,13 @@ class StartedLocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $process->wait();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertSame(0, $result->getExitCode());
     }
@@ -150,7 +204,13 @@ class StartedLocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('sleep 2');
         $process->start();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertNull($result->getExitCode());
         $process->stop(0);
@@ -164,7 +224,13 @@ class StartedLocalDispatchResultTest extends TestCase
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
         $explicitTime = new DateTimeImmutable('2024-01-15 12:00:00');
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', $explicitTime);
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            $explicitTime,
+            new DateTimeImmutable()
+        );
 
         $this->assertSame($explicitTime, $result->getDispatchedAt());
         $process->wait();
@@ -177,7 +243,13 @@ class StartedLocalDispatchResultTest extends TestCase
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->start();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertNull($result->getEvent());
         $process->wait();
@@ -197,6 +269,7 @@ class StartedLocalDispatchResultTest extends TestCase
             $process,
             'test-id',
             'php artisan test',
+            new DateTimeImmutable(),
             new DateTimeImmutable(),
             $event
         );
@@ -219,6 +292,7 @@ class StartedLocalDispatchResultTest extends TestCase
             $process,
             'test-id',
             'php artisan test',
+            new DateTimeImmutable(),
             new DateTimeImmutable(),
             $event
         );
@@ -245,6 +319,7 @@ class StartedLocalDispatchResultTest extends TestCase
             'test-id',
             'php artisan test',
             new DateTimeImmutable(),
+            new DateTimeImmutable(),
             $event
         );
 
@@ -258,13 +333,39 @@ class StartedLocalDispatchResultTest extends TestCase
     }
 
     /**
+     * @testdox SLR.17 getRecordedAt returns constructor value
+     */
+    public function testGetRecordedAtReturnsConstructorValue(): void
+    {
+        $process = Process::fromShellCommandLine('echo test');
+        $process->start();
+        $recordedAt = new DateTimeImmutable('2024-01-15 12:00:01');
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable('2024-01-15 12:00:00'),
+            $recordedAt
+        );
+
+        $this->assertSame($recordedAt, $result->getRecordedAt());
+        $process->wait();
+    }
+
+    /**
      * @testdox SLR.16 runAfterCallbacks is a no-op when event is null
      */
     public function testRunAfterCallbacksIsNoOpWhenEventIsNull(): void
     {
         $process = Process::fromShellCommandLine('echo test');
         $process->run();
-        $result = new StartedLocalDispatchResult($process, 'test-id', 'php artisan test', new DateTimeImmutable());
+        $result = new StartedLocalDispatchResult(
+            $process,
+            'test-id',
+            'php artisan test',
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $container = new Container();
         $result->runAfterCallbacks($container);

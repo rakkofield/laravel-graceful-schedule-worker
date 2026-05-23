@@ -13,10 +13,13 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result;
  */
 interface SkippedDispatchResultInterface extends DispatchResultInterface
 {
+    /** @var string Lock acquisition failed (mutex held by another runner or tracker said no). */
+    public const REASON_LOCK_NOT_ACQUIRED = 'lock_not_acquired';
+
     /**
      * Get the skip reason.
      *
-     * @return string Skip reason (e.g., 'lock_not_acquired')
+     * @return string Skip reason
      */
     public function getReason(): string;
 }

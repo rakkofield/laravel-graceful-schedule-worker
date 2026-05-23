@@ -47,11 +47,13 @@ class ThrowingFakeDispatcher implements ScheduleDispatcherInterface
      *
      * @param ClockAwareEvent $event
      * @param DateTimeInterface $dueAt
+     * @param \DateTimeImmutable $dispatchedAt
      * @return DispatchResultInterface
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        DateTimeInterface $dueAt
+        DateTimeInterface $dueAt,
+        \DateTimeImmutable $dispatchedAt
     ): DispatchResultInterface {
         $this->dispatchCount++;
         if ($this->dispatchException !== null) {

@@ -42,21 +42,24 @@
 | Dispatcher/CompositeDispatcherTest | `CD` | 14 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 20 |
 | Dispatcher/RunningProcessManagerTest | `RPM` | 14 |
-| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 22 |
+| Dispatcher/StepFunctionsDispatcherTest | `SFD` | 23 |
 | Dispatcher/Result/AbstractDispatchResultTest | `ADR` | 6 |
 | Dispatcher/Result/StartedLocalDispatchResultTest | `SLR` | 17 |
 | Dispatcher/Result/FailedLocalDispatchResultTest | `FLR` | 8 |
 | Dispatcher/Result/SkippedDispatchResultTest | `SD` | 9 |
-| Dispatcher/Result/StartedStepFunctionsDispatchResultTest | `SSR` | 8 |
-| Dispatcher/Result/FailedStepFunctionsDispatchResultTest | `FSR` | 8 |
-| Dispatcher/Result/AlreadyRunningStepFunctionsDispatchResultTest | `ARR` | 7 |
+| Dispatcher/Result/StartedStepFunctionsDispatchResultTest | `SSR` | 9 |
+| Dispatcher/Result/FailedStepFunctionsDispatchResultTest | `FSR` | 9 |
+| Dispatcher/Result/AlreadyRunningStepFunctionsDispatchResultTest | `ARR` | 8 |
+| Dispatcher/Result/LocalDispatchResultFactoryTest | `LRF` | 7 |
+| Dispatcher/Result/SkippedDispatchResultFactoryTest | `SDF` | 6 |
+| Dispatcher/Result/StepFunctionsDispatchResultFactoryTest | `SRF` | 7 |
 | Dispatcher/StepFunctions/AwsSfnClientAdapterTest | `SCA` | 3 |
 | Dispatcher/StepFunctions/ExecutionNameGeneratorTest | `ENG` | 9 |
 | Dispatcher/StepFunctions/MutexNameSanitizerTest | `MNS` | 19 |
 | Dispatcher/StepFunctions/LockKeyGeneratorTest | `LKG` | 9 |
-| Dispatcher/StepFunctions/PayloadTest | `PY` | 5 |
-| Dispatcher/StepFunctions/PayloadBuilderTest | `PB` | 9 |
-| Dispatcher/StepFunctions/StartExecutionInputFactoryTest | `SEIF` | 4 |
+| Dispatcher/StepFunctions/PayloadTest | `PY` | 4 |
+| Dispatcher/StepFunctions/PayloadBuilderTest | `PB` | 13 |
+| Dispatcher/StepFunctions/StartExecutionInputFactoryTest | `SEIF` | 3 |
 | Dispatcher/StepFunctions/StartExecutionInputTest | `SEI` | 4 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
 | Logging/PrefixedLoggerTest | `PL` | 4 |
@@ -76,7 +79,7 @@
 | Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 5 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
 | Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 7 |
-| Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 3 |
+| Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 5 |
 | Dispatcher/TrackingDispatcherRedisIntegrationTest | `TDI` | 6 |
 | Tracker/CacheExecutionTrackerRedisTest | `CTI` | 7 |
 | Providers/ProviderBootIntegrationTest | `GPI` | 7 |
@@ -88,7 +91,7 @@
 |---|---|---|
 | GracefulScheduleWorkerCommandTest | `E2E` | 1 |
 | BackgroundCommandOutputTest | `E2E` | 2 |
-| StepFunctionsExecutionE2ETest | `E2E` | 3 |
+| StepFunctionsExecutionE2ETest | `E2E` | 4 |
 | StepFunctionsLambdaTaskE2ETest | `E2E` | 1 |
 
 ## TI Prefix Number Ranges
@@ -109,5 +112,5 @@ The `E2E` prefix is shared across all end-to-end test files. Number ranges keep 
 |---|---|
 | GracefulScheduleWorkerCommandTest | E2E.1 |
 | BackgroundCommandOutputTest | E2E.2 - E2E.3 |
-| StepFunctionsExecutionE2ETest | E2E.10 - E2E.12 |
+| StepFunctionsExecutionE2ETest | E2E.10 - E2E.12, E2E.14 |
 | StepFunctionsLambdaTaskE2ETest | E2E.13 |

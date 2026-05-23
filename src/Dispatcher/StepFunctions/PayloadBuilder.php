@@ -29,8 +29,12 @@ class PayloadBuilder implements PayloadBuilderInterface
     /**
      * {@inheritdoc}
      */
-    public function build(ClockAwareEvent $event, DateTimeInterface $dueAt, int $lockTtlSeconds): PayloadInterface
-    {
+    public function build(
+        ClockAwareEvent $event,
+        DateTimeInterface $dueAt,
+        int $lockTtlSeconds,
+        DateTimeInterface $dispatchedAt
+    ): PayloadInterface {
         $command = $event->getEffectiveCommand();
         $mutexName = $event->mutexName();
         $lockKey = $this->lockKeyGenerator->generate($event, $dueAt);
@@ -43,7 +47,8 @@ class PayloadBuilder implements PayloadBuilderInterface
             $mutexName,
             $dueAt->format(DateTimeInterface::ATOM),
             $lockKey,
-            $expiresAt
+            $expiresAt,
+            $dispatchedAt->getTimestamp()
         );
     }
 }

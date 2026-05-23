@@ -1,5 +1,5 @@
 {
-  "Comment": "Demo state machine for scheduler with DynamoDB-backed distributed lock. Acquires a lock keyed by lockKey before running the task; expired locks (expiresAt < dispatchedAt) can be overwritten so a re-dispatch after a previous run's TTL recovers from stale lock state.",
+  "Comment": "Integration-test fixture exercising the AcquireLock + ReleaseLock path. Mirrors demo/stepfunctions/state-machine.json so SFI tests verify that $.dispatchedAt is consumed as :now in the AcquireLock ConditionExpression.",
   "StartAt": "AcquireLock",
   "States": {
     "AcquireLock": {

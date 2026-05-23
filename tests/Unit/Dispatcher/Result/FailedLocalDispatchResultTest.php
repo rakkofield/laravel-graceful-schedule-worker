@@ -19,7 +19,13 @@ class FailedLocalDispatchResultTest extends TestCase
     {
         $now = new DateTimeImmutable();
         $exception = new \RuntimeException('Something went wrong');
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', $exception, $now);
+        $result = new FailedLocalDispatchResult(
+            'test-id',
+            'php artisan test',
+            $exception,
+            $now,
+            new DateTimeImmutable()
+        );
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
@@ -32,7 +38,13 @@ class FailedLocalDispatchResultTest extends TestCase
     {
         $now = new DateTimeImmutable();
         $exception = new \RuntimeException('Something went wrong');
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', $exception, $now);
+        $result = new FailedLocalDispatchResult(
+            'test-id',
+            'php artisan test',
+            $exception,
+            $now,
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('RuntimeException: Something went wrong', $result->getError());
     }
@@ -43,7 +55,13 @@ class FailedLocalDispatchResultTest extends TestCase
     public function testGetDispatcherTypeReturnsLocal(): void
     {
         $exception = new \RuntimeException('error');
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', $exception, new DateTimeImmutable());
+        $result = new FailedLocalDispatchResult(
+            'test-id',
+            'php artisan test',
+            $exception,
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('local', $result->getDispatcherType());
     }
@@ -55,7 +73,13 @@ class FailedLocalDispatchResultTest extends TestCase
     {
         $now = new DateTimeImmutable();
         $exception = new \RuntimeException('error');
-        $result = new FailedLocalDispatchResult('failed-event-id', 'php artisan failed:command', $exception, $now);
+        $result = new FailedLocalDispatchResult(
+            'failed-event-id',
+            'php artisan failed:command',
+            $exception,
+            $now,
+            new DateTimeImmutable()
+        );
 
         $this->assertSame('failed-event-id', $result->getEventIdentifier());
         $this->assertSame('php artisan failed:command', $result->getEventCommand());
@@ -67,7 +91,13 @@ class FailedLocalDispatchResultTest extends TestCase
     public function testStoresException(): void
     {
         $exception = new \RuntimeException('Test error');
-        $result = new FailedLocalDispatchResult('id', 'cmd', $exception, new DateTimeImmutable());
+        $result = new FailedLocalDispatchResult(
+            'id',
+            'cmd',
+            $exception,
+            new DateTimeImmutable(),
+            new DateTimeImmutable()
+        );
 
         $this->assertSame($exception, $result->getException());
     }
@@ -79,7 +109,13 @@ class FailedLocalDispatchResultTest extends TestCase
     {
         $now = new DateTimeImmutable();
         $exception = new \RuntimeException('error');
-        $result = new FailedLocalDispatchResult('test-id', 'php artisan test', $exception, $now);
+        $result = new FailedLocalDispatchResult(
+            'test-id',
+            'php artisan test',
+            $exception,
+            $now,
+            new DateTimeImmutable()
+        );
 
         $dispatchedAt = $result->getDispatchedAt();
 
@@ -98,9 +134,28 @@ class FailedLocalDispatchResultTest extends TestCase
             'test-id',
             'php artisan test',
             $exception,
-            $explicitTime
+            $explicitTime,
+            new DateTimeImmutable()
         );
 
         $this->assertSame($explicitTime, $result->getDispatchedAt());
+    }
+
+    /**
+     * @testdox FLR.9 getRecordedAt returns constructor value
+     */
+    public function testGetRecordedAtReturnsConstructorValue(): void
+    {
+        $exception = new \RuntimeException('error');
+        $recordedAt = new DateTimeImmutable('2024-01-15 12:00:01');
+        $result = new FailedLocalDispatchResult(
+            'test-id',
+            'php artisan test',
+            $exception,
+            new DateTimeImmutable('2024-01-15 12:00:00'),
+            $recordedAt
+        );
+
+        $this->assertSame($recordedAt, $result->getRecordedAt());
     }
 }

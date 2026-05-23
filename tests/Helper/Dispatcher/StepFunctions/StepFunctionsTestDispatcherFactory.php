@@ -12,6 +12,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResultInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StepFunctionsDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
@@ -24,6 +25,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
  */
 final class StepFunctionsTestDispatcherFactory
 {
+    /**
+     * Default dispatch instant used by Step Functions integration / E2E tests.
+     * Tests share this so the dispatcher's clock and the expected-payload
+     * `dispatchedAt` resolve to the same moment.
+     */
+    public const DEFAULT_DISPATCH_INSTANT = '2024-01-15 10:00:00';
+
     public static function create(
         SfnClient $sfn,
         string $stateMachineArn,
@@ -37,11 +45,12 @@ final class StepFunctionsTestDispatcherFactory
             $payloadBuilder,
             $lockTtlSeconds
         );
+        $resultFactory = new StepFunctionsDispatchResultFactory($clock);
 
         return new StepFunctionsDispatcher(
             new AwsSfnClientAdapter($sfn, $stateMachineArn),
             $inputFactory,
-            $clock
+            $resultFactory
         );
     }
 
@@ -50,22 +59,26 @@ final class StepFunctionsTestDispatcherFactory
      * given dispatch. Tests use this to compare the SFN execution output
      * against an expected value computed by the same components, so the
      * test never has to know how `mutexName` / `lockKey` etc. are derived.
+     *
+     * `$dispatchedAt` must be the same instant the test fed into the
+     * Dispatcher's clock so that the expected payload's `dispatchedAt`
+     * matches the wire-level value the Dispatcher recorded.
      */
     public static function buildExpectedPayload(
         EventMutex $mutex,
         string $command,
         DateTimeInterface $dueAt,
-        int $lockTtlSeconds
+        int $lockTtlSeconds,
+        DateTimeInterface $dispatchedAt
     ): Payload {
-        // FixedClock value is irrelevant to PayloadBuilder — only `dueAt`
-        // and the event's command/mutex flow into the payload — but
-        // ClockAwareEvent requires *some* clock, so any fixed instant works.
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        // ClockAwareEvent requires a clock, but the value is unused here:
+        // the payload's `dispatchedAt` comes from the explicit argument.
+        $clock = new FixedClock(new DateTimeImmutable(self::DEFAULT_DISPATCH_INSTANT));
         $event = new ClockAwareEvent($mutex, $command, $clock, 'local', null, new TimezoneResolver());
 
         $sanitizer = new MutexNameSanitizer();
         return (new PayloadBuilder(new LockKeyGenerator($sanitizer)))
-            ->build($event, $dueAt, $lockTtlSeconds);
+            ->build($event, $dueAt, $lockTtlSeconds, $dispatchedAt);
     }
 
     /**

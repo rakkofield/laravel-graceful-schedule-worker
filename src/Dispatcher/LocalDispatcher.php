@@ -7,10 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use DateTimeInterface;
 use Illuminate\Contracts\Container\Container;
 use Psr\Log\LoggerInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\DispatchResultInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedLocalDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedLocalDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\LocalDispatchResultFactory;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use Symfony\Component\Process\Process;
 
@@ -30,11 +29,6 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $logger;
 
     /**
-     * @var ClockInterface
-     */
-    private $clock;
-
-    /**
      * @var Container
      */
     private $container;
@@ -45,32 +39,29 @@ class LocalDispatcher implements ScheduleDispatcherInterface
     private $processManager;
 
     /**
-     * @var callable(string, string, \DateTimeImmutable): DispatchResultInterface
+     * @var LocalDispatchResultFactory
      */
-    private $skippedResultFactory;
+    private $resultFactory;
 
     /**
      * @param Container $container Laravel container instance
      * @param string|null $basePath Working directory for processes (null uses the current directory)
      * @param LoggerInterface $logger Logger
-     * @param ClockInterface $clock Clock
      * @param RunningProcessManager $processManager Process lifecycle manager
-     * @param callable(string, string, \DateTimeImmutable): DispatchResultInterface $skippedResultFactory
+     * @param LocalDispatchResultFactory $resultFactory Builds Started/Failed/Skipped results
      */
     public function __construct(
         Container $container,
         ?string $basePath,
         LoggerInterface $logger,
-        ClockInterface $clock,
         RunningProcessManager $processManager,
-        callable $skippedResultFactory
+        LocalDispatchResultFactory $resultFactory
     ) {
         $this->container = $container;
         $this->basePath = $basePath;
         $this->logger = $logger;
-        $this->clock = $clock;
         $this->processManager = $processManager;
-        $this->skippedResultFactory = $skippedResultFactory;
+        $this->resultFactory = $resultFactory;
     }
 
     /**
@@ -84,21 +75,25 @@ class LocalDispatcher implements ScheduleDispatcherInterface
      *
      * @param ClockAwareEvent $event The schedule event to execute
      * @param DateTimeInterface $dueAt Scheduled due time (unused in LocalDispatcher)
+     * @param \DateTimeImmutable $dispatchedAt Representative dispatch instant from the Orchestrator;
+     *        flows into the Result's dispatchedAt unchanged
      * @return DispatchResultInterface Dispatch result
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        DateTimeInterface $dueAt
+        DateTimeInterface $dueAt,
+        \DateTimeImmutable $dispatchedAt
     ): DispatchResultInterface {
         $identifier = $event->mutexName();
         $mutexAcquired = false;
 
         try {
             if ($event->withoutOverlapping && !$event->mutex->create($event)) {
-                return ($this->skippedResultFactory)(
+                return $this->resultFactory->skipped(
                     $identifier,
                     (string) $event->command,
-                    $this->clock->now()
+                    SkippedDispatchResultInterface::REASON_LOCK_NOT_ACQUIRED,
+                    $dispatchedAt
                 );
             }
             $mutexAcquired = $event->withoutOverlapping;
@@ -110,11 +105,11 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 $process = $this->createProcess($fullCommand);
                 $process->start();
 
-                $result = new StartedLocalDispatchResult(
+                $result = $this->resultFactory->started(
                     $process,
                     $identifier,
                     $fullCommand,
-                    $this->clock->now(),
+                    $dispatchedAt,
                     $event
                 );
                 $this->processManager->add($result);
@@ -138,7 +133,12 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 ]);
             }
 
-            return new StartedLocalDispatchResult($process, $identifier, $fullCommand, $this->clock->now());
+            return $this->resultFactory->started(
+                $process,
+                $identifier,
+                $fullCommand,
+                $dispatchedAt
+            );
         } catch (\Exception $e) {
             // Note: \Error is not caught (fatal errors propagate to the caller)
             if ($mutexAcquired) {
@@ -153,7 +153,12 @@ class LocalDispatcher implements ScheduleDispatcherInterface
                 }
             }
 
-            return new FailedLocalDispatchResult($identifier, $event->command, $e, $this->clock->now());
+            return $this->resultFactory->failed(
+                $identifier,
+                $event->command,
+                $e,
+                $dispatchedAt
+            );
         }
     }
 

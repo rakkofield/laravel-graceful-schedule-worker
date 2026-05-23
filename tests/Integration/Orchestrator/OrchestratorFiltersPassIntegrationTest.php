@@ -14,7 +14,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\NullSleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\FakeDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FakeStartedDispatchResult;
-use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\SkippedDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\TrackingDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
@@ -108,22 +108,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             $this->innerDispatcher,
             $tracker,
             $this->logger,
-            $this->clock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory($this->clock)
         );
 
         return new DefaultScheduleOrchestrator(
@@ -305,22 +290,7 @@ class OrchestratorFiltersPassIntegrationTest extends TestCase
             $this->innerDispatcher,
             $tracker,
             $this->logger,
-            $orchestratorClock,
-            function (
-                string $eventIdentifier,
-                string $eventCommand,
-                string $reason,
-                \DateTimeImmutable $dispatchedAt,
-                string $dispatcherType
-            ) {
-                return new SkippedDispatchResult(
-                    $eventIdentifier,
-                    $eventCommand,
-                    $reason,
-                    $dispatchedAt,
-                    $dispatcherType
-                );
-            }
+            new SkippedDispatchResultFactory($orchestratorClock)
         );
 
         $orchestrator = new DefaultScheduleOrchestrator(

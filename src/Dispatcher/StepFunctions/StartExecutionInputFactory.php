@@ -36,9 +36,12 @@ class StartExecutionInputFactory implements StartExecutionInputFactoryInterface
     /**
      * {@inheritdoc}
      */
-    public function create(ClockAwareEvent $event, DateTimeInterface $dueAt): StartExecutionInput
-    {
-        $payload = $this->payloadBuilder->build($event, $dueAt, $this->lockTtlSeconds);
+    public function create(
+        ClockAwareEvent $event,
+        DateTimeInterface $dueAt,
+        DateTimeInterface $dispatchedAt
+    ): StartExecutionInput {
+        $payload = $this->payloadBuilder->build($event, $dueAt, $this->lockTtlSeconds, $dispatchedAt);
         $executionName = $this->nameGenerator->generate($event, $dueAt);
 
         return new StartExecutionInput($executionName, $payload->toJson());

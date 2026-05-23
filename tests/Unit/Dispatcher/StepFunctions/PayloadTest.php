@@ -21,7 +21,8 @@ class PayloadTest extends TestCase
             'framework-schedule-run-abc123',
             '2024-01-15T10:30:00+09:00',
             'framework-schedule-run-abc123_1705282200',
-            1705285800
+            1705285800,
+            1705282200
         );
 
         $json = $payload->toJson();
@@ -32,6 +33,7 @@ class PayloadTest extends TestCase
         $this->assertSame('2024-01-15T10:30:00+09:00', $decoded['dueAt']);
         $this->assertSame('framework-schedule-run-abc123_1705282200', $decoded['lockKey']);
         $this->assertSame(1705285800, $decoded['expiresAt']);
+        $this->assertSame(1705282200, $decoded['dispatchedAt']);
     }
 
     /**
@@ -44,7 +46,8 @@ class PayloadTest extends TestCase
             'my-mutex',
             '2024-01-15T10:30:00+09:00',
             'my-lock-key',
-            3600
+            3600,
+            1705282200
         );
 
         $this->assertInstanceOf(PayloadInterface::class, $payload);
@@ -53,6 +56,7 @@ class PayloadTest extends TestCase
         $this->assertSame('2024-01-15T10:30:00+09:00', $payload->getDueAt());
         $this->assertSame('my-lock-key', $payload->getLockKey());
         $this->assertSame(3600, $payload->getExpiresAt());
+        $this->assertSame(1705282200, $payload->getDispatchedAt());
     }
 
     /**
@@ -65,7 +69,8 @@ class PayloadTest extends TestCase
             'mutex',
             '2024-01-15T10:30:00+09:00',
             'lock-key',
-            3600
+            3600,
+            1705282200
         );
 
         $this->expectException(PayloadEncodingException::class);
@@ -75,22 +80,23 @@ class PayloadTest extends TestCase
     }
 
     /**
-     * @testdox PY.4 toJson produces exactly 5 keys
+     * @testdox PY.4 toJson produces exactly 6 keys
      */
-    public function testToJsonProducesExactlyFiveKeys(): void
+    public function testToJsonProducesExactlySixKeys(): void
     {
         $payload = new Payload(
             ['command'],
             'mutex',
             '2024-01-15T10:30:00+09:00',
             'lock-key',
-            3600
+            3600,
+            1705282200
         );
 
         $decoded = json_decode($payload->toJson(), true);
 
-        $this->assertCount(5, $decoded);
-        $expectedKeys = ['command', 'mutexName', 'dueAt', 'lockKey', 'expiresAt'];
+        $this->assertCount(6, $decoded);
+        $expectedKeys = ['command', 'mutexName', 'dueAt', 'lockKey', 'expiresAt', 'dispatchedAt'];
         $this->assertSame($expectedKeys, array_keys($decoded));
     }
 }
