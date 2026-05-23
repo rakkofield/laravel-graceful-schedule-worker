@@ -157,7 +157,9 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
         // Evaluating with the current time against a past dueAt would produce incorrect results.
         // Return value is intentionally not checked here.
         // TrackingDispatcher handles result logging (failures are logged as warnings).
-        $this->dispatcher->dispatchEvent($event, $missedDue);
+        // For recovery, $dispatchedAt (= recovery wallclock) differs from $dueAt (= past missed due);
+        // the dispatcher needs both so AcquireLock and Result timestamps reflect the recovery moment.
+        $this->dispatcher->dispatchEvent($event, $missedDue, $this->clock->now());
     }
 
     /**
@@ -202,7 +204,10 @@ class DefaultScheduleOrchestrator implements ScheduleOrchestratorInterface
                 // TrackingDispatcher handles result-based failures (logging, tracking).
                 // Infrastructure failures (e.g. cache connection) stop the worker,
                 // as continuing in a partially functional state could cause missed tracking.
-                $this->dispatcher->dispatchEvent($event, $now);
+                // For ordinary dispatches $dispatchedAt equals $dueAt (the just-frozen Schedule clock);
+                // the third argument carries the same instant explicitly so the dispatcher
+                // does not need to hold a clock dependency.
+                $this->dispatcher->dispatchEvent($event, $now, $now);
             }
         };
 

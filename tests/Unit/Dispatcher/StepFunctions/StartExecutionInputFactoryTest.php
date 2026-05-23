@@ -27,6 +27,9 @@ class StartExecutionInputFactoryTest extends TestCase
     /** @var StartExecutionInputFactory */
     private $factory;
 
+    /** @var DateTimeImmutable */
+    private $dispatchedAt;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -43,6 +46,7 @@ class StartExecutionInputFactoryTest extends TestCase
             new PayloadBuilder(new LockKeyGenerator($sanitizer)),
             3600
         );
+        $this->dispatchedAt = new DateTimeImmutable('2024-01-15T10:30:05+09:00');
     }
 
     protected function tearDown(): void
@@ -65,7 +69,7 @@ class StartExecutionInputFactoryTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $input = $this->factory->create($event, $dueAt);
+        $input = $this->factory->create($event, $dueAt, $this->dispatchedAt);
 
         $this->assertInstanceOf(StartExecutionInput::class, $input);
         $this->assertStringContainsString('1705282200', $input->getName());
@@ -79,7 +83,7 @@ class StartExecutionInputFactoryTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $input = $this->factory->create($event, $dueAt);
+        $input = $this->factory->create($event, $dueAt, $this->dispatchedAt);
 
         $decoded = json_decode($input->getInput(), true);
         $this->assertSame(['php', 'artisan', 'report:daily'], $decoded['command']);
@@ -87,6 +91,7 @@ class StartExecutionInputFactoryTest extends TestCase
         $this->assertSame('2024-01-15T10:30:00+09:00', $decoded['dueAt']);
         $this->assertIsString($decoded['lockKey']);
         $this->assertSame($dueAt->getTimestamp() + 3600, $decoded['expiresAt']);
+        $this->assertSame($this->dispatchedAt->getTimestamp(), $decoded['dispatchedAt']);
     }
 
     /**
@@ -100,6 +105,6 @@ class StartExecutionInputFactoryTest extends TestCase
         $this->expectException(PayloadEncodingException::class);
         $this->expectExceptionMessage('Failed to encode input JSON');
 
-        $this->factory->create($event, $dueAt);
+        $this->factory->create($event, $dueAt, $this->dispatchedAt);
     }
 }

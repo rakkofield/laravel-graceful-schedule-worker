@@ -16,6 +16,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedDispatchResul
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\FailedStepFunctionsDispatchResult;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedDispatchResultInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StartedStepFunctionsDispatchResult;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StepFunctionsDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\FakeStepFunctionsClient;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
@@ -44,6 +45,9 @@ class StepFunctionsDispatcherTest extends TestCase
     /** @var DateTimeImmutable */
     private $dueAt;
 
+    /** @var DateTimeImmutable */
+    private $dispatchedAt;
+
     /** @var string */
     private $stateMachineArn = 'arn:aws:states:ap-northeast-1:123456789012:stateMachine:TestStateMachine';
 
@@ -58,6 +62,7 @@ class StepFunctionsDispatcherTest extends TestCase
         });
         $this->client = new FakeStepFunctionsClient($this->stateMachineArn);
         $this->dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+        $this->dispatchedAt = new DateTimeImmutable('2024-01-15 10:00:00');
     }
 
     protected function tearDown(): void
@@ -82,10 +87,11 @@ class StepFunctionsDispatcherTest extends TestCase
             $payloadBuilder,
             3600
         );
+        $resultFactory = new StepFunctionsDispatchResultFactory($clock);
         return new StepFunctionsDispatcher(
             $this->client,
             $inputFactory,
-            $clock
+            $resultFactory
         );
     }
 
@@ -97,7 +103,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $this->assertInstanceOf(DispatchResultInterface::class, $result);
         $this->assertInstanceOf(StartedStepFunctionsDispatchResult::class, $result);
@@ -114,7 +120,7 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->client->willThrowExecutionAlreadyExists('test-execution');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $this->assertInstanceOf(AlreadyRunningStepFunctionsDispatchResult::class, $result);
         $this->assertInstanceOf(AlreadyRunningDispatchResultInterface::class, $result);
@@ -128,7 +134,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -137,14 +143,14 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.4 Input JSON contains command, mutexName, dueAt, lockKey, and expiresAt
+     * @testdox SFD.4 Input JSON contains command, mutexName, dueAt, lockKey, expiresAt, and dispatchedAt
      */
     public function testInputContainsRequiredFields(): void
     {
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -155,11 +161,13 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertArrayHasKey('dueAt', $input);
         $this->assertArrayHasKey('lockKey', $input);
         $this->assertArrayHasKey('expiresAt', $input);
+        $this->assertArrayHasKey('dispatchedAt', $input);
         $this->assertSame(['php', 'artisan', 'report:daily'], $input['command']);
         $this->assertSame($event->mutexName(), $input['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $input['dueAt']);
         $this->assertIsString($input['lockKey']);
         $this->assertIsInt($input['expiresAt']);
+        $this->assertIsInt($input['dispatchedAt']);
     }
 
     /**
@@ -170,7 +178,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $this->assertSame('stepfunctions', $result->getDispatcherType());
     }
@@ -185,7 +193,7 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->client->willThrowError('Connection refused');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $this->assertInstanceOf(FailedStepFunctionsDispatchResult::class, $result);
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
@@ -208,7 +216,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $this->assertNotNull($result->getExecutionArn());
         $this->assertStringContainsString('arn:aws:states:', $result->getExecutionArn());
@@ -222,7 +230,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $this->assertSame($event->mutexName(), $result->getEventIdentifier());
     }
@@ -235,7 +243,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $this->assertSame('php artisan report:daily', $result->getEventCommand());
     }
@@ -250,7 +258,7 @@ class StepFunctionsDispatcherTest extends TestCase
 
         $this->client->willThrowError('Connection refused');
 
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $this->assertNotNull($result->getException());
         $this->assertSame('Connection refused', $result->getException()->getMessage());
@@ -296,7 +304,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->expectException(PayloadEncodingException::class);
         $this->expectExceptionMessage('Failed to encode input JSON');
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
     }
 
     /**
@@ -314,7 +322,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Database connection lost');
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
     }
 
     /**
@@ -326,7 +334,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $event->setRawCommand(['report:daily']);
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -344,7 +352,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         // rawCommand is null by default
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -361,7 +369,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -379,7 +387,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $dispatcher = $this->createDispatcher();
         $event = $this->createEvent('php artisan report:daily');
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -400,7 +408,7 @@ class StepFunctionsDispatcherTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $event->withoutOverlapping();
 
-        $dispatcher->dispatchEvent($event, $this->dueAt);
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
 
         $execution = $this->client->getLastExecution();
         $this->assertNotNull($execution);
@@ -426,14 +434,14 @@ class StepFunctionsDispatcherTest extends TestCase
         $event2->withoutOverlapping();
         $dueAt2 = new DateTimeImmutable('2024-01-15T11:00:00+09:00');
 
-        $dispatcher->dispatchEvent($event1, $dueAt1);
+        $dispatcher->dispatchEvent($event1, $dueAt1, $dueAt1);
         $executions1 = $this->client->getLastExecution();
 
         // Reset client for second dispatch
         $this->client = new FakeStepFunctionsClient($this->stateMachineArn);
         $dispatcher = $this->createDispatcher();
 
-        $dispatcher->dispatchEvent($event2, $dueAt2);
+        $dispatcher->dispatchEvent($event2, $dueAt2, $dueAt2);
         $executions2 = $this->client->getLastExecution();
 
         $this->assertNotNull($executions1);
@@ -443,5 +451,39 @@ class StepFunctionsDispatcherTest extends TestCase
         $input2 = json_decode($executions2['input'], true);
 
         $this->assertSame($input1['lockKey'], $input2['lockKey']);
+    }
+
+    /**
+     * @testdox SFD.23 dispatchedAt in payload equals the $dispatchedAt passed to dispatchEvent()
+     */
+    public function testDispatchedAtEqualsNowArgument(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+
+        $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
+
+        $execution = $this->client->getLastExecution();
+        $this->assertNotNull($execution);
+
+        $input = json_decode($execution['input'], true);
+        $this->assertSame($this->dispatchedAt->getTimestamp(), $input['dispatchedAt']);
+    }
+
+    /**
+     * @testdox SFD.24 dispatchedAt in payload matches result->getDispatchedAt() timestamp
+     */
+    public function testDispatchedAtInPayloadMatchesResultDispatchedAt(): void
+    {
+        $dispatcher = $this->createDispatcher();
+        $event = $this->createEvent('php artisan report:daily');
+
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dispatchedAt);
+
+        $execution = $this->client->getLastExecution();
+        $this->assertNotNull($execution);
+
+        $input = json_decode($execution['input'], true);
+        $this->assertSame($result->getDispatchedAt()->getTimestamp(), $input['dispatchedAt']);
     }
 }

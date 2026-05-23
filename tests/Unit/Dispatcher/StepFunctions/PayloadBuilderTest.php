@@ -30,6 +30,9 @@ class PayloadBuilderTest extends TestCase
     /** @var Container */
     private $app;
 
+    /** @var DateTimeImmutable */
+    private $dispatchedAt;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -44,6 +47,7 @@ class PayloadBuilderTest extends TestCase
         $this->app->bind(SchedulingMutex::class, function () {
             return new FakeSchedulingMutex();
         });
+        $this->dispatchedAt = new DateTimeImmutable('2024-01-15T10:30:05+09:00');
     }
 
     protected function tearDown(): void
@@ -70,7 +74,7 @@ class PayloadBuilderTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $this->assertInstanceOf(PayloadInterface::class, $payload);
         $this->assertSame(['php', 'artisan', 'report:daily'], $payload->getCommand());
@@ -84,7 +88,7 @@ class PayloadBuilderTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $this->assertSame($event->mutexName(), $payload->getMutexName());
     }
@@ -97,7 +101,7 @@ class PayloadBuilderTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $this->assertSame('2024-01-15T10:30:00+09:00', $payload->getDueAt());
     }
@@ -110,7 +114,7 @@ class PayloadBuilderTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $expectedExpiresAt = $dueAt->getTimestamp() + 3600;
         $this->assertSame($expectedExpiresAt, $payload->getExpiresAt());
@@ -125,7 +129,7 @@ class PayloadBuilderTest extends TestCase
         $event->setRawCommand(['report:daily']);
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $this->assertSame(['report:daily'], $payload->getCommand());
     }
@@ -138,7 +142,7 @@ class PayloadBuilderTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $this->assertStringContainsString((string) $dueAt->getTimestamp(), $payload->getLockKey());
     }
@@ -152,7 +156,7 @@ class PayloadBuilderTest extends TestCase
         $event->withoutOverlapping();
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $this->assertStringNotContainsString((string) $dueAt->getTimestamp(), $payload->getLockKey());
     }
@@ -165,7 +169,7 @@ class PayloadBuilderTest extends TestCase
         $event = $this->createEvent('php artisan report:daily');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
         $decoded = json_decode($payload->toJson(), true);
 
         $this->assertArrayHasKey('command', $decoded);
@@ -173,6 +177,7 @@ class PayloadBuilderTest extends TestCase
         $this->assertArrayHasKey('dueAt', $decoded);
         $this->assertArrayHasKey('lockKey', $decoded);
         $this->assertArrayHasKey('expiresAt', $decoded);
+        $this->assertArrayHasKey('dispatchedAt', $decoded);
     }
 
     /**
@@ -184,7 +189,7 @@ class PayloadBuilderTest extends TestCase
         $event->withoutOverlapping(30);
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $expectedExpiresAt = $dueAt->getTimestamp() + (30 * 60);
         $this->assertSame($expectedExpiresAt, $payload->getExpiresAt());
@@ -199,7 +204,7 @@ class PayloadBuilderTest extends TestCase
         $event->withoutOverlapping();
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
 
         $expectedExpiresAt = $dueAt->getTimestamp() + (1440 * 60);
         $this->assertSame($expectedExpiresAt, $payload->getExpiresAt());
@@ -216,12 +221,41 @@ class PayloadBuilderTest extends TestCase
         $event = $schedule->command('update-header-announces 1');
         $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
 
-        $payload = $this->builder->build($event, $dueAt, 3600);
+        $payload = $this->builder->build($event, $dueAt, 3600, $this->dispatchedAt);
         $decoded = json_decode($payload->toJson(), true);
 
         $this->assertSame(
             ['update-header-announces', '1'],
             $decoded['command']
         );
+    }
+
+    /**
+     * @testdox PB.12 build returns Payload with dispatchedAt = dispatchedAt timestamp
+     */
+    public function testBuildReturnsPayloadWithCorrectDispatchedAt(): void
+    {
+        $event = $this->createEvent('php artisan report:daily');
+        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+        $dispatchedAt = new DateTimeImmutable('2024-01-15T10:30:05+09:00');
+
+        $payload = $this->builder->build($event, $dueAt, 3600, $dispatchedAt);
+
+        $this->assertSame($dispatchedAt->getTimestamp(), $payload->getDispatchedAt());
+    }
+
+    /**
+     * @testdox PB.13 build keeps dispatchedAt independent from dueAt timestamp
+     */
+    public function testBuildKeepsDispatchedAtIndependentFromDueAt(): void
+    {
+        $event = $this->createEvent('php artisan report:daily');
+        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+        $dispatchedAt = new DateTimeImmutable('2024-01-15T10:32:42+09:00');
+
+        $payload = $this->builder->build($event, $dueAt, 3600, $dispatchedAt);
+
+        $this->assertNotSame($dueAt->getTimestamp(), $payload->getDispatchedAt());
+        $this->assertSame($dispatchedAt->getTimestamp(), $payload->getDispatchedAt());
     }
 }

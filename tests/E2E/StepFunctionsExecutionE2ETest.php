@@ -38,6 +38,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
     private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
 
     private const LOCK_TTL_SECONDS = 3600;
+    private const DISPATCH_INSTANT = StepFunctionsTestDispatcherFactory::DEFAULT_DISPATCH_INSTANT;
 
     private const STATE_MACHINE_PASS = 'GracefulSchedulerE2EPass';
     private const STATE_MACHINE_CHOICE = 'GracefulSchedulerE2EChoice';
@@ -149,9 +150,38 @@ final class StepFunctionsExecutionE2ETest extends TestCase
         );
     }
 
+    /**
+     * @testdox E2E.14 dispatchedAt is present in StartExecution input and propagates to the Pass output
+     */
+    public function testDispatchedAtIsPresentInInputAndPropagatesToOutput(): void
+    {
+        $arn = $this->env->stateMachineFixture()->ensureFromFile(
+            self::STATE_MACHINE_PASS,
+            $this->definitionPath('state-machine.json')
+        );
+
+        $command = 'php artisan dispatched-at:check-' . uniqid();
+        $result = $this->dispatch($arn, $command);
+        $description = $this->env->waiter()->waitForFinish($result->getExecutionArn());
+
+        $this->assertSame('SUCCEEDED', $description['status']);
+
+        $expectedTimestamp = (new DateTimeImmutable(self::DISPATCH_INSTANT))->getTimestamp();
+
+        $input = json_decode((string) $description['input'], true);
+        $this->assertIsArray($input);
+        $this->assertArrayHasKey('dispatchedAt', $input);
+        $this->assertSame($expectedTimestamp, $input['dispatchedAt']);
+
+        $output = json_decode((string) $description['output'], true);
+        $this->assertIsArray($output);
+        $this->assertArrayHasKey('dispatchedAt', $output);
+        $this->assertSame($expectedTimestamp, $output['dispatchedAt']);
+    }
+
     private function dispatch(string $stateMachineArn, string $command): StartedDispatchResultInterface
     {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $clock = new FixedClock(new DateTimeImmutable(self::DISPATCH_INSTANT));
         $dispatcher = StepFunctionsTestDispatcherFactory::create(
             $this->env->sfnClient(),
             $stateMachineArn,
@@ -167,7 +197,7 @@ final class StepFunctionsExecutionE2ETest extends TestCase
             null,
             new TimezoneResolver()
         );
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, new DateTimeImmutable(self::DISPATCH_INSTANT));
         if (!$result instanceof StartedDispatchResultInterface) {
             $this->fail(
                 'Dispatch did not start an execution: '
@@ -183,7 +213,8 @@ final class StepFunctionsExecutionE2ETest extends TestCase
             $this->mutex,
             $command,
             $this->dueAt,
-            self::LOCK_TTL_SECONDS
+            self::LOCK_TTL_SECONDS,
+            new DateTimeImmutable(self::DISPATCH_INSTANT)
         );
     }
 

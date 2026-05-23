@@ -9,8 +9,8 @@ use DateTimeImmutable;
 /**
  * Base class providing common dispatch result metadata.
  *
- * Concrete classes extend this to avoid repeating the 4 shared fields
- * (eventIdentifier, eventCommand, dispatcherType, dispatchedAt)
+ * Concrete classes extend this to avoid repeating the 5 shared fields
+ * (eventIdentifier, eventCommand, dispatcherType, dispatchedAt, recordedAt)
  * and their getter implementations.
  */
 abstract class AbstractDispatchResult implements DispatchResultInterface
@@ -27,22 +27,28 @@ abstract class AbstractDispatchResult implements DispatchResultInterface
     /** @var DateTimeImmutable */
     private $dispatchedAt;
 
+    /** @var DateTimeImmutable */
+    private $recordedAt;
+
     /**
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param string $dispatcherType
-     * @param DateTimeImmutable $dispatchedAt
+     * @param DateTimeImmutable $dispatchedAt Representative time of the dispatch event (sourced from the Orchestrator).
+     * @param DateTimeImmutable $recordedAt Moment this Result was constructed (set by the Result factory).
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
         string $dispatcherType,
-        DateTimeImmutable $dispatchedAt
+        DateTimeImmutable $dispatchedAt,
+        DateTimeImmutable $recordedAt
     ) {
         $this->eventIdentifier = $eventIdentifier;
         $this->eventCommand = $eventCommand;
         $this->dispatcherType = $dispatcherType;
         $this->dispatchedAt = $dispatchedAt;
+        $this->recordedAt = $recordedAt;
     }
 
     /**
@@ -75,6 +81,14 @@ abstract class AbstractDispatchResult implements DispatchResultInterface
     public function getDispatchedAt(): DateTimeImmutable
     {
         return $this->dispatchedAt;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getRecordedAt(): DateTimeImmutable
+    {
+        return $this->recordedAt;
     }
 
     /**

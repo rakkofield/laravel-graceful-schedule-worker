@@ -24,25 +24,31 @@ class Payload implements PayloadInterface
     /** @var int */
     private $expiresAt;
 
+    /** @var int */
+    private $dispatchedAt;
+
     /**
      * @param string[] $command
      * @param string $mutexName
      * @param string $dueAt ISO 8601 formatted date string
      * @param string $lockKey
      * @param int $expiresAt
+     * @param int $dispatchedAt Unix timestamp at dispatch time (used by AcquireLock as :now)
      */
     public function __construct(
         array $command,
         string $mutexName,
         string $dueAt,
         string $lockKey,
-        int $expiresAt
+        int $expiresAt,
+        int $dispatchedAt
     ) {
         $this->command = $command;
         $this->mutexName = $mutexName;
         $this->dueAt = $dueAt;
         $this->lockKey = $lockKey;
         $this->expiresAt = $expiresAt;
+        $this->dispatchedAt = $dispatchedAt;
     }
 
     /**
@@ -86,6 +92,14 @@ class Payload implements PayloadInterface
     }
 
     /**
+     * @return int
+     */
+    public function getDispatchedAt(): int
+    {
+        return $this->dispatchedAt;
+    }
+
+    /**
      * Encode the payload as a JSON string.
      *
      * @return string
@@ -99,6 +113,7 @@ class Payload implements PayloadInterface
             'dueAt' => $this->dueAt,
             'lockKey' => $this->lockKey,
             'expiresAt' => $this->expiresAt,
+            'dispatchedAt' => $this->dispatchedAt,
         ]);
 
         if ($encoded === false) {

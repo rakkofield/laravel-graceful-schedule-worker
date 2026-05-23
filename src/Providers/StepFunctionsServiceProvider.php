@@ -9,6 +9,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StepFunctionsDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
@@ -152,7 +153,9 @@ class StepFunctionsServiceProvider extends ServiceProvider
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);
 
-            return new StepFunctionsDispatcher($client, $inputFactory, $clock);
+            $resultFactory = new StepFunctionsDispatchResultFactory($clock);
+
+            return new StepFunctionsDispatcher($client, $inputFactory, $resultFactory);
         });
     }
 }

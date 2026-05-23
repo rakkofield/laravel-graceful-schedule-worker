@@ -38,6 +38,7 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
     private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
 
     private const LOCK_TTL_SECONDS = 3600;
+    private const DISPATCH_INSTANT = StepFunctionsTestDispatcherFactory::DEFAULT_DISPATCH_INSTANT;
 
     private const STATE_MACHINE_LAMBDA = 'GracefulSchedulerE2ELambda';
 
@@ -112,7 +113,7 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
 
     private function dispatch(string $stateMachineArn, string $command): StartedDispatchResultInterface
     {
-        $clock = new FixedClock(new DateTimeImmutable('2024-01-15 10:00:00'));
+        $clock = new FixedClock(new DateTimeImmutable(self::DISPATCH_INSTANT));
         $dispatcher = StepFunctionsTestDispatcherFactory::create(
             $this->env->sfnClient(),
             $stateMachineArn,
@@ -128,7 +129,7 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
             null,
             new TimezoneResolver()
         );
-        $result = $dispatcher->dispatchEvent($event, $this->dueAt);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, new DateTimeImmutable(self::DISPATCH_INSTANT));
         if (!$result instanceof StartedDispatchResultInterface) {
             $this->fail(
                 'Dispatch did not start an execution: '
@@ -144,7 +145,8 @@ final class StepFunctionsLambdaTaskE2ETest extends TestCase
             $this->mutex,
             $command,
             $this->dueAt,
-            self::LOCK_TTL_SECONDS
+            self::LOCK_TTL_SECONDS,
+            new DateTimeImmutable(self::DISPATCH_INSTANT)
         );
     }
 

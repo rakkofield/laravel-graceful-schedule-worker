@@ -41,11 +41,13 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
      *
      * @param ClockAwareEvent $event The schedule event to execute
      * @param DateTimeInterface $dueAt Scheduled due time
+     * @param \DateTimeImmutable $dispatchedAt Representative dispatch instant from the Orchestrator
      * @return DispatchResultInterface Dispatch result
      */
     public function dispatchEvent(
         ClockAwareEvent $event,
-        DateTimeInterface $dueAt
+        DateTimeInterface $dueAt,
+        \DateTimeImmutable $dispatchedAt
     ): DispatchResultInterface {
         $type = $event->getDispatcherType();
 
@@ -56,7 +58,7 @@ class CompositeDispatcher implements ScheduleDispatcherInterface
             );
         }
 
-        return $this->dispatchers[$type]->dispatchEvent($event, $dueAt);
+        return $this->dispatchers[$type]->dispatchEvent($event, $dueAt, $dispatchedAt);
     }
 
     /**

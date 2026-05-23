@@ -150,7 +150,7 @@ class ProviderWiringIntegrationTest extends TestCase
         );
         $dueAt = new DateTimeImmutable();
 
-        $result = $dispatcher->dispatchEvent($event, $dueAt);
+        $result = $dispatcher->dispatchEvent($event, $dueAt, $dueAt);
 
         $this->assertInstanceOf(StartedDispatchResultInterface::class, $result);
         $this->assertSame('local', $result->getDispatcherType());

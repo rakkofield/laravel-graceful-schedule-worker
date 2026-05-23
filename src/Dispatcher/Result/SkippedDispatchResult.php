@@ -22,15 +22,17 @@ class SkippedDispatchResult extends AbstractDispatchResult implements SkippedDis
      * @param string $reason Skip reason
      * @param DateTimeImmutable $dispatchedAt
      * @param string $dispatcherType
+     * @param DateTimeImmutable $recordedAt
      */
     public function __construct(
         string $eventIdentifier,
         string $eventCommand,
         string $reason,
         DateTimeImmutable $dispatchedAt,
-        string $dispatcherType
+        string $dispatcherType,
+        DateTimeImmutable $recordedAt
     ) {
-        parent::__construct($eventIdentifier, $eventCommand, $dispatcherType, $dispatchedAt);
+        parent::__construct($eventIdentifier, $eventCommand, $dispatcherType, $dispatchedAt, $recordedAt);
         $this->reason = $reason;
     }
 

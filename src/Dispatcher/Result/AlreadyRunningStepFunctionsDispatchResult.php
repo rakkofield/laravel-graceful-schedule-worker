@@ -23,14 +23,22 @@ class AlreadyRunningStepFunctionsDispatchResult extends AbstractDispatchResult i
      * @param string $eventIdentifier
      * @param string $eventCommand
      * @param DateTimeImmutable $dispatchedAt
+     * @param DateTimeImmutable $recordedAt
      */
     public function __construct(
         string $executionName,
         string $eventIdentifier,
         string $eventCommand,
-        DateTimeImmutable $dispatchedAt
+        DateTimeImmutable $dispatchedAt,
+        DateTimeImmutable $recordedAt
     ) {
-        parent::__construct($eventIdentifier, $eventCommand, DispatcherType::STEP_FUNCTIONS, $dispatchedAt);
+        parent::__construct(
+            $eventIdentifier,
+            $eventCommand,
+            DispatcherType::STEP_FUNCTIONS,
+            $dispatchedAt,
+            $recordedAt
+        );
         $this->executionName = $executionName;
     }
 

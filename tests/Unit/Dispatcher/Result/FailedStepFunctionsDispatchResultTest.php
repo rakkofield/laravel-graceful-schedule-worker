@@ -34,7 +34,8 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'framework/schedule-mutex',
             'php artisan schedule:run',
             $exception,
-            new DateTimeImmutable('2024-01-15 10:00:00')
+            new DateTimeImmutable('2024-01-15 10:00:00'),
+            new DateTimeImmutable()
         );
 
         $this->assertInstanceOf(FailedDispatchResultInterface::class, $result);
@@ -52,7 +53,8 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'framework/schedule-mutex',
             'php artisan schedule:run',
             $exception,
-            new DateTimeImmutable('2024-01-15 10:00:00')
+            new DateTimeImmutable('2024-01-15 10:00:00'),
+            new DateTimeImmutable()
         );
 
         $this->assertSame('stepfunctions', $result->getDispatcherType());
@@ -69,7 +71,8 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'framework/schedule-mutex',
             '',
             $exception,
-            new DateTimeImmutable('2024-01-15 10:00:00')
+            new DateTimeImmutable('2024-01-15 10:00:00'),
+            new DateTimeImmutable()
         );
 
         $this->assertSame('', $result->getEventCommand());
@@ -86,7 +89,8 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'framework/schedule-mutex',
             'php artisan schedule:run',
             $exception,
-            new DateTimeImmutable('2024-01-15 10:00:00')
+            new DateTimeImmutable('2024-01-15 10:00:00'),
+            new DateTimeImmutable()
         );
 
         $this->assertSame($exception, $result->getException());
@@ -104,7 +108,8 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'framework/schedule-mutex',
             'php artisan schedule:run',
             $exception,
-            $dispatchedAt
+            $dispatchedAt,
+            new DateTimeImmutable()
         );
 
         $this->assertInstanceOf(DateTimeImmutable::class, $result->getDispatchedAt());
@@ -122,7 +127,8 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'framework/schedule-mutex',
             'php artisan schedule:run',
             $exception,
-            new DateTimeImmutable('2024-01-15 10:00:00')
+            new DateTimeImmutable('2024-01-15 10:00:00'),
+            new DateTimeImmutable()
         );
 
         $this->assertSame('my-execution', $result->getExecutionName());
@@ -139,9 +145,29 @@ class FailedStepFunctionsDispatchResultTest extends TestCase
             'framework/schedule-mutex',
             'php artisan schedule:run',
             $exception,
-            new DateTimeImmutable('2024-01-15 10:00:00')
+            new DateTimeImmutable('2024-01-15 10:00:00'),
+            new DateTimeImmutable()
         );
 
         $this->assertSame('framework/schedule-mutex', $result->getEventIdentifier());
+    }
+
+    /**
+     * @testdox FSR.10 getRecordedAt returns constructor value
+     */
+    public function testGetRecordedAtReturnsConstructorValue(): void
+    {
+        $exception = new \RuntimeException('Connection refused');
+        $recordedAt = new DateTimeImmutable('2024-01-15 12:00:01');
+        $result = new FailedStepFunctionsDispatchResult(
+            'exec-1',
+            'framework/schedule-mutex',
+            'php artisan schedule:run',
+            $exception,
+            new DateTimeImmutable('2024-01-15 12:00:00'),
+            $recordedAt
+        );
+
+        $this->assertSame($recordedAt, $result->getRecordedAt());
     }
 }
