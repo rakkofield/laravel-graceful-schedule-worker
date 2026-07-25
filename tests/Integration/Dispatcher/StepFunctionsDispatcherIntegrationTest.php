@@ -42,6 +42,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     private const STATE_MACHINE_LOCK_NAME = 'GracefulSchedulerStateMachineLock';
     private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
     private const LOCK_TABLE_NAME = 'ScheduleExecutionLocks';
+    private const PREEXISTING_LOCK_HOLDER = 'arn:aws:states:preexisting-holder';
 
     /** @var string */
     private $stateMachineArn;
@@ -225,6 +226,252 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $this->assertArrayHasKey('dispatchedAt', $input);
         $this->assertIsInt($input['dispatchedAt']);
         $this->assertSame($result->getDispatchedAt()->getTimestamp(), $input['dispatchedAt']);
+    }
+
+    /**
+     * @testdox SFI.6 AcquireLock diverts a duplicate run to AlreadyRunning while a non-expired lock is held
+     */
+    public function testAcquireLockRejectsDuplicateWhileLockHeld(): void
+    {
+        $dynamoDb = $this->env->newDynamoDbClient();
+        $this->ensureLockTableExists($dynamoDb);
+
+        $lockStateMachineArn = $this->env->stateMachineFixture()->ensureFromFile(
+            self::STATE_MACHINE_LOCK_NAME,
+            __DIR__ . '/../../StepFunctions/state-machine-lock.json'
+        );
+
+        $event = $this->createEvent('php artisan test:dup-held-' . uniqid());
+        $lockKey = $this->lockKeyFor($event, $this->dueAt);
+
+        // Simulate a previous run that is still executing: its lock is held and
+        // expires far in the future (expiresAt > dispatchedAt), so the guard
+        // "attribute_not_exists(lockKey) OR expiresAt < :now" is false.
+        $this->seedLock($dynamoDb, $lockKey, $this->dueAt->getTimestamp() + 100000);
+
+        $dispatcher = $this->createDispatcher(null, $lockStateMachineArn);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
+
+        $executionArn = $result->getExecutionArn();
+        $this->assertNotNull($executionArn);
+
+        $description = $this->env->waiter()->waitForFinish($executionArn);
+        if ($description['status'] !== 'SUCCEEDED' && self::looksLikeMotoServiceIntegrationGap($description)) {
+            $this->markTestSkipped(sprintf(
+                'moto declined the AcquireLock state machine (status=%s, error=%s, cause=%s)',
+                $description['status'],
+                $description['error'] ?? '',
+                $description['cause'] ?? ''
+            ));
+        }
+
+        $entered = $this->enteredStates($executionArn);
+        $this->assertContains('AlreadyRunning', $entered, 'a duplicate run must divert to AlreadyRunning');
+        $this->assertNotContains('ExecuteTask', $entered, 'a duplicate run must NOT execute the task');
+
+        // The original holder still owns the lock: the duplicate neither stole nor released it.
+        $held = $dynamoDb->getItem([
+            'TableName' => self::LOCK_TABLE_NAME,
+            'Key' => ['lockKey' => ['S' => $lockKey]],
+        ]);
+        $this->assertSame(
+            self::PREEXISTING_LOCK_HOLDER,
+            $held['Item']['executionArn']['S'] ?? null,
+            'the pre-existing lock must remain owned by the original holder'
+        );
+    }
+
+    /**
+     * @testdox SFI.7 AcquireLock reclaims an expired lock and runs the task (TTL steal)
+     */
+    public function testAcquireLockReclaimsExpiredLock(): void
+    {
+        $dynamoDb = $this->env->newDynamoDbClient();
+        $this->ensureLockTableExists($dynamoDb);
+
+        $lockStateMachineArn = $this->env->stateMachineFixture()->ensureFromFile(
+            self::STATE_MACHINE_LOCK_NAME,
+            __DIR__ . '/../../StepFunctions/state-machine-lock.json'
+        );
+
+        $event = $this->createEvent('php artisan test:dup-expired-' . uniqid());
+        $lockKey = $this->lockKeyFor($event, $this->dueAt);
+
+        // Simulate a previous run whose lock has already expired
+        // (expiresAt < dispatchedAt), so the guard clause "expiresAt < :now" is true.
+        $this->seedLock($dynamoDb, $lockKey, $this->dueAt->getTimestamp() - 10);
+
+        $dispatcher = $this->createDispatcher(null, $lockStateMachineArn);
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
+
+        $executionArn = $result->getExecutionArn();
+        $this->assertNotNull($executionArn);
+
+        $description = $this->env->waiter()->waitForFinish($executionArn);
+        if ($description['status'] !== 'SUCCEEDED' && self::looksLikeMotoServiceIntegrationGap($description)) {
+            $this->markTestSkipped(sprintf(
+                'moto declined the AcquireLock state machine (status=%s, error=%s, cause=%s)',
+                $description['status'],
+                $description['error'] ?? '',
+                $description['cause'] ?? ''
+            ));
+        }
+
+        $this->assertSame('SUCCEEDED', $description['status']);
+
+        $entered = $this->enteredStates($executionArn);
+        $this->assertContains('ExecuteTask', $entered, 'an expired lock must be reclaimed and the task executed');
+        $this->assertNotContains('AlreadyRunning', $entered, 'an expired lock must not divert to AlreadyRunning');
+    }
+
+    /**
+     * @testdox SFI.8 A normal event overlaps across slots: a later slot runs while the earlier lock is held
+     */
+    public function testNormalEventDoesNotDedupeAcrossSlots(): void
+    {
+        $dynamoDb = $this->env->newDynamoDbClient();
+        $this->ensureLockTableExists($dynamoDb);
+
+        $lockStateMachineArn = $this->env->stateMachineFixture()->ensureFromFile(
+            self::STATE_MACHINE_LOCK_NAME,
+            __DIR__ . '/../../StepFunctions/state-machine-lock.json'
+        );
+
+        // A normal (no withoutOverlapping) event, dispatched for two different slots.
+        $event = $this->createEvent('php artisan test:no-overlap-flag-' . uniqid());
+        $slot1 = new DateTimeImmutable('2026-07-25 10:00:00');
+        $slot2 = new DateTimeImmutable('2026-07-25 10:10:00');
+
+        // Per-slot lockKeys differ because the timestamp is part of the key.
+        $this->assertNotSame(
+            $this->lockKeyFor($event, $slot1),
+            $this->lockKeyFor($event, $slot2),
+            'normal events must produce a distinct lockKey per slot'
+        );
+
+        // The first slot is still running and holds its lock (not expired).
+        $this->seedLock($dynamoDb, $this->lockKeyFor($event, $slot1), $slot2->getTimestamp() + 100000);
+
+        // Dispatch the second slot: it uses a different lockKey, so AcquireLock succeeds.
+        $dispatcher = $this->createDispatcher(null, $lockStateMachineArn);
+        $result = $dispatcher->dispatchEvent($event, $slot2, $slot2);
+
+        $executionArn = $result->getExecutionArn();
+        $this->assertNotNull($executionArn);
+
+        $description = $this->env->waiter()->waitForFinish($executionArn);
+        if ($description['status'] !== 'SUCCEEDED' && self::looksLikeMotoServiceIntegrationGap($description)) {
+            $this->markTestSkipped(sprintf(
+                'moto declined the AcquireLock state machine (status=%s, error=%s, cause=%s)',
+                $description['status'],
+                $description['error'] ?? '',
+                $description['cause'] ?? ''
+            ));
+        }
+
+        // The second slot runs concurrently with the first: cross-slot dedup does NOT happen.
+        $entered = $this->enteredStates($executionArn);
+        $this->assertContains(
+            'ExecuteTask',
+            $entered,
+            'a normal event overlaps across slots because each slot uses a distinct lockKey'
+        );
+    }
+
+    /**
+     * @testdox SFI.9 withoutOverlapping blocks a later slot while an earlier slot's lock is held (cross-slot dedup)
+     */
+    public function testWithoutOverlappingDedupesAcrossSlots(): void
+    {
+        $dynamoDb = $this->env->newDynamoDbClient();
+        $this->ensureLockTableExists($dynamoDb);
+
+        $lockStateMachineArn = $this->env->stateMachineFixture()->ensureFromFile(
+            self::STATE_MACHINE_LOCK_NAME,
+            __DIR__ . '/../../StepFunctions/state-machine-lock.json'
+        );
+
+        // Same event, but declared withoutOverlapping, dispatched for two different slots.
+        $event = $this->createEvent('php artisan test:with-overlap-flag-' . uniqid());
+        $event->withoutOverlapping();
+        $slot1 = new DateTimeImmutable('2026-07-25 10:00:00');
+        $slot2 = new DateTimeImmutable('2026-07-25 10:10:00');
+
+        // The lockKey is stable across slots (no timestamp), so the two slots collide.
+        $this->assertSame(
+            $this->lockKeyFor($event, $slot1),
+            $this->lockKeyFor($event, $slot2),
+            'withoutOverlapping events must produce a stable lockKey across slots'
+        );
+
+        // The first slot is still running and holds its lock (not expired).
+        $this->seedLock($dynamoDb, $this->lockKeyFor($event, $slot1), $slot2->getTimestamp() + 100000);
+
+        // Dispatch the second slot: it shares the lockKey, so AcquireLock is rejected.
+        $dispatcher = $this->createDispatcher(null, $lockStateMachineArn);
+        $result = $dispatcher->dispatchEvent($event, $slot2, $slot2);
+
+        $executionArn = $result->getExecutionArn();
+        $this->assertNotNull($executionArn);
+
+        $description = $this->env->waiter()->waitForFinish($executionArn);
+        if ($description['status'] !== 'SUCCEEDED' && self::looksLikeMotoServiceIntegrationGap($description)) {
+            $this->markTestSkipped(sprintf(
+                'moto declined the AcquireLock state machine (status=%s, error=%s, cause=%s)',
+                $description['status'],
+                $description['error'] ?? '',
+                $description['cause'] ?? ''
+            ));
+        }
+
+        // The second slot is blocked: cross-slot dedup works.
+        $entered = $this->enteredStates($executionArn);
+        $this->assertContains('AlreadyRunning', $entered, 'withoutOverlapping must block the overlapping slot');
+        $this->assertNotContains('ExecuteTask', $entered, 'the blocked slot must not execute the task');
+    }
+
+    /**
+     * Compute the exact lockKey the dispatcher will send for the given event/dueAt.
+     */
+    private function lockKeyFor(ClockAwareEvent $event, DateTimeImmutable $dueAt): string
+    {
+        return (new LockKeyGenerator(new MutexNameSanitizer()))->generate($event, $dueAt);
+    }
+
+    /**
+     * Seed the lock table with a pre-existing lock owned by another execution.
+     */
+    private function seedLock(DynamoDbClient $client, string $lockKey, int $expiresAt): void
+    {
+        $client->putItem([
+            'TableName' => self::LOCK_TABLE_NAME,
+            'Item' => [
+                'lockKey' => ['S' => $lockKey],
+                'executionArn' => ['S' => self::PREEXISTING_LOCK_HOLDER],
+                'expiresAt' => ['N' => (string) $expiresAt],
+            ],
+        ]);
+    }
+
+    /**
+     * Names of the states entered during the execution, in order.
+     *
+     * @return string[]
+     */
+    private function enteredStates(string $executionArn): array
+    {
+        $history = $this->env->sfnClient()->getExecutionHistory([
+            'executionArn' => $executionArn,
+            'maxResults' => 100,
+        ]);
+
+        $states = [];
+        foreach ($history['events'] as $event) {
+            if (isset($event['stateEnteredEventDetails']['name'])) {
+                $states[] = $event['stateEnteredEventDetails']['name'];
+            }
+        }
+        return $states;
     }
 
     /**

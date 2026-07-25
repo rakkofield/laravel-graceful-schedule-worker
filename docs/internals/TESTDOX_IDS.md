@@ -79,7 +79,7 @@
 | Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 5 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
 | Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 7 |
-| Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 5 |
+| Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 9 |
 | Dispatcher/TrackingDispatcherRedisIntegrationTest | `TDI` | 6 |
 | Tracker/CacheExecutionTrackerRedisTest | `CTI` | 7 |
 | Providers/ProviderBootIntegrationTest | `GPI` | 7 |
