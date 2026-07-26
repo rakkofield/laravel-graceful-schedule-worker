@@ -27,6 +27,11 @@
         "sort-packages": true,
         "audit": {
             "block-insecure": false
+        },
+        "policy": {
+            "advisories": {
+                "block": false
+            }
         }
     },
     "extra": {
