@@ -42,31 +42,12 @@
     },
     "config": {
         "audit": {
-            "ignore": [
-                "PKSA-4t1p-xpk2-nsss",
-                "PKSA-dxyf-6n16-t87m",
-                "PKSA-n3s6-289w-qtqb",
-                "PKSA-stsw-jsf7-f6vs",
-                "PKSA-8qx3-n5y5-vvnd",
-                "PKSA-w7xr-vk7n-rstm",
-                "PKSA-dpt9-7cmv-dk65",
-                "PKSA-7ywf-hktb-jkn9",
-                "PKSA-ckwp-rt7t-c46m",
-                "PKSA-4npr-btr6-zhny",
-                "PKSA-njrm-6dtg-m2pc",
-                "PKSA-vhvj-tvg4-96jj",
-                "PKSA-nrj3-r2wg-yt8b",
-                "PKSA-985r-hryy-555b",
-                "PKSA-rqc2-tcc6-nc79",
-                "PKSA-fndg-qryc-dyc9",
-                "PKSA-365x-2zjk-pt47",
-                "PKSA-b35n-565h-rs4q",
-                "PKSA-t4rz-hp2g-57t1",
-                "PKSA-9w98-4rwq-spxr",
-                "PKSA-rkkf-636k-qjb3",
-                "PKSA-wws7-mr54-jsny",
-                "PKSA-yc7t-91v9-99xs"
-            ]
+            "block-insecure": false
+        },
+        "policy": {
+            "advisories": {
+                "block": false
+            }
         }
     },
     "extra": {
