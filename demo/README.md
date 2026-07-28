@@ -117,8 +117,8 @@ docker compose run --rm -e SFN_ENDPOINT=http://moto:5000 php php bin/check-stepf
 
 ```
 Name                   Command                    Status     Start Date           Timeout LockLeft
-framework-schedule-b.. echo "sfn-task-executed"   SUCCEEDED  2026-07-28 12:00:00     3540     3600
-framework-schedule-9.. echo "sfn-task-with-tim..  SUCCEEDED  2026-07-28 12:00:00      120     3600
+framework-schedule-b.. echo "sfn-task-executed"   RUNNING    2026-07-28 12:00:00     3540     3600
+framework-schedule-9.. echo "sfn-task-with-tim..  RUNNING    2026-07-28 12:00:00      120     3600
 ```
 
 Execution names are sha1-based, so the `Command` column is what identifies a row.
