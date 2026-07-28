@@ -23,6 +23,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGener
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\MutexNameSanitizer;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTimeoutSettings;
 use RakkoInc\LaravelGracefulScheduleWorker\Moto\MotoSfnTestEnvironment;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
@@ -40,6 +41,7 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
     private const REGION = 'ap-northeast-1';
     private const STATE_MACHINE_NAME = 'GracefulSchedulerStateMachine';
     private const STATE_MACHINE_LOCK_NAME = 'GracefulSchedulerStateMachineLock';
+    private const STATE_MACHINE_TIMEOUT_PATH_NAME = 'GracefulSchedulerStateMachineTimeoutPath';
     private const STEP_FUNCTIONS_ROLE_NAME = 'stepfunctions-role';
     private const LOCK_TABLE_NAME = 'ScheduleExecutionLocks';
     private const PREEXISTING_LOCK_HOLDER = 'arn:aws:states:preexisting-holder';
@@ -428,6 +430,53 @@ class StepFunctionsDispatcherIntegrationTest extends TestCase
         $entered = $this->enteredStates($executionArn);
         $this->assertContains('AlreadyRunning', $entered, 'withoutOverlapping must block the overlapping slot');
         $this->assertNotContains('ExecuteTask', $entered, 'the blocked slot must not execute the task');
+    }
+
+    /**
+     * @testdox SFI.10 A Task state taking its timeout from the payload (TimeoutSecondsPath) is accepted
+     */
+    public function testStateMachineWithTimeoutSecondsPathIsAccepted(): void
+    {
+        // CreateStateMachine validates the ASL, so a definition that reads the
+        // Task timeout from our payload field being accepted is what this asserts.
+        // Whether the resolved value actually bounds the run is AWS behaviour and
+        // cannot be exercised here: moto cannot run the ECS integration.
+        $arn = $this->env->stateMachineFixture()->ensureFromFile(
+            self::STATE_MACHINE_TIMEOUT_PATH_NAME,
+            __DIR__ . '/../../StepFunctions/state-machine-timeout-path.json'
+        );
+
+        $described = $this->env->sfnClient()->describeStateMachine(['stateMachineArn' => $arn]);
+        $definition = json_decode((string) $described['definition'], true);
+
+        $this->assertSame(
+            '$.timeoutSeconds',
+            $definition['States']['InvokeWorker']['TimeoutSecondsPath'] ?? null
+        );
+        $this->assertArrayNotHasKey(
+            'TimeoutSeconds',
+            $definition['States']['InvokeWorker'],
+            'TimeoutSeconds and TimeoutSecondsPath are mutually exclusive'
+        );
+
+        // The path the definition points at must exist in what we actually dispatch.
+        $dispatcher = $this->createDispatcher(null, $arn);
+        $event = $this->createEvent('php artisan test:timeout-path-' . uniqid());
+        $result = $dispatcher->dispatchEvent($event, $this->dueAt, $this->dueAt);
+
+        $executionArn = $result->getExecutionArn();
+        $this->assertNotNull($executionArn);
+
+        $description = $this->env->sfnClient()->describeExecution(['executionArn' => $executionArn]);
+        $input = json_decode((string) $description['input'], true);
+
+        // Exact, not just positive: createDispatcher() hardcodes lockTtl 3600 and this
+        // dispatch has dispatchedAt == dueAt, so the derived value is deterministic.
+        // Asserting only "> 0" would pass even if the derivation were replaced wholesale.
+        $this->assertSame(
+            3600 - StepFunctionsTimeoutSettings::DEFAULT_LOCK_RELEASE_BUFFER,
+            $input['timeoutSeconds']
+        );
     }
 
     /**

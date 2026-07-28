@@ -1,0 +1,16 @@
+{
+  "Comment": "Asserts that a Task state whose timeout comes from the dispatched payload (TimeoutSecondsPath: $.timeoutSeconds) is accepted by CreateStateMachine. Pass states cannot carry TimeoutSecondsPath, so this fixture uses a Task state. Whether the resolved value actually bounds the run is AWS behaviour and only verifiable against real AWS.",
+  "StartAt": "InvokeWorker",
+  "States": {
+    "InvokeWorker": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "TimeoutSecondsPath": "$.timeoutSeconds",
+      "Parameters": {
+        "FunctionName": "graceful-scheduler-worker",
+        "Payload.$": "$"
+      },
+      "End": true
+    }
+  }
+}

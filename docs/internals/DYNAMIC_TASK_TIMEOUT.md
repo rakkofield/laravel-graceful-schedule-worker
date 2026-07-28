@@ -5,7 +5,7 @@
 
 | Item | Value |
 |---|---|
-| Status | Design proposal (not implemented) |
+| Status | Implemented on the library side (`timeoutSeconds` is always in the payload). Switching the state machine to `TimeoutSecondsPath` is the consumer's step, see [Migration Order](#migration-order) |
 | Created | 2026-07-28 |
 | Scope | Making the Step Functions Task state timeout vary per job |
 
@@ -70,7 +70,7 @@ application.
 
 The lock TTL, by contrast, is decided per event.
 
-`src/Dispatcher/StepFunctions/PayloadBuilder.php:42-43`
+`PayloadBuilder::build()`
 
 ```php
 $lockTtl   = $event->resolveLockTtlSeconds($lockTtlSeconds);
@@ -96,12 +96,14 @@ not used.
 
 ### The Payload Today
 
-`Payload::toJson()` (`src/Dispatcher/StepFunctions/Payload.php:108-117`) emits these six keys. None of them
-corresponds to a timeout.
+**Before this design was implemented**, `Payload::toJson()` emitted these six keys, none of which corresponds to
+a timeout.
 
 ```
 command / mutexName / dueAt / lockKey / expiresAt / dispatchedAt
 ```
+
+It now emits seven, including `timeoutSeconds`.
 
 ---
 
@@ -211,31 +213,84 @@ independently of the TTL.**
 ## Derivation
 
 ```php
-$expiresAt      = $dueAt->getTimestamp() + $lockTtl;
-$timeoutSeconds = max(1, $expiresAt - $dispatchedAt->getTimestamp() - $buffer);
+$expiresAt = $dueAt->getTimestamp() + $lockTtl;
+$usable    = $expiresAt - $dispatchedAt->getTimestamp() - $lockReleaseBuffer;
+
+$timeoutSeconds = $usable >= $minTaskTimeout
+    ? $usable                                              // Regime 1: the lock can host this run
+    : max($minTaskTimeout, $lockTtl - $lockReleaseBuffer);  // Regime 2: it cannot
 ```
 
-`PayloadBuilder::build()` already receives both `$dueAt` and `$dispatchedAt`, so no additional input is needed.
+`StepFunctionsTimeoutSettings::deriveTimeoutSeconds()` owns this. `PayloadBuilder::build()` already receives
+both `$dueAt` and `$dispatchedAt`, so no additional input is needed.
 
-### Why Base It on Remaining Lock Lifetime
+### Regime 1: Why Base It on Remaining Lock Lifetime
 
-The reason for `$expiresAt - $dispatchedAt - $buffer` rather than a plain `$lockTtl - $buffer` is that it
-**absorbs dispatch latency automatically**.
+The reason for `$expiresAt - $dispatchedAt - $lockReleaseBuffer` rather than a plain
+`$lockTtl - $lockReleaseBuffer` is that it **absorbs dispatch latency**.
 
 `expiresAt` is anchored to `dueAt` (the scheduled time), while the actual dispatch happens later. With
-`$lockTtl - $buffer`, the task can outlive the lock by exactly that delay. Basing it on the remaining lock lifetime
-shrinks the timeout by however late the dispatch was, so **the task overtaking the lock becomes structurally
-impossible**.
+`$lockTtl - $lockReleaseBuffer`, the task can outlive the lock by exactly that delay. Basing it on the remaining
+lock lifetime shrinks the timeout by however late the dispatch was, so **overtaking caused by dispatch latency
+cannot happen** - which is not the same as no overtaking at all, see
+[What the buffer pays for](#what-the-buffer-pays-for).
+
+### Regime 2: Stop Tracking When the Lock Cannot Host the Run
+
+Once the remaining lock lifetime falls below `min_task_timeout`, **no return value lets the lock exclude a
+concurrent run**. Clamping to one second there would only kill the task while protecting nothing. Two shapes reach
+this regime:
+
+1. **A recovery dispatch.** `DefaultScheduleOrchestrator::recoverMissedEvent()` passes the past missed slot as
+   `dueAt` and recovery wallclock as `dispatchedAt`, so `expiresAt` is already behind us. Continuing to track it
+   would make **every recovery dispatch die on an immediate timeout**.
+2. **A `withoutOverlapping($minutes)` window near the buffer.** `withoutOverlapping(1)` declares a 60-second
+   lifetime, which the default 60-second buffer consumes entirely.
+
+In this regime the derivation falls back to the lifetime the event itself declared
+(`$lockTtl - $lockReleaseBuffer`), never below `min_task_timeout`.
+
+**That fallback can return a timeout outlasting `expiresAt`.** It is a deliberate trade: the lock has already lost
+the ability to exclude a concurrent run, and a task killed after one second cannot do the work it was dispatched
+for.
 
 ### Parameters
 
 | Item | Default | Notes |
 |---|---|---|
-| `stepfunctions.timeout_buffer` | 60 seconds | Headroom for releasing the lock. Configurable |
-| Clamp | `max(1, ...)` | A floor is needed because zero or negative values raise `States.Runtime` |
+| `stepfunctions.lock_release_buffer` | 60 seconds | The margin kept between the Task timeout and the lock expiry, so the lock-release path still runs while the lock is ours. It reserves room for the lock, not for the job: the derived timeout is the remaining lock lifetime *minus* this value |
+| `stepfunctions.min_task_timeout` | 60 seconds | The floor at which the derivation switches to regime 2 |
 
-Clamping with `max(1, ...)` silently swallows misconfiguration, so `StepFunctionsServiceProvider` should reject
-`lock_ttl <= timeout_buffer` at boot. That is lighter than injecting a logger into `PayloadBuilder`.
+The name matters here. `lock_release_buffer` is not headroom added on top of an expected job duration - with the
+lock lifetime fixed, the timeout's ceiling is fixed too, so the only thing this value can do is subtract. Adding
+headroom instead would require a separate "how long does this job take" input, which is option B
+([future work](#future-work-option-b-dedicated-fluent-api)).
+
+### What the Buffer Pays For
+
+`TimeoutSeconds` is measured **from Task-state entry**. The derivation absorbs latency up to StartExecution;
+past that point `lock_release_buffer` is the only margin left, and it pays for three things:
+
+1. StartExecution -> `AcquireLock` -> `RunEcsTask` entry latency (plus exponential backoff if `AcquireLock` retries)
+2. The time between `States.Timeout` making the `.sync` integration call StopTask and **the container actually
+   going away** (ECS `stopTimeout` defaults to 30s, up to 120s)
+3. The lock-release path (`Catch` -> delete the lock item)
+
+The invariant to protect is not "the Task state times out" but "the container is gone before `expiresAt`", so (2)
+cannot be ignored. **Given that this library exists for long graceful shutdowns after SIGTERM, raise
+`lock_release_buffer` alongside any raised `stopTimeout`.**
+
+### Scope of the Validation
+
+`StepFunctionsTimeoutSettings` holds five rules: it rejects `lock_ttl < 1`, `lock_release_buffer < 1`,
+`min_task_timeout < 1`, `lock_ttl <= lock_release_buffer`, and `min_task_timeout > lock_ttl - lock_release_buffer`.
+
+**The validation only sees config-supplied values.** A lifetime an event declares through
+`withoutOverlapping($minutes)` comes straight from `ClockAwareEvent::resolveLockTtlSeconds()` and never passes
+through the type's constructor (the derivation does). Throwing per event is not available: the orchestrator
+deliberately lets `dispatchEvent` errors propagate, so one mis-declared event would stop the whole worker.
+For event-supplied lifetimes, `min_task_timeout` guarantees only that the run is not killed instantly; the rest is
+an audit step in [Migration Order](#migration-order) and a documented consequence.
 
 ---
 
@@ -244,22 +299,34 @@ Clamping with `max(1, ...)` silently swallows misconfiguration, so `StepFunction
 | File | Change | Backwards compatible |
 |---|---|---|
 | `src/Dispatcher/StepFunctions/Payload.php` | 7th constructor argument `int $timeoutSeconds` (**required**), getter, and a key in `toJson()` | Breaking ([see below](#making-timeoutseconds-a-required-argument)) |
-| `src/Dispatcher/StepFunctions/PayloadBuilder.php` | Accept the buffer and derive the value | Constructor's 2nd argument is optional (default 60) |
-| `src/Providers/StepFunctionsServiceProvider.php:117` | Read the buffer from config and inject it; validate at boot | — |
-| `config/graceful-scheduler.php:32` area | Add `timeout_buffer` | — |
+| `src/Dispatcher/StepFunctions/PayloadBuilder.php` | Accept the settings and delegate the derivation | Constructor's 2nd argument is optional (built from the defaults) |
+| `src/Dispatcher/StepFunctions/StepFunctionsTimeoutSettings.php` | New: validates the three settings and owns the derivation | New file |
+| `src/Providers/StepFunctionsServiceProvider.php` | Bind the settings once from config; `PayloadBuilder` and the input factory both read them from there. Non-numeric second values are rejected | — |
+| `config/graceful-scheduler.php` `stepfunctions` | Add `lock_release_buffer` and `min_task_timeout` | — |
 
 ### Test Updates
 
 | File | Change |
 |---|---|
-| `tests/Unit/Dispatcher/StepFunctions/PayloadTest.php:99` | Add the key to `$expectedKeys` |
-| `tests/Unit/Dispatcher/StepFunctionsDispatcherTest.php:146` | Update the key-set assertion in SFD.4 |
-| `tests/Unit/Dispatcher/StepFunctions/PayloadBuilderTest.php` | Add derivation cases (with and without dispatch delay, clamp boundary) |
+| `PayloadTest` (PY.4 / PY.5) | Add the key to `$expectedKeys`; value independence and the `>= 1` guard |
+| `StepFunctionsDispatcherTest` (SFD.4) | Update the key-set assertion |
+| `PayloadBuilderTest` (PB.14-24) | Derivation cases: delay present/absent, the floor boundary, the regime-2 fallback, recovery shape, `withoutOverlapping(1)` |
+| `StepFunctionsTimeoutSettingsTest` (STS.1-22, new) | The validation rules and the derivation itself |
+| `StepFunctionsServiceProviderTest` (SFP.13-22) | Config reading and wiring (which setting reaches which consumer) |
+| `ProviderBootIntegrationTest` (GPI.8) | The shipped config defaults match the constants |
 
 ### Impact on Existing Consumers
 
-The execution input gains one key. State machines that do not declare `TimeoutSecondsPath` ignore it, and the size
-increase is negligible against the Step Functions input limit (256 KB).
+**There are three breaking changes.**
+
+| Change | Who is affected |
+|---|---|
+| `Payload`'s 7th argument becomes required | Custom `PayloadBuilder`s that `new Payload(...)` directly ([below](#making-timeoutseconds-a-required-argument)) |
+| `lock_ttl <= lock_release_buffer` is rejected at startup | Anyone with `SCHEDULE_SF_LOCK_TTL` at 60 or below. It used to be harmless (events without `withoutOverlapping` get a `dueAt`-scoped lock key, so the TTL had no effect); now the worker refuses to start. `CompositeDispatcher` resolves the Step Functions dispatcher whenever `state_machine_arn` is non-empty, so `dispatch=local` deployments are caught too |
+| `withoutOverlapping($minutes)` starts deciding the ECS timeout | Everyone who switches their state machine to `TimeoutSecondsPath`. Do the audit in [Migration Order](#migration-order) |
+
+The execution input itself gains one key. State machines that do not declare `TimeoutSecondsPath` ignore it, and the
+size increase is negligible against the Step Functions input limit (256 KB).
 
 ### Making timeoutSeconds a Required Argument
 
@@ -270,6 +337,8 @@ null" and `TimeoutSecondsPath` is precisely the failure mode this design sets ou
 raises `States.Runtime`, which is non-retriable and always fails the execution. Rather than living with "the type
 allows null but in practice a value is always present", we guarantee at the type level that
 **if a `Payload` exists, `timeoutSeconds` is in the JSON**.
+Presence alone is not enough either, so the constructor also validates `timeoutSeconds >= 1`: zero and negative
+values resolve to `States.Runtime`, so the argument for making it required applies to the value as well.
 
 #### Blast Radius
 
@@ -277,7 +346,7 @@ allows null but in practice a value is always present", we guarantee at the type
 
 | Location | Action |
 |---|---|
-| `src/Dispatcher/StepFunctions/PayloadBuilder.php:45` | Pass the derived value |
+| `PayloadBuilder::build()` | Pass the derived value |
 | `tests/Unit/Dispatcher/StepFunctions/PayloadTest.php` (4 call sites) | Add the argument |
 
 External impact is limited to custom `PayloadBuilder` implementations that instantiate `Payload` directly. Those
@@ -287,7 +356,7 @@ system cannot enforce it.
 
 #### Why the Buffer Argument Stays Optional
 
-The buffer added to `PayloadBuilder`'s constructor is optional (default 60). Any integer works and an unset value
+The second `PayloadBuilder` constructor argument (`?StepFunctionsTimeoutSettings`) is optional; an unset value
 falls back to a sensible default, so unlike `timeoutSeconds` it does not have the property that "unset leads directly
 to a runtime failure".
 
@@ -366,16 +435,42 @@ Per-state timeouts apply **per attempt**, so `MaxAttempts: 3` stretches the wors
 
 ## Migration Order
 
-**The order matters.** `$.timeoutSeconds` does not exist in the payload today, and an unresolvable path fails the
-execution immediately with a non-retriable `States.Runtime`.
+**The order matters.** Until the application is deployed, `$.timeoutSeconds` is absent from the payload, and an
+unresolvable path fails the execution immediately with a non-retriable `States.Runtime`.
 
 1. **Deploy the application first** — so the payload carries `timeoutSeconds`
    (harmless at this point, since the state machine simply ignores it)
 2. Confirm that deployed execution inputs contain `timeoutSeconds`
-3. **Then update the state machine** — swap `TimeoutSeconds` for `TimeoutSecondsPath` and drop the top-level
+3. **Audit the schedule definition** (below)
+4. **Then update the state machine** — swap `TimeoutSeconds` for `TimeoutSecondsPath` and drop the top-level
    `TimeoutSeconds`
 
 Updating the state machine first and fixing the application afterwards is not a viable order.
+
+### Step 3: Auditing the Schedule Definition (Required)
+
+The switch changes what `withoutOverlapping($minutes)` means. In Laravel that argument is the grace period before a
+mutex is considered stale, and setting it low was nearly harmless. After the switch it becomes **that job's kill
+deadline** (minus `lock_release_buffer`). The harm runs in the opposite direction, so **whoever wrote the smaller,
+more careful numbers is hit hardest**.
+
+| Declaration | Timeout after the switch |
+|---|---|
+| `withoutOverlapping(1)` | 60s (the `min_task_timeout` fallback) |
+| `withoutOverlapping(5)` | 240s |
+| `withoutOverlapping(10)` | 540s |
+| `withoutOverlapping()` (1440 min default) | 86340s |
+| Not declared | `lock_ttl - lock_release_buffer` (3540s by default) |
+
+What to audit:
+
+- List **every `withoutOverlapping($minutes)`** in the schedule and confirm `$minutes * 60 - lock_release_buffer`
+  exceeds that job's worst-case duration. The dangerous band is "slightly above the normal duration" - which is
+  exactly how people pick this number.
+- Confirm the longest job *without* `withoutOverlapping` fits in `lock_ttl - lock_release_buffer`. If it does not,
+  raise `lock_ttl` (a three-hour batch dies under the 3600 default).
+- Jobs with thin headroom become **failures that only appear on busy days**, the hardest shape to trace back to
+  this migration. Be generous here.
 
 ---
 
@@ -386,8 +481,9 @@ the payload carries the right value**. Following that split, CI covers:
 
 | Layer | Mechanism | Verifies |
 |---|---|---|
-| Unit | `PayloadBuilderTest` | The derivation (with/without delay, clamp boundary) and the `toJson()` key set |
-| Integration | moto `CreateStateMachine` | An ASL definition containing `TimeoutSecondsPath` is accepted |
+| Unit | `StepFunctionsTimeoutSettingsTest` / `PayloadBuilderTest` | The derivation (with/without delay, the floor boundary, the regime-2 fallback) and the `toJson()` key set |
+| Unit | `StepFunctionsServiceProviderTest` | Which config value reaches which consumer (catches a swapped wiring) |
+| Integration | moto `CreateStateMachine` | An ASL definition containing `TimeoutSecondsPath` is accepted, and a real dispatch's `timeoutSeconds` matches the expected value |
 | Runtime | **Real AWS only** | The value is actually honoured and the task times out |
 
 Runtime verification cannot be substituted locally because:
@@ -419,7 +515,8 @@ The "Timeout Design" section of [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTION
 
 | Item | Detail |
 |---|---|
-| Default for `timeout_buffer` | 60 seconds proposed. Since the derivation absorbs dispatch latency, this value only covers lock-release headroom |
+| Default for `lock_release_buffer` | 60 seconds. The derivation absorbs dispatch latency, but Task-entry latency and the ECS `stopTimeout` are paid for out of this value ([what the buffer pays for](#what-the-buffer-pays-for)) |
+| Default for `min_task_timeout` | 60 seconds. The regime-2 floor: too low fails to prevent instant death, too high cuts regime-1 tracking short |
 | Verification against real AWS | The means and owner for confirming `TimeoutSecondsPath` runtime behaviour still need to be decided |
 
 ### Future Work: Option B (Dedicated Fluent API)

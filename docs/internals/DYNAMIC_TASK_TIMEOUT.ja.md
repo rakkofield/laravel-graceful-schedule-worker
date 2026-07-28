@@ -5,7 +5,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| ステータス | 設計提案（未実装） |
+| ステータス | ライブラリ側は実装済み（`timeoutSeconds` を常に payload に載せる）。ステートマシンを `TimeoutSecondsPath` に切り替えるのは利用者側の作業（[移行手順](#移行手順)参照） |
 | 作成日 | 2026-07-28 |
 | 対象範囲 | Step Functions Task ステートのタイムアウトをジョブごとに変える仕組み |
 
@@ -64,7 +64,7 @@ Step Functions の `TimeoutSeconds` はステートマシン定義に埋め込�
 
 一方、ロック TTL はイベントごとに決まります。
 
-`src/Dispatcher/StepFunctions/PayloadBuilder.php:42-43`
+`PayloadBuilder::build()`
 
 ```php
 $lockTtl   = $event->resolveLockTtlSeconds($lockTtlSeconds);
@@ -90,12 +90,14 @@ $schedule->command('batch:heavy')->hourly()->withoutOverlapping(60 * 8); // 8時
 
 ### payload の現状
 
-`Payload::toJson()`（`src/Dispatcher/StepFunctions/Payload.php:108-117`）が出力するキーは以下の 6 つで、
-タイムアウトに相当するフィールドはありません。
+**本設計の実装前**、`Payload::toJson()` が出力するキーは以下の 6 つで、
+タイムアウトに相当するフィールドはありませんでした。
 
 ```
 command / mutexName / dueAt / lockKey / expiresAt / dispatchedAt
 ```
+
+現在は `timeoutSeconds` が加わって 7 キーです。
 
 ---
 
@@ -202,32 +204,81 @@ $schedule->command('batch:heavy')->hourly()->withoutOverlapping(730); // 43800�
 ## 導出式
 
 ```php
-$expiresAt      = $dueAt->getTimestamp() + $lockTtl;
-$timeoutSeconds = max(1, $expiresAt - $dispatchedAt->getTimestamp() - $buffer);
+$expiresAt = $dueAt->getTimestamp() + $lockTtl;
+$usable    = $expiresAt - $dispatchedAt->getTimestamp() - $lockReleaseBuffer;
+
+$timeoutSeconds = $usable >= $minTaskTimeout
+    ? $usable                                              // 局面1: ロックがこの実行を収容できる
+    : max($minTaskTimeout, $lockTtl - $lockReleaseBuffer);  // 局面2: 収容できない
 ```
 
+導出は `StepFunctionsTimeoutSettings::deriveTimeoutSeconds()` が持ちます。
 `PayloadBuilder::build()` は `$dueAt` と `$dispatchedAt` の両方を既に受け取っているため、追加の入力は不要です。
 
-### なぜ「残りロック寿命」を基準にするか
+### 局面1: なぜ「残りロック寿命」を基準にするか
 
-単純な `$lockTtl - $buffer` ではなく `$expiresAt - $dispatchedAt - $buffer` とする理由は、
-**ディスパッチ遅延を自動的に吸収するため**です。
+単純な `$lockTtl - $lockReleaseBuffer` ではなく `$expiresAt - $dispatchedAt - $lockReleaseBuffer` とする理由は、
+**ディスパッチ遅延を吸収するため**です。
 
 `expiresAt` の起点は `dueAt`（スケジュール上の予定時刻）であり、実際のディスパッチはそれより後になります。
-`$lockTtl - $buffer` だと、この遅延分だけタスクがロックより長生きしうるのに対し、
-残りロック寿命を基準にすれば、遅れて起動した分だけタイムアウトが縮み、
-**タスクがロックを追い越すことが構造的に起こらなくなります**。
+`$lockTtl - $lockReleaseBuffer` だと、この遅延分だけタスクがロックより長生きしうるのに対し、
+残りロック寿命を基準にすれば、遅れて起動した分だけタイムアウトが縮みます。
+これで**ディスパッチ遅延に起因する追い越しは起こりません**（ただし追い越しが一切起こらないわけではない。
+[バッファが負担するもの](#バッファが負担するもの)を参照）。
+
+### 局面2: ロックが実行を収容できないときは追従をやめる
+
+残りロック寿命が `min_task_timeout` を下回る局面では、**何を返してもロックはこの実行を排他できません**。
+ここで下限 1 秒に潰すと、守るものが無いままタスクを殺すだけになります。該当するのは主に 2 つです。
+
+1. **リカバリ起動** — `DefaultScheduleOrchestrator::recoverMissedEvent()` は `dueAt` に過去のミス実行時刻、
+   `dispatchedAt` に復旧時のウォールクロックを渡します。`expiresAt` は既に過去なので、
+   追従を続けると**リカバリ起動が毎回即タイムアウトで死にます**
+2. **`withoutOverlapping($minutes)` の窓がバッファと同程度** — `withoutOverlapping(1)` は寿命 60 秒で、
+   既定バッファ 60 秒を引くと 0 になります
+
+この局面では、イベント自身が宣言した寿命（`$lockTtl - $lockReleaseBuffer`）にフォールバックし、
+`min_task_timeout` を下回らせません。
+
+**このフォールバックは `expiresAt` を越えるタイムアウトを返しえます。** 意図的なトレードオフです。
+ロックはすでに並行実行を排除できておらず、1 秒で殺されたタスクはディスパッチされた仕事を何ひとつ行えません。
 
 ### パラメータ
 
 | 項目 | 既定値 | 備考 |
 |---|---|---|
-| `stepfunctions.timeout_buffer` | 60 秒 | ロック解放に要する余裕。config で変更可能にする |
-| クランプ | `max(1, ...)` | 負値・0 は `States.Runtime` を引き起こすため下限を設ける |
+| `stepfunctions.lock_release_buffer` | 60 秒 | タイムアウトとロック失効の間に残す間隔。ロック解放をロック保持中に走らせるための余裕であり、ジョブに与える余裕ではない（導出値は残りロック寿命から**引いた**値になる） |
+| `stepfunctions.min_task_timeout` | 60 秒 | 導出値がこれを下回ったら局面2 に切り替える下限 |
 
-`max(1, ...)` でのクランプは設定ミスを黙って飲み込むため、
-`StepFunctionsServiceProvider` の起動時に `lock_ttl <= timeout_buffer` を検証して弾く方針とします。
-`PayloadBuilder` にロガーを注入するより軽い対処です。
+名前が重要な箇所です。`lock_release_buffer` はジョブの想定所要時間に足す余裕ではありません。
+ロック寿命が固定なら、タイムアウトの上限もそこで固定されるため、この値にできるのは引くことだけです。
+足す形にするには「このジョブは何分かかる想定か」という別の入力が必要で、それは案B（[将来の拡張](#将来の拡張-案b専用-fluent-api)）になります。
+
+### バッファが負担するもの
+
+`TimeoutSeconds` は **Task ステート入室時刻からの相対値**です。導出式が吸収するのは StartExecution までの遅延で、
+それ以降は `lock_release_buffer` だけが余裕になります。この 60 秒が負担するのは次の 3 つです。
+
+1. StartExecution → `AcquireLock` → `RunEcsTask` 入室までのレイテンシ（`AcquireLock` に `Retry` を置くなら指数バックオフ分も）
+2. `States.Timeout` 後、`.sync` 統合が StopTask を投げてから**コンテナが実際に消えるまで**（ECS の `stopTimeout` は既定 30 秒・最大 120 秒）
+3. ロック解放パス（`Catch` → ロック削除）の実行時間
+
+守るべきは「Task ステートがタイムアウトすること」ではなく「コンテナが `expiresAt` より前に消えていること」なので、
+2 は無視できません。**本ライブラリの存在意義が SIGTERM 後の graceful shutdown であることを踏まえると、
+`stopTimeout` を長く設定している場合は `lock_release_buffer` も併せて広げてください。**
+
+### 検証の範囲
+
+`StepFunctionsTimeoutSettings` は 4 つのルールを持ちます
+（`lock_ttl < 1` / `lock_release_buffer < 1` / `min_task_timeout < 1` / `lock_ttl <= lock_release_buffer` /
+`min_task_timeout > lock_ttl - lock_release_buffer` を拒否）。
+
+**この検証が見るのは config 由来の値だけです。** イベントが `withoutOverlapping($minutes)` で宣言した寿命は
+`ClockAwareEvent::resolveLockTtlSeconds()` から直接来るため、この型の検証は通りません（導出そのものは通ります）。
+イベント単位で例外を投げる案は取れません。`DefaultScheduleOrchestrator` は
+「`dispatchEvent` の例外は意図的に伝播させる」設計であり、1 イベントの記述ミスでワーカー全体が停止するためです。
+イベント単位の値は `min_task_timeout` によるフォールバックで「即死しない」ところまでを担保し、
+それ以上は[移行手順](#移行手順)の監査項目とドキュメントで扱います。
 
 ---
 
@@ -236,21 +287,33 @@ $timeoutSeconds = max(1, $expiresAt - $dispatchedAt->getTimestamp() - $buffer);
 | ファイル | 内容 | 後方互換 |
 |---|---|---|
 | `src/Dispatcher/StepFunctions/Payload.php` | 第 7 引数 `int $timeoutSeconds`（**必須**）+ getter + `toJson()` にキー追加 | 破壊的変更（[後述](#timeoutseconds-を必須引数にする)） |
-| `src/Dispatcher/StepFunctions/PayloadBuilder.php` | バッファの受け取りと導出 | コンストラクタ第 2 引数は省略可（既定 60） |
-| `src/Providers/StepFunctionsServiceProvider.php:117` | config からバッファを読んで注入。起動時の値検証 | — |
-| `config/graceful-scheduler.php:32` 付近 | `timeout_buffer` を追加 | — |
+| `src/Dispatcher/StepFunctions/PayloadBuilder.php` | settings の受け取りと導出の委譲 | コンストラクタ第 2 引数は省略可（既定値で組み立てる） |
+| `src/Dispatcher/StepFunctions/StepFunctionsTimeoutSettings.php` | 新規。3 つの設定を検証し、導出そのものを持つ | 新規ファイル |
+| `src/Providers/StepFunctionsServiceProvider.php` | config から settings を 1 度だけ組み立て、`PayloadBuilder` と入力ファクトリの双方がそこから読む。秒設定は非数値を拒否 | — |
+| `config/graceful-scheduler.php` の `stepfunctions` | `lock_release_buffer` と `min_task_timeout` を追加 | — |
 
 ### テストの追随
 
 | ファイル | 内容 |
 |---|---|
-| `tests/Unit/Dispatcher/StepFunctions/PayloadTest.php:99` | `$expectedKeys` にキーを追加 |
-| `tests/Unit/Dispatcher/StepFunctionsDispatcherTest.php:146` | SFD.4 のキー集合アサーションを追随 |
-| `tests/Unit/Dispatcher/StepFunctions/PayloadBuilderTest.php` | 導出ロジックのケースを追加（ディスパッチ遅延あり / なし、クランプ境界） |
+| `PayloadTest`（PY.4 / PY.5） | `$expectedKeys` にキーを追加。値の独立性と `>= 1` 検証 |
+| `StepFunctionsDispatcherTest`（SFD.4） | キー集合アサーションを追随 |
+| `PayloadBuilderTest`（PB.14〜24） | 導出ケース（遅延の有無、下限境界、局面2 のフォールバック、リカバリ形、`withoutOverlapping(1)`） |
+| `StepFunctionsTimeoutSettingsTest`（STS.1〜22、新規） | 検証ルールと導出そのもの |
+| `StepFunctionsServiceProviderTest`（SFP.13〜22） | config 読み出しと配線（どちらの設定がどちらの消費者に届くか） |
+| `ProviderBootIntegrationTest`（GPI.8） | 出荷 config の既定値と定数の一致 |
 
 ### 既存利用者への影響
 
-入力 JSON にキーが 1 つ増えるだけです。
+**破壊的変更は 3 つあります。**
+
+| 変更 | 誰が影響を受けるか |
+|---|---|
+| `Payload` 第 7 引数の必須化 | `Payload` を直接 `new` しているカスタム `PayloadBuilder`（[後述](#timeoutseconds-を必須引数にする)） |
+| `lock_ttl <= lock_release_buffer` を起動時に拒否 | `SCHEDULE_SF_LOCK_TTL` を 60 以下にしている利用者。従来は無害（`withoutOverlapping` の無いイベントは `dueAt` 込みのロックキーなので TTL が効かない）だったが、ワーカーが起動しなくなる。`CompositeDispatcher` は `state_machine_arn` が非空なら Step Functions dispatcher を解決するので、`dispatch=local` 運用でも発火する |
+| `withoutOverlapping($minutes)` が ECS のタイムアウトを決めるようになる | ステートマシンを `TimeoutSecondsPath` に切り替えた利用者全員。[移行手順](#移行手順)の監査項目を必ず実施すること |
+
+payload 自体はキーが 1 つ増えるだけで、
 `TimeoutSecondsPath` を書いていないステートマシンはこのフィールドを無視するため無害で、
 Step Functions の入力サイズ上限（256KB）に対しても無視できる増加量です。
 
@@ -263,6 +326,8 @@ Step Functions の入力サイズ上限（256KB）に対しても無視できる
 解決できないパスは `States.Runtime` となり、これは非リトライアブルで必ず実行失敗になります。
 「型としては null を許すが、実際には常に値が入っているので大丈夫」という状態を作らず、
 **`Payload` が存在するなら `timeoutSeconds` が JSON に必ず載る**ことを型で保証します。
+加えて、キーの存在だけでは足りないため `timeoutSeconds >= 1` も同時に検証します
+（0 や負値は解決時に `States.Runtime` になるため、必須引数化の論拠がそのまま値の検証を要求します）。
 
 #### 影響範囲
 
@@ -270,7 +335,7 @@ Step Functions の入力サイズ上限（256KB）に対しても無視できる
 
 | 箇所 | 対応 |
 |---|---|
-| `src/Dispatcher/StepFunctions/PayloadBuilder.php:45` | 導出値を渡す |
+| `PayloadBuilder::build()` | 導出値を渡す |
 | `tests/Unit/Dispatcher/StepFunctions/PayloadTest.php`（4 箇所） | 引数を追加 |
 
 外部への影響は、`Payload` を直接 `new` しているカスタム `PayloadBuilder` がある場合に限られます。
@@ -280,9 +345,13 @@ Step Functions の入力サイズ上限（256KB）に対しても無視できる
 
 #### バッファ引数を省略可にする理由との違い
 
-`PayloadBuilder` のコンストラクタに追加するバッファは省略可（既定 60）とします。
-こちらはどんな整数値でも壊れず、未指定でも妥当な既定に落ちるため、
-`timeoutSeconds` のように「未設定が実行時失敗に直結する」性質を持たないからです。
+`PayloadBuilder` のコンストラクタに追加する第 2 引数（`?StepFunctionsTimeoutSettings`）は省略可とします。
+未指定なら既定値で組み立てるため妥当な値に落ち、`timeoutSeconds` のように
+「未設定が実行時失敗に直結する」性質を持たないからです。
+
+なお、ここを素の `int $lockReleaseBuffer` にはしません。負値を渡せてしまい、
+タイムアウトが残りロック寿命を**超える**（＝タスクがロックを追い越す）状態を型が許すことになるためです。
+検証済みの値オブジェクトを受け取れば、その状態は構築できません。
 
 ---
 
@@ -370,8 +439,33 @@ state 単位のタイムアウトは**試行ごと**に適用されるため、
 1. **アプリ側を先にデプロイする** — payload に `timeoutSeconds` が載るようにする
    （この時点ではステートマシンが無視するだけなので無害）
 2. デプロイ済みの実行入力に `timeoutSeconds` が含まれていることを確認する
-3. **その後でステートマシンを更新する** — `TimeoutSeconds` を `TimeoutSecondsPath` に差し替え、
+3. **スケジュール定義を監査する**（下記）
+4. **その後でステートマシンを更新する** — `TimeoutSeconds` を `TimeoutSecondsPath` に差し替え、
    トップレベルの `TimeoutSeconds` を削除する
+
+### 手順 3: スケジュール定義の監査（必須）
+
+切り替えると `withoutOverlapping($minutes)` の意味が変わります。
+Laravel でのこの引数は「mutex が腐ったと見なすまでの猶予」で、小さめに書いてもほぼ無害でした。
+切り替え後は**そのジョブの kill 期限（-`lock_release_buffer`）**になります。
+harm の方向が逆なので、**値を小さめに書いていた人ほど強く影響を受けます**。
+
+| 記述 | 切り替え後のタイムアウト |
+|---|---|
+| `withoutOverlapping(1)` | 60 秒（`min_task_timeout` によるフォールバック） |
+| `withoutOverlapping(5)` | 240 秒 |
+| `withoutOverlapping(10)` | 540 秒 |
+| `withoutOverlapping()`（既定 1440 分） | 86340 秒 |
+| 指定なし | `lock_ttl - lock_release_buffer`（既定 3540 秒） |
+
+監査すべきこと。
+
+- スケジュール内の**全 `withoutOverlapping($minutes)`** を洗い出し、`$minutes * 60 - lock_release_buffer` が
+  そのジョブの最悪所要時間を上回っているか確認する。危険域は「通常所要時間の少し上」— まさに人がこの数字を選ぶ基準
+- `withoutOverlapping` を持たない最長のジョブが `lock_ttl - lock_release_buffer` に収まるか確認する。
+  収まらないなら `lock_ttl` を上げる（3 時間のバッチは既定 3600 では殺されます）
+- 通常所要時間に対して余裕が薄いジョブは、**負荷が高い日だけ落ちる非決定的な失敗**になる。
+  移行との因果が最も追いにくい形なので、ここは保守的に広げておくこと
 
 「ステートマシンを先に変えて後からアプリを直す」という順序は取れません。
 
@@ -385,8 +479,9 @@ state 単位のタイムアウトは**試行ごと**に適用されるため、
 
 | レイヤ | 手段 | 検証内容 |
 |---|---|---|
-| 単体 | `PayloadBuilderTest` | 導出式（遅延の有無、クランプ境界）、`toJson()` のキー集合 |
-| 統合 | moto の `CreateStateMachine` | `TimeoutSecondsPath` 入りの ASL が受理されること |
+| 単体 | `StepFunctionsTimeoutSettingsTest` / `PayloadBuilderTest` | 導出式（遅延の有無、下限境界、局面2 のフォールバック）、`toJson()` のキー集合 |
+| 単体 | `StepFunctionsServiceProviderTest` | config のどの値がどの消費者に届くか（配線の取り違えを検出する） |
+| 統合 | moto の `CreateStateMachine` | `TimeoutSecondsPath` 入りの ASL が受理されること。実ディスパッチ入力の `timeoutSeconds` が期待値と一致すること |
 | 実行時 | **実 AWS のみ** | 値が実際に反映されてタイムアウトすること |
 
 実行時の検証をローカルで代替できない理由は次のとおりです。
@@ -418,7 +513,8 @@ state 単位のタイムアウトは**試行ごと**に適用されるため、
 
 | 項目 | 内容 |
 |---|---|
-| `timeout_buffer` の既定値 | 60 秒を提案。ディスパッチ遅延は導出式が吸収するため、この値が担うのはロック解放分の余裕のみ |
+| `lock_release_buffer` の既定値 | 60 秒。ディスパッチ遅延は導出式が吸収するが、Task 入室までのレイテンシと ECS `stopTimeout` はこの値が負担する（[バッファが負担するもの](#バッファが負担するもの)） |
+| `min_task_timeout` の既定値 | 60 秒。局面2 の下限。短すぎると即死を防げず、長すぎると局面1 の追従が早く打ち切られる |
 | 実 AWS での動作確認 | `TimeoutSecondsPath` の実行時挙動を確認する手段と担当を決める必要がある |
 
 ### 将来の拡張: 案B（専用 fluent API）
