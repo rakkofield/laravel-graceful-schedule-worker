@@ -400,7 +400,8 @@ state 単位のタイムアウトは**試行ごと**に適用されるため、
 
 ## 既存ドキュメントへの影響
 
-[STEPFUNCTIONS_IMPLEMENTATION.ja.md](./STEPFUNCTIONS_IMPLEMENTATION.ja.md) の「タイムアウト設計」節と整合を取る必要があります。
+[STEPFUNCTIONS_IMPLEMENTATION.ja.md](./STEPFUNCTIONS_IMPLEMENTATION.ja.md) の「タイムアウト設計」節は、
+本設計に合わせて**更新済み**です（英語版も同様）。変更内容は次のとおりです。
 
 | 既存の記述 | 本設計での扱い |
 |---|---|
