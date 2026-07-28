@@ -90,6 +90,37 @@ bin/scenario-stepfunctions.sh
 - Local process: `INTERRUPTED at step 3/8`
 - Step Functions: `SUCCEEDED`
 
+**Task timeouts in the dispatched payload:**
+
+This scenario registers two Step Functions tasks that differ only in how their timeout is
+decided, so the execution list shows both paths side by side:
+
+```bash
+docker compose run --rm -e SFN_ENDPOINT=http://moto:5000 php php bin/check-stepfunctions.php
+```
+
+```
+Name                   Command                    Status     Start Date           Timeout LockLeft
+framework-schedule-b.. echo "sfn-task-executed"   SUCCEEDED  2026-07-28 12:00:00     3540     3600
+framework-schedule-9.. echo "sfn-task-with-tim..  SUCCEEDED  2026-07-28 12:00:00      120     3600
+```
+
+Execution names are sha1-based, so the `Command` column is what identifies a row.
+
+- `echo "sfn-task-executed"` has no `timeoutAfter()`, so the value is derived:
+  `LockLeft - lock_release_buffer` (3600 - 60).
+- `echo "sfn-task-with-timeout"` declares `->timeoutAfter(120)`, which overrides the
+  derivation. A declaration can only shorten the window - it is capped at what the lock
+  can protect.
+
+Dispatch the worker late (or watch a recovery dispatch) and `LockLeft` shrinks, with the
+derived `Timeout` following it down; the declared one stays flat until it hits the cap.
+
+**Nothing enforces these values in the demo.** `demo/stepfunctions/state-machine.json`
+does not declare `TimeoutSecondsPath` - a `Pass` state cannot carry it, and moto cannot run
+the ECS integration that would honour it. See
+[DYNAMIC_TASK_TIMEOUT.md](../docs/internals/DYNAMIC_TASK_TIMEOUT.md) for the real-AWS story.
+
 ## Scenario 5: Overlap Prevention (~5 min)
 
 Demonstrates `withoutOverlapping()` preventing concurrent execution of a slow task:
@@ -155,7 +186,7 @@ docker compose run --rm php php artisan demo:report --worker=overlap
 # View tracker dashboard
 docker compose run --rm php php artisan demo:tracker
 
-# Check Step Functions execution history
+# Check Step Functions execution history (with each payload's timeoutSeconds)
 docker compose run --rm -e SFN_ENDPOINT=http://moto:5000 php php bin/check-stepfunctions.php
 ```
 
@@ -168,7 +199,7 @@ The `DEMO_SCENARIO` variable controls which tasks are registered in `gracefulSch
 | _(empty/default)_ | `demo:tick` with recovery + Step Functions echo |
 | `signal` | `demo:long-task` (SIGTERM handling demo) |
 | `overlap` | `demo:slow-task` with `withoutOverlapping()` |
-| `stepfunctions` | `demo:long-task` + Step Functions echo |
+| `stepfunctions` | `demo:long-task` + two Step Functions echoes (derived vs `timeoutAfter()` timeout) |
 
 ## How Recovery Works
 
