@@ -87,8 +87,24 @@ bin/scenario-stepfunctions.sh
 4. Step Functions execution completes independently on moto
 
 **Expected output:**
-- Local process: `INTERRUPTED at step 3/8`
-- Step Functions: `SUCCEEDED`
+- Local process: killed mid-execution (`running at step N/8`, never reaching 8/8)
+- Step Functions: the execution is listed and its input is intact - it was started
+  independently of the worker that died
+
+**Why the Step Functions status stays `RUNNING`:** moto does not execute state machines
+unless `stepfunctions.execute_state_machine` is flipped on through its `moto-api/config`
+endpoint, so executions are recorded but never advanced (their history is a moto stub).
+The demo deliberately leaves it off, because with it on:
+
+- `AcquireLock` fails with `DynamoDB.ResourceNotFoundException` - nothing in the demo
+  creates the `ScheduleExecutionLocks` table the state machine writes to
+- a second `StartExecution` against a state machine that already executed makes moto
+  return HTTP 500 (a deepcopy crash), so moto has to be reset between executions - which
+  a demo that dispatches every minute cannot do
+
+What this scenario demonstrates is therefore the dispatch boundary: the local child dies
+with the worker, while the Step Functions execution exists on its own. The library's own
+integration tests cover the executing path (they reset moto per test and flip the flag).
 
 **Task timeouts in the dispatched payload:**
 
