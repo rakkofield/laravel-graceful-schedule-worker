@@ -286,6 +286,81 @@ class StepFunctionsTimeoutSettingsTest extends TestCase
     }
 
     /**
+     * @testdox STS.23 A declared timeout takes precedence over the derived value
+     */
+    public function testDeclaredTimeoutTakesPrecedence(): void
+    {
+        $settings = new StepFunctionsTimeoutSettings(3600, 60, 60);
+
+        $this->assertSame(
+            1800,
+            $settings->deriveTimeoutSeconds(self::DUE_AT + 3600, self::DUE_AT, 3600, 1800)
+        );
+    }
+
+    /**
+     * @testdox STS.24 A declared timeout is capped at what the lock can protect
+     */
+    public function testDeclaredTimeoutIsCappedAtLockLifetime(): void
+    {
+        $settings = new StepFunctionsTimeoutSettings(3600, 60, 60);
+
+        // Declaring more than the lock can host would put the task past expiresAt, which
+        // is the duplicate-execution mode. The declared value may only narrow.
+        $this->assertSame(
+            3540,
+            $settings->deriveTimeoutSeconds(self::DUE_AT + 3600, self::DUE_AT, 3600, 7200)
+        );
+    }
+
+    /**
+     * @testdox STS.25 A declared timeout shrinks with the dispatch delay only when it has to
+     */
+    public function testDeclaredTimeoutIsCappedOnlyWhenNeeded(): void
+    {
+        $settings = new StepFunctionsTimeoutSettings(3600, 60, 60);
+
+        // 1800 still fits in the remaining lifetime after a 600s delay (2940), so it stands.
+        $this->assertSame(
+            1800,
+            $settings->deriveTimeoutSeconds(self::DUE_AT + 3600, self::DUE_AT + 600, 3600, 1800)
+        );
+        // After a 2400s delay only 1140 is left, so the declared value is capped.
+        $this->assertSame(
+            1140,
+            $settings->deriveTimeoutSeconds(self::DUE_AT + 3600, self::DUE_AT + 2400, 3600, 1800)
+        );
+    }
+
+    /**
+     * @testdox STS.26 A declared timeout is used as is once the lock cannot host the run
+     */
+    public function testDeclaredTimeoutIsUsedAsIsInFallbackRegime(): void
+    {
+        $settings = new StepFunctionsTimeoutSettings(3600, 60, 60);
+
+        // Recovery dispatch: no lock left to cap against, so the declared budget stands.
+        $this->assertSame(
+            1800,
+            $settings->deriveTimeoutSeconds(self::DUE_AT + 3600, self::DUE_AT + 21600, 3600, 1800)
+        );
+    }
+
+    /**
+     * @testdox STS.27 The floor does not override a deliberately short declared timeout
+     */
+    public function testFloorDoesNotOverrideShortDeclaredTimeout(): void
+    {
+        $settings = new StepFunctionsTimeoutSettings(3600, 60, 60);
+
+        // min_task_timeout guards against accidental collapse, not against an explicit choice.
+        $this->assertSame(
+            5,
+            $settings->deriveTimeoutSeconds(self::DUE_AT + 3600, self::DUE_AT, 3600, 5)
+        );
+    }
+
+    /**
      * @testdox STS.22 deriveTimeoutSeconds uses the event lifetime, not the configured fallback
      */
     public function testDeriveUsesEventLifetimeNotConfiguredFallback(): void

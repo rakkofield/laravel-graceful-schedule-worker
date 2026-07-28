@@ -58,7 +58,8 @@ class PayloadBuilder implements PayloadBuilderInterface
         $timeoutSeconds = $this->timeoutSettings->deriveTimeoutSeconds(
             $expiresAt,
             $dispatchedAt->getTimestamp(),
-            $lockTtl
+            $lockTtl,
+            $event->getTaskTimeoutSeconds()
         );
 
         return new Payload(

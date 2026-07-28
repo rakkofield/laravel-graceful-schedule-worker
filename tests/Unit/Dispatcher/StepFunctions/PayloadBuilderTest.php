@@ -420,6 +420,41 @@ class PayloadBuilderTest extends TestCase
     }
 
     /**
+     * @testdox PB.25 build uses a timeoutAfter() declaration instead of the derived value
+     */
+    public function testBuildUsesTimeoutAfterDeclaration(): void
+    {
+        $event = $this->createEvent('php artisan batch:heavy');
+        $event->withoutOverlapping(60)->timeoutAfter(1800);
+        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+
+        $payload = $this->builder->build($event, $dueAt, 3600, $dueAt);
+
+        $this->assertSame(1800, $payload->getTimeoutSeconds());
+        // The lock still outlives the task.
+        $this->assertLessThan(
+            $payload->getExpiresAt(),
+            $payload->getDispatchedAt() + $payload->getTimeoutSeconds()
+        );
+    }
+
+    /**
+     * @testdox PB.26 build caps a timeoutAfter() declaration at the remaining lock lifetime
+     */
+    public function testBuildCapsTimeoutAfterAtRemainingLockLifetime(): void
+    {
+        // withoutOverlapping is absent, so the config lock TTL bounds the run and the
+        // event cannot know it at definition time - the cap has to happen here.
+        $event = $this->createEvent('php artisan report:daily');
+        $event->timeoutAfter(7200);
+        $dueAt = new DateTimeImmutable('2024-01-15T10:30:00+09:00');
+
+        $payload = $this->builder->build($event, $dueAt, 3600, $dueAt);
+
+        $this->assertSame(3600 - 60, $payload->getTimeoutSeconds());
+    }
+
+    /**
      * @testdox PB.24 build without explicit settings uses the documented defaults
      */
     public function testBuildWithoutExplicitSettingsUsesDefaults(): void

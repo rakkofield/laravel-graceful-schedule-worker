@@ -100,15 +100,33 @@ class StepFunctionsTimeoutSettings
      * deliberate trade: the lock is already unable to exclude a concurrent run, and a
      * task killed after one second cannot do the job it was dispatched for.
      *
+     * A value declared through `ClockAwareEvent::timeoutAfter()` takes precedence, but only
+     * downwards: in regime 1 it is capped at what the lock can protect, since letting it
+     * widen the window is the duplicate-execution mode this design exists to prevent. In
+     * regime 2 there is no lock left to cap against, so the declared budget is used as is -
+     * including below `min_task_timeout`, which exists to catch accidental collapse, not to
+     * override an explicit choice.
+     *
      * @param int $expiresAt Unix timestamp at which the lock expires (dueAt + $lockTtlSeconds)
      * @param int $dispatchedAt Unix timestamp at dispatch time
      * @param int $lockTtlSeconds Lock lifetime this event resolved to (may differ from the configured fallback)
+     * @param int|null $declaredSeconds Value from timeoutAfter(), or null to derive
      * @return int Always positive, as Step Functions rejects a non-positive TimeoutSeconds
      */
-    public function deriveTimeoutSeconds(int $expiresAt, int $dispatchedAt, int $lockTtlSeconds): int
-    {
+    public function deriveTimeoutSeconds(
+        int $expiresAt,
+        int $dispatchedAt,
+        int $lockTtlSeconds,
+        ?int $declaredSeconds = null
+    ): int {
         $usable = $expiresAt - $dispatchedAt - $this->lockReleaseBufferSeconds;
-        if ($usable >= $this->minTaskTimeoutSeconds) {
+        $lockCanHostTheRun = $usable >= $this->minTaskTimeoutSeconds;
+
+        if ($declaredSeconds !== null) {
+            return $lockCanHostTheRun ? min($declaredSeconds, $usable) : $declaredSeconds;
+        }
+
+        if ($lockCanHostTheRun) {
             return $usable;
         }
 

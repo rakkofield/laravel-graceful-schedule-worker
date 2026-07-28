@@ -151,32 +151,58 @@ AWS 公式の動的タイムアウトの例では、`Parameters` に含まれな
 
 ## 検討した案
 
+> **実装後の追記**: 当初この表は案A を優位に評価していましたが、実装を経て 3 セルが
+> 事実と違うことが判明しました。**下の表は訂正後の内容です**（元の評価は
+> [当初の評価がどう外れたか](#当初の評価がどう外れたか)に記録）。
+> 結論として案A と案B は排他ではなく、**両方を実装しました**（案A が既定、案B が明示指定）。
+
 | | 案A: ロック TTL から導出 | 案B: 専用 fluent API | 案C: config マップ |
 |---|:--:|:--:|:--:|
 | アプリ側の記述 | 不要（`withoutOverlapping` を流用） | `->timeoutAfter(1800)` | なし（config に列挙） |
-| TTL と独立に決められる | ✗ | ✓ | ✓ |
-| 新 API 表面 | なし | `ClockAwareEvent` に 1 メソッド | config スキーマ |
+| TTL と独立に決められる | ✗ | 短くする方向のみ ✓ | ✓ |
+| 新 API 表面 | config 2 キー + 値オブジェクト | `ClockAwareEvent` に 1 メソッド | config スキーマ |
 | スケジュール定義との近さ | ◎ | ◎ | ✗ |
-| TTL > timeout の保証 | 構造的に保証 | 利用者任せ（検証が必要） | 利用者任せ |
+| 危険な破れ方（ロック生存中の追い越し）を防げるか | 構造的に防ぐ | 定義時 + 導出時の検証で防ぐ | 利用者任せ |
+| 既存の記述の意味を変えるか | **変える**（`withoutOverlapping` に第二の意味） | 変えない | 変えない |
+| `dispatch=local` で無視される設定が生えるか | **生える**（既存設定なので気付きにくい） | 生える（新設定なので気付ける） | 生える |
 
 ### 案C を採らない理由
 
 マッチングルール（完全一致 / 前方一致 / ワイルドカード）を作り込む必要がある割に、
 スケジュール定義と設定が離れて不整合を起こしやすいためです。
 
-### 案B を先行させない理由
+### 案A を既定にする理由
 
-2 点あります。
+既存のスケジュール定義に手を入れずに、全ジョブがロック寿命と整合したタイムアウトを得られるためです。
+利用者が何も書かなくても、最長ジョブに合わせた静的値の共有という当初の問題は解消します。
 
-1. `ClockAwareEvent` は local ディスパッチでも使う共通クラスであり、
-   `dispatch=local` のときに無視される設定が生えます（「設定したのに効かない」の典型）。
-2. TTL との大小関係を利用者が壊せるため、結局は案A 相当の制約を検証ロジックとして後付けすることになります。
+### 当初の評価がどう外れたか
+
+当初この表は次の 3 点で案A を優位としていました。実装後の実態は以下のとおりです。
+
+| 当初の評価 | 実態 |
+|---|---|
+| 新 API 表面: **なし** | `lock_release_buffer` / `min_task_timeout` の 2 キーと `StepFunctionsTimeoutSettings` が生えた |
+| TTL > timeout: **構造的に保証** | 局面1 のみ。局面2 は意図的に破る（[局面2](#局面2-ロックが実行を収容できないときは追従をやめる)） |
+| 案B の却下理由: 「TTL との大小関係を利用者が壊せるため、結局は案A 相当の制約を検証ロジックとして後付けすることになる」 | **その後付けは案A でも必要になった。** 検証ルール 5 つ、下限フォールバック、移行時の全件監査 |
+
+案B の却下理由 1（「`dispatch=local` のときに無視される設定が生える」）についても、
+案A は同じ問題を抱えており、**性質はより悪い**と評価を改めます。
+案B は新しい設定が片方のモードで無視されるだけですが、案A は既に使われている
+`withoutOverlapping($minutes)` に第二の意味を後付けするため、
+**利用者が何も変えていないのに意味が変わります**（[移行手順の監査項目](#手順-3-スケジュール定義の監査必須)が必要になった理由）。
+
+残った差は「破れ方の危険度」です。案B の破れ（`timeoutAfter` > ロック寿命）は
+**ロックが生きている状態での追い越し**＝二重起動そのものですが、
+案A の局面2 の破れはロックが既に失効した後にしか起きません。
+この差を保つため、案B の実装では `timeoutAfter()` が**短くする方向にしか効かない**ようにしています。
 
 ---
 
-## 採用案: ロック TTL からの導出
+## 採用案: ロック TTL からの導出（+ 明示指定）
 
-**`expiresAt` と `dispatchedAt` からタイムアウト値を導出し、payload に常に含める。アプリ側の新しい API は追加しない。**
+**`expiresAt` と `dispatchedAt` からタイムアウト値を導出し、payload に常に含める。
+`timeoutAfter($seconds)` による明示指定があればそちらを優先する（ただし短くする方向のみ）。**
 
 ### 根拠
 
@@ -193,11 +219,36 @@ AWS 公式の動的タイムアウトの例では、`Parameters` に含まれな
 $schedule->command('batch:heavy')->hourly()->withoutOverlapping(730); // 43800秒
 ```
 
-### 一方通行ではない
+### 明示指定（案B）
 
-案A を採用しても、案B は後方互換に追加できます。
-`PayloadBuilder` が「明示指定があればそれを使い、無ければ導出する」という順序で見るだけです。
-**TTL と独立に決めたい具体的な要求が出てから案B を足す**という判断が可能です。
+`ClockAwareEvent::timeoutAfter($seconds)` で、そのジョブの持ち時間を直接宣言できます。
+
+```php
+$schedule->command('batch:heavy')->hourly()
+    ->withoutOverlapping(730)   // ロック寿命 43800 秒
+    ->timeoutAfter(43200)       // このジョブは最大 12 時間
+    ->dispatchVia('stepfunctions');
+```
+
+導出との関係は次のとおりです。
+
+| | 挙動 |
+|---|---|
+| 未指定 | 導出値（残りロック寿命 − `lock_release_buffer`、局面2 ならフォールバック） |
+| 指定あり・ロック寿命に収まる | 宣言値をそのまま使う |
+| 指定あり・残りロック寿命を超える | **残りロック寿命側で打ち切る**（局面1）。宣言値は短くする方向にしか効かない |
+| 指定あり・ロックが既に失効（局面2） | 宣言値をそのまま使う（打ち切る相手が存在しない。`min_task_timeout` も適用しない） |
+
+`withoutOverlapping($minutes)` と矛盾する指定（`timeoutAfter` >= ロック寿命）は、
+**スケジュール定義時に例外で弾きます**。`timeoutAfter()` と `withoutOverlapping()` の
+どちらを先に書いても検出されます（後者は検証のためにオーバーライドしています）。
+
+`withoutOverlapping` が無いイベントでは、上限は config の `lock_ttl` なので定義時には判定できません。
+この場合はディスパッチ時に打ち切ります（例外は投げません。1 イベントの記述ミスで
+ワーカー全体が停止するのを避けるため）。
+
+**`dispatch=local` では無視されます。** ローカル実行にタイムアウト機構が無いためで、
+案B の既知の弱点（[検討した案](#検討した案)参照）です。
 
 ---
 
@@ -289,6 +340,7 @@ $timeoutSeconds = $usable >= $minTaskTimeout
 | `src/Dispatcher/StepFunctions/Payload.php` | 第 7 引数 `int $timeoutSeconds`（**必須**）+ getter + `toJson()` にキー追加 | 破壊的変更（[後述](#timeoutseconds-を必須引数にする)） |
 | `src/Dispatcher/StepFunctions/PayloadBuilder.php` | settings の受け取りと導出の委譲 | コンストラクタ第 2 引数は省略可（既定値で組み立てる） |
 | `src/Dispatcher/StepFunctions/StepFunctionsTimeoutSettings.php` | 新規。3 つの設定を検証し、導出そのものを持つ | 新規ファイル |
+| `src/Scheduling/ClockAwareEvent.php` | `timeoutAfter()` 追加。`withoutOverlapping()` は矛盾検出のためオーバーライド | メソッド追加のみ |
 | `src/Providers/StepFunctionsServiceProvider.php` | config から settings を 1 度だけ組み立て、`PayloadBuilder` と入力ファクトリの双方がそこから読む。秒設定は非数値を拒否 | — |
 | `config/graceful-scheduler.php` の `stepfunctions` | `lock_release_buffer` と `min_task_timeout` を追加 | — |
 
@@ -517,13 +569,13 @@ harm の方向が逆なので、**値を小さめに書いていた人ほど強�
 | `min_task_timeout` の既定値 | 60 秒。局面2 の下限。短すぎると即死を防げず、長すぎると局面1 の追従が早く打ち切られる |
 | 実 AWS での動作確認 | `TimeoutSecondsPath` の実行時挙動を確認する手段と担当を決める必要がある |
 
-### 将来の拡張: 案B（専用 fluent API）
+### 実装済み: 案B（専用 fluent API）
 
-TTL と独立にタイムアウトを決めたい要求が出た場合、`PayloadBuilder` に手を入れて
-「明示指定 > 導出」の優先順で解決するようにします。
-`build()` には `ClockAwareEvent` が渡っているため、後方互換に追加できます。
+当初は将来の拡張としていましたが、案A が案B の想定コスト（検証ロジックの後付け）を
+結局払ったため、案B の固有利点だけが未実現という状態になり、実装しました。
+詳細は[明示指定（案B）](#明示指定案b)。当時挙げた 2 つの検討事項の結論は次のとおりです。
 
-その際は以下を併せて検討します。
-
-- `dispatch=local` で無視される設定になる点をどう扱うか（警告するか、ドキュメントに留めるか）
-- `timeoutSeconds >= lockTtl` となる指定を弾く検証をどこに置くか
+- **`dispatch=local` で無視される点**: ドキュメント記載に留める。ローカル実行にタイムアウト機構が無く、
+  `LocalDispatcher` に導入するのは本設計の対象外
+- **`timeoutSeconds >= lockTtl` を弾く検証の置き場所**: 定義時（`ClockAwareEvent`、
+  `withoutOverlapping` が既知の場合）とディスパッチ時の打ち切り（`StepFunctionsTimeoutSettings`）の 2 段

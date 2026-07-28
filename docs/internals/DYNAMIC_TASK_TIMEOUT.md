@@ -158,34 +158,56 @@ narrowing.
 
 ## Options Considered
 
+> **Added after implementation**: this table originally scored A more favourably; three cells turned
+> out not to match reality. **The version below is corrected** - the original scoring is recorded under
+> [Where the original scoring was wrong](#where-the-original-scoring-was-wrong). A and B turned out not
+> to be exclusive, and **both are implemented** (A as the default, B as an explicit override).
+
 | | A: Derive from lock TTL | B: Dedicated fluent API | C: Config map |
 |---|:--:|:--:|:--:|
 | Application-side code | None (reuses `withoutOverlapping`) | `->timeoutAfter(1800)` | None (listed in config) |
-| Can be set independently of TTL | No | Yes | Yes |
-| New API surface | None | One method on `ClockAwareEvent` | Config schema |
+| Can be set independently of TTL | No | Downwards only | Yes |
+| New API surface | Two config keys + a value object | One method on `ClockAwareEvent` | Config schema |
 | Proximity to the schedule definition | Best | Best | Poor |
-| Guarantees TTL > timeout | Structurally | Up to the user (needs validation) | Up to the user |
+| Prevents the dangerous breach (overtaking a live lock) | Structurally | Definition-time and dispatch-time checks | Up to the user |
+| Changes what existing code means | **Yes** (second meaning for `withoutOverlapping`) | No | No |
+| Adds a setting ignored under `dispatch=local` | **Yes** (an existing setting, easy to miss) | Yes (a new setting, noticeable) | Yes |
 
 ### Why Not C
 
 It requires building matching rules (exact / prefix / wildcard) while separating the setting from the schedule
 definition, which invites inconsistency.
 
-### Why Not B First
+### Why A Is the Default
 
-Two reasons:
+Existing schedule definitions get a lock-coherent timeout without being touched. Even when the user writes nothing,
+the original problem — every job sharing one static value sized for the longest one — is solved.
 
-1. `ClockAwareEvent` is shared with local dispatch, so this would introduce a setting that is silently ignored when
-   `dispatch=local` — the classic "I set it but it does nothing" trap.
-2. Users could break the ordering against the TTL, so the constraint that option A gets for free would have to be
-   bolted on as validation logic anyway.
+### Where the Original Scoring Was Wrong
+
+The table originally favoured A on three counts. What actually happened:
+
+| Original scoring | Reality |
+|---|---|
+| New API surface: **none** | `lock_release_buffer`, `min_task_timeout` and `StepFunctionsTimeoutSettings` all appeared |
+| TTL > timeout: **structurally guaranteed** | Regime 1 only; regime 2 breaks it deliberately ([regime 2](#regime-2-stop-tracking-when-the-lock-cannot-host-the-run)) |
+| B rejected because "the constraint that option A gets for free would have to be bolted on as validation logic anyway" | **That bolting-on happened to A too**: five validation rules, a floor with a fallback regime, and a migration-time audit of every schedule entry |
+
+The other reason for rejecting B — a setting silently ignored under `dispatch=local` — applies to A as well, and the
+assessment is now **that A's version is worse**. B grows a *new* setting one mode ignores; A attaches a second
+meaning to the *existing* `withoutOverlapping($minutes)`, so **the meaning changes without the user changing
+anything**. That is why [the migration audit](#step-3-auditing-the-schedule-definition-required) became necessary.
+
+What remains is the severity of the breach. B's breach (`timeoutAfter` > lock lifetime) is **overtaking a live
+lock** — duplicate execution itself — while A's regime-2 breach only happens once the lock has already expired. To
+keep that distinction, B is implemented so `timeoutAfter()` can only ever *shorten* the window.
 
 ---
 
-## Chosen Option: Derive from Lock TTL
+## Chosen Option: Derive from Lock TTL (plus an Explicit Override)
 
-**Derive the timeout from `expiresAt` and `dispatchedAt`, always include it in the payload, and add no new
-application-facing API.**
+**Derive the timeout from `expiresAt` and `dispatchedAt` and always include it in the payload; an explicit
+`timeoutAfter($seconds)` wins, but only in the shortening direction.**
 
 ### Rationale
 
@@ -202,11 +224,35 @@ Writing that into `withoutOverlapping($minutes)` makes the ECS-side timeout foll
 $schedule->command('batch:heavy')->hourly()->withoutOverlapping(730); // 43,800 seconds
 ```
 
-### Not a One-Way Door
+### The Explicit Override (Option B)
 
-Adopting A does not preclude B; B can be added backwards-compatibly later. `PayloadBuilder` would simply resolve in
-the order "explicit value if present, otherwise derived". **Option B can wait for a concrete need to set the timeout
-independently of the TTL.**
+`ClockAwareEvent::timeoutAfter($seconds)` declares a job's budget directly.
+
+```php
+$schedule->command('batch:heavy')->hourly()
+    ->withoutOverlapping(730)   // lock lifetime 43800s
+    ->timeoutAfter(43200)       // this job may run for 12 hours
+    ->dispatchVia('stepfunctions');
+```
+
+How it interacts with the derivation:
+
+| | Behaviour |
+|---|---|
+| Not declared | The derived value (remaining lock lifetime − `lock_release_buffer`, or the regime-2 fallback) |
+| Declared, fits the lock lifetime | The declared value is used as is |
+| Declared, exceeds the remaining lock lifetime | **Capped at the remaining lifetime** (regime 1). The declaration only ever shortens |
+| Declared, lock already expired (regime 2) | Used as is - there is nothing left to cap against, and `min_task_timeout` does not apply |
+
+A declaration contradicting `withoutOverlapping($minutes)` (`timeoutAfter` >= the lock lifetime) is **rejected at
+schedule-definition time**, in either chaining order (`withoutOverlapping` is overridden to check as well).
+
+For events without `withoutOverlapping`, the ceiling comes from the configured `lock_ttl`, which the event cannot
+know at definition time; those are capped at dispatch time instead. No exception is thrown there, because one
+mis-declared event must not stop the whole worker.
+
+**It is ignored under `dispatch=local`**, since local execution has no timeout mechanism. That is option B's known
+weakness, see [Options Considered](#options-considered).
 
 ---
 
@@ -301,6 +347,7 @@ an audit step in [Migration Order](#migration-order) and a documented consequenc
 | `src/Dispatcher/StepFunctions/Payload.php` | 7th constructor argument `int $timeoutSeconds` (**required**), getter, and a key in `toJson()` | Breaking ([see below](#making-timeoutseconds-a-required-argument)) |
 | `src/Dispatcher/StepFunctions/PayloadBuilder.php` | Accept the settings and delegate the derivation | Constructor's 2nd argument is optional (built from the defaults) |
 | `src/Dispatcher/StepFunctions/StepFunctionsTimeoutSettings.php` | New: validates the three settings and owns the derivation | New file |
+| `src/Scheduling/ClockAwareEvent.php` | Adds `timeoutAfter()`; `withoutOverlapping()` is overridden to detect contradictions | Method addition only |
 | `src/Providers/StepFunctionsServiceProvider.php` | Bind the settings once from config; `PayloadBuilder` and the input factory both read them from there. Non-numeric second values are rejected | — |
 | `config/graceful-scheduler.php` `stepfunctions` | Add `lock_release_buffer` and `min_task_timeout` | — |
 
@@ -519,13 +566,13 @@ The "Timeout Design" section of [STEPFUNCTIONS_IMPLEMENTATION.md](./STEPFUNCTION
 | Default for `min_task_timeout` | 60 seconds. The regime-2 floor: too low fails to prevent instant death, too high cuts regime-1 tracking short |
 | Verification against real AWS | The means and owner for confirming `TimeoutSecondsPath` runtime behaviour still need to be decided |
 
-### Future Work: Option B (Dedicated Fluent API)
+### Implemented: Option B (Dedicated Fluent API)
 
-If a need arises to set the timeout independently of the TTL, change `PayloadBuilder` to resolve in the order
-"explicit value, then derived". `build()` already receives the `ClockAwareEvent`, so this can be added
-backwards-compatibly.
+Originally listed as future work. Since A ended up paying B's projected cost (bolted-on validation logic) anyway,
+B's own advantage was the only thing left unrealised, so it was implemented - see
+[The Explicit Override](#the-explicit-override-option-b). The two points listed as open at the time resolved as:
 
-Points to settle at that time:
-
-- How to handle the fact that the setting is ignored under `dispatch=local` (warn, or document only)
-- Where to place validation rejecting `timeoutSeconds >= lockTtl`
+- **Ignored under `dispatch=local`**: documented, not warned. Local execution has no timeout mechanism, and adding
+  one to `LocalDispatcher` is out of scope for this design.
+- **Where to validate `timeoutSeconds >= lockTtl`**: two places - definition time (`ClockAwareEvent`, when
+  `withoutOverlapping` is already known) and a dispatch-time cap (`StepFunctionsTimeoutSettings`).

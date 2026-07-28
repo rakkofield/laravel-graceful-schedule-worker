@@ -365,7 +365,7 @@ Information required as input to the State Machine:
 - `lockKey`: DynamoDB lock key (generated from mutexName and dueAt)
 - `expiresAt`: Lock expiration time (Unix timestamp, calculated as dueAt + lockTtlSeconds)
 - `dispatchedAt`: Actual dispatch time (Unix timestamp, captured by the Dispatcher at the moment `dispatchEvent` runs). Used by `AcquireLock` as `:now` to compare against `expiresAt` of any preexisting lock so that an expired lock can be overwritten.
-- `timeoutSeconds`: Task timeout in seconds, derived from the remaining lock lifetime minus `stepfunctions.lock_release_buffer` (default 60). When less than `stepfunctions.min_task_timeout` (default 60) is left - a recovery dispatch, or a `withoutOverlapping` window near the buffer - it falls back to the lifetime the event declared, which can outlast `expiresAt`. Always present, so a `Task` state can consume it via `TimeoutSecondsPath: "$.timeoutSeconds"`. See [DYNAMIC_TASK_TIMEOUT.md](./DYNAMIC_TASK_TIMEOUT.md).
+- `timeoutSeconds`: Task timeout in seconds, derived from the remaining lock lifetime minus `stepfunctions.lock_release_buffer` (default 60). When less than `stepfunctions.min_task_timeout` (default 60) is left - a recovery dispatch, or a `withoutOverlapping` window near the buffer - it falls back to the lifetime the event declared, which can outlast `expiresAt`. An explicit `timeoutAfter($seconds)` on the event overrides the derivation, capped at the remaining lock lifetime. Always present, so a `Task` state can consume it via `TimeoutSecondsPath: "$.timeoutSeconds"`. See [DYNAMIC_TASK_TIMEOUT.md](./DYNAMIC_TASK_TIMEOUT.md).
 
 ---
 

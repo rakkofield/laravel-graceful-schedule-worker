@@ -28,7 +28,7 @@
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
 | Scheduling/ClockAwareScheduleTest | `CS` | 13 |
-| Scheduling/ClockAwareEventTest | `CE` | 36 |
+| Scheduling/ClockAwareEventTest | `CE` | 46 |
 | Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareTimeFilterTest | `TF` | 13 |
 | Scheduling/TimezoneResolverTest | `TR` | 6 |
@@ -55,8 +55,8 @@
 | Dispatcher/StepFunctions/MutexNameSanitizerTest | `MNS` | 19 |
 | Dispatcher/StepFunctions/LockKeyGeneratorTest | `LKG` | 9 |
 | Dispatcher/StepFunctions/PayloadTest | `PY` | 7 |
-| Dispatcher/StepFunctions/PayloadBuilderTest | `PB` | 24 |
-| Dispatcher/StepFunctions/StepFunctionsTimeoutSettingsTest | `STS` | 22 |
+| Dispatcher/StepFunctions/PayloadBuilderTest | `PB` | 26 |
+| Dispatcher/StepFunctions/StepFunctionsTimeoutSettingsTest | `STS` | 27 |
 | Dispatcher/StepFunctions/StartExecutionInputFactoryTest | `SEIF` | 4 |
 | Dispatcher/StepFunctions/StartExecutionInputTest | `SEI` | 4 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |

@@ -169,6 +169,7 @@ See [docs/internals/STEPFUNCTIONS_IMPLEMENTATION.md](docs/internals/STEPFUNCTION
 | `withGracePeriod($minutes)` | Enable recovery with a grace period (minutes). Pass `null` for unlimited. |
 | `enableRecovery()` | Enable recovery without a grace period |
 | `dispatchVia($type)` | Set dispatcher type: `'local'` or `'stepfunctions'` |
+| `timeoutAfter($seconds)` | Declare how long the job may run. Step Functions dispatch only; must be shorter than the `withoutOverlapping()` lock lifetime |
 
 ### Compatibility
 
