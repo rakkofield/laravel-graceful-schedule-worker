@@ -77,7 +77,16 @@ class Kernel extends ConsoleKernel
                 ->appendOutputTo('/tmp/scheduler.log');
 
             if ($scenario === 'stepfunctions' && config('graceful-scheduler.stepfunctions.endpoint')) {
+                // Derived timeout: no timeoutAfter(), so the payload carries
+                // lock lifetime - lock_release_buffer (3600 - 60 = 3540 by default).
                 $schedule->exec('echo "sfn-task-executed"')->everyMinute()
+                    ->dispatchVia('stepfunctions');
+
+                // Declared timeout: timeoutAfter() overrides the derivation, but only
+                // downwards - it can never outlast the lock. Compare the two
+                // timeoutSeconds values with bin/check-stepfunctions.php.
+                $schedule->exec('echo "sfn-task-with-timeout"')->everyMinute()
+                    ->timeoutAfter(120)
                     ->dispatchVia('stepfunctions');
             }
             return;

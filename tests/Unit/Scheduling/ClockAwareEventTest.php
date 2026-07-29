@@ -808,4 +808,101 @@ class ClockAwareEventTest extends TestCase
 
         $this->assertSame(1800, $event->resolveLockTtlSeconds(3600));
     }
+
+    /**
+     * @testdox CE.37 getTaskTimeoutSeconds returns null until timeoutAfter is called
+     */
+    public function testTaskTimeoutSecondsIsNullByDefault(): void
+    {
+        $this->assertNull($this->createEventForTimeout()->getTaskTimeoutSeconds());
+    }
+
+    /**
+     * @testdox CE.38 timeoutAfter stores the declared seconds and is chainable
+     */
+    public function testTimeoutAfterStoresDeclaredSeconds(): void
+    {
+        $event = $this->createEventForTimeout();
+
+        $returned = $event->timeoutAfter(1800);
+
+        $this->assertSame($event, $returned);
+        $this->assertSame(1800, $event->getTaskTimeoutSeconds());
+    }
+
+    /**
+     * @testdox CE.39 timeoutAfter rejects a non-positive value
+     */
+    public function testTimeoutAfterRejectsNonPositiveValue(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('timeoutAfter() expects at least 1 second, got 0');
+
+        $this->createEventForTimeout()->timeoutAfter(0);
+    }
+
+    /**
+     * @testdox CE.40 timeoutAfter accepts a value inside the withoutOverlapping window
+     */
+    public function testTimeoutAfterAcceptsValueInsideLockLifetime(): void
+    {
+        $event = $this->createEventForTimeout();
+
+        $event->withoutOverlapping(30)->timeoutAfter(1799);
+
+        $this->assertSame(1799, $event->getTaskTimeoutSeconds());
+    }
+
+    /**
+     * @testdox CE.41 timeoutAfter rejects a value reaching the withoutOverlapping window
+     */
+    public function testTimeoutAfterRejectsValueReachingLockLifetime(): void
+    {
+        $event = $this->createEventForTimeout();
+        $event->withoutOverlapping(30);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('timeoutAfter(1800) must be shorter than the withoutOverlapping(30)');
+
+        $event->timeoutAfter(1800);
+    }
+
+    /**
+     * @testdox CE.42 The contradiction is caught in the reverse chaining order too
+     */
+    public function testContradictionIsCaughtWhenWithoutOverlappingComesSecond(): void
+    {
+        $event = $this->createEventForTimeout();
+        $event->timeoutAfter(3600);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('timeoutAfter(3600) must be shorter than the withoutOverlapping(30)');
+
+        $event->withoutOverlapping(30);
+    }
+
+    /**
+     * @testdox CE.43 withoutOverlapping still enables the lock and its TTL
+     */
+    public function testOverriddenWithoutOverlappingKeepsLaravelBehaviour(): void
+    {
+        $event = $this->createEventForTimeout();
+
+        $event->timeoutAfter(600)->withoutOverlapping(30);
+
+        $this->assertSame(1800, $event->resolveLockTtlSeconds(3600));
+        $this->assertSame(600, $event->getTaskTimeoutSeconds());
+    }
+
+    private function createEventForTimeout(): ClockAwareEvent
+    {
+        return new ClockAwareEvent(
+            $this->mutex,
+            'php artisan test',
+            new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00')),
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+    }
 }

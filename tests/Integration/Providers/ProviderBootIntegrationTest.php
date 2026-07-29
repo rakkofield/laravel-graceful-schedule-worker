@@ -12,6 +12,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClient
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGeneratorInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTimeoutSettings;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 
 /**
@@ -104,6 +105,29 @@ class ProviderBootIntegrationTest extends TestCase
         $this->assertSame('local', config('graceful-scheduler.dispatch'));
         $this->assertIsArray(config('graceful-scheduler.stepfunctions'));
         $this->assertIsArray(config('graceful-scheduler.tracker'));
+    }
+
+    /**
+     * @testdox GPI.8 Shipped config defaults match the StepFunctionsTimeoutSettings constants
+     */
+    public function testShippedConfigDefaultsMatchTimeoutConstants(): void
+    {
+        // The constants document themselves as "kept in sync with
+        // config/graceful-scheduler.php". This is what keeps that claim true: the
+        // published config file is the surface consumers edit, and drift between the
+        // two is invisible everywhere else.
+        $this->assertSame(
+            StepFunctionsTimeoutSettings::DEFAULT_LOCK_TTL,
+            config('graceful-scheduler.stepfunctions.lock_ttl')
+        );
+        $this->assertSame(
+            StepFunctionsTimeoutSettings::DEFAULT_LOCK_RELEASE_BUFFER,
+            config('graceful-scheduler.stepfunctions.lock_release_buffer')
+        );
+        $this->assertSame(
+            StepFunctionsTimeoutSettings::DEFAULT_MIN_TASK_TIMEOUT,
+            config('graceful-scheduler.stepfunctions.min_task_timeout')
+        );
     }
 
     /**

@@ -87,8 +87,55 @@ bin/scenario-stepfunctions.sh
 4. Step Functions execution completes independently on moto
 
 **Expected output:**
-- Local process: `INTERRUPTED at step 3/8`
-- Step Functions: `SUCCEEDED`
+- Local process: killed mid-execution (`running at step N/8`, never reaching 8/8)
+- Step Functions: the execution is listed and its input is intact - it was started
+  independently of the worker that died
+
+**Why the Step Functions status stays `RUNNING`:** moto does not execute state machines
+unless `stepfunctions.execute_state_machine` is flipped on through its `moto-api/config`
+endpoint, so executions are recorded but never advanced (their history is a moto stub).
+The demo deliberately leaves it off, because with it on:
+
+- `AcquireLock` fails with `DynamoDB.ResourceNotFoundException` - nothing in the demo
+  creates the `ScheduleExecutionLocks` table the state machine writes to
+- a second `StartExecution` against a state machine that already executed makes moto
+  return HTTP 500 (a deepcopy crash), so moto has to be reset between executions - which
+  a demo that dispatches every minute cannot do
+
+What this scenario demonstrates is therefore the dispatch boundary: the local child dies
+with the worker, while the Step Functions execution exists on its own. The library's own
+integration tests cover the executing path (they reset moto per test and flip the flag).
+
+**Task timeouts in the dispatched payload:**
+
+This scenario registers two Step Functions tasks that differ only in how their timeout is
+decided, so the execution list shows both paths side by side:
+
+```bash
+docker compose run --rm -e SFN_ENDPOINT=http://moto:5000 php php bin/check-stepfunctions.php
+```
+
+```
+Name                   Command                    Status     Start Date           Timeout LockLeft
+framework-schedule-b.. echo "sfn-task-executed"   RUNNING    2026-07-28 12:00:00     3540     3600
+framework-schedule-9.. echo "sfn-task-with-tim..  RUNNING    2026-07-28 12:00:00      120     3600
+```
+
+Execution names are sha1-based, so the `Command` column is what identifies a row.
+
+- `echo "sfn-task-executed"` has no `timeoutAfter()`, so the value is derived:
+  `LockLeft - lock_release_buffer` (3600 - 60).
+- `echo "sfn-task-with-timeout"` declares `->timeoutAfter(120)`, which overrides the
+  derivation. A declaration can only shorten the window - it is capped at what the lock
+  can protect.
+
+Dispatch the worker late (or watch a recovery dispatch) and `LockLeft` shrinks, with the
+derived `Timeout` following it down; the declared one stays flat until it hits the cap.
+
+**Nothing enforces these values in the demo.** `demo/stepfunctions/state-machine.json`
+does not declare `TimeoutSecondsPath` - a `Pass` state cannot carry it, and moto cannot run
+the ECS integration that would honour it. See
+[DYNAMIC_TASK_TIMEOUT.md](../docs/internals/DYNAMIC_TASK_TIMEOUT.md) for the real-AWS story.
 
 ## Scenario 5: Overlap Prevention (~5 min)
 
@@ -155,7 +202,7 @@ docker compose run --rm php php artisan demo:report --worker=overlap
 # View tracker dashboard
 docker compose run --rm php php artisan demo:tracker
 
-# Check Step Functions execution history
+# Check Step Functions execution history (with each payload's timeoutSeconds)
 docker compose run --rm -e SFN_ENDPOINT=http://moto:5000 php php bin/check-stepfunctions.php
 ```
 
@@ -168,7 +215,7 @@ The `DEMO_SCENARIO` variable controls which tasks are registered in `gracefulSch
 | _(empty/default)_ | `demo:tick` with recovery + Step Functions echo |
 | `signal` | `demo:long-task` (SIGTERM handling demo) |
 | `overlap` | `demo:slow-task` with `withoutOverlapping()` |
-| `stepfunctions` | `demo:long-task` + Step Functions echo |
+| `stepfunctions` | `demo:long-task` + two Step Functions echoes (derived vs `timeoutAfter()` timeout) |
 
 ## How Recovery Works
 

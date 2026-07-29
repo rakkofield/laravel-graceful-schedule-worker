@@ -354,7 +354,8 @@ Information required as input to the State Machine:
   "dueAt": "2024-01-01T03:00:00Z",
   "lockKey": "schedule-reports-generate-1704067200",
   "expiresAt": 1704070800,
-  "dispatchedAt": 1704067205
+  "dispatchedAt": 1704067205,
+  "timeoutSeconds": 3535
 }
 ```
 
@@ -364,6 +365,7 @@ Information required as input to the State Machine:
 - `lockKey`: DynamoDB lock key (generated from mutexName and dueAt)
 - `expiresAt`: Lock expiration time (Unix timestamp, calculated as dueAt + lockTtlSeconds)
 - `dispatchedAt`: Actual dispatch time (Unix timestamp, captured by the Dispatcher at the moment `dispatchEvent` runs). Used by `AcquireLock` as `:now` to compare against `expiresAt` of any preexisting lock so that an expired lock can be overwritten.
+- `timeoutSeconds`: Task timeout in seconds, derived from the remaining lock lifetime minus `stepfunctions.lock_release_buffer` (default 60). When less than `stepfunctions.min_task_timeout` (default 60) is left - a recovery dispatch, or a `withoutOverlapping` window near the buffer - it falls back to the lifetime the event declared, which can outlast `expiresAt`. An explicit `timeoutAfter($seconds)` on the event overrides the derivation, capped at the remaining lock lifetime. Always present, so a `Task` state can consume it via `TimeoutSecondsPath: "$.timeoutSeconds"`. See [DYNAMIC_TASK_TIMEOUT.md](./DYNAMIC_TASK_TIMEOUT.md).
 
 ---
 
@@ -496,12 +498,15 @@ Step Functions failures can be detected by:
 
 ## Timeout Design
 
+> **Note**: For the design behind per-job timeouts, see
+> [DYNAMIC_TASK_TIMEOUT.md](./DYNAMIC_TASK_TIMEOUT.md)
+
 ### Timeout Hierarchy
 
 ```
-Step Functions Execution Timeout
+DynamoDB lock TTL (expiresAt)
     |
-    +-- Task State Timeout
+    +-- Task State Timeout (TimeoutSecondsPath)
            |
            +-- ECS Task Stop Timeout
                   |
@@ -510,22 +515,59 @@ Step Functions Execution Timeout
 
 Each layer's timeout should follow the relationship: outer > inner.
 
+Note that the outermost layer is the lock TTL. If an ECS task runs past it, a re-dispatch reclaims the lock and
+**two ECS tasks run for the same job**. The ownership guard on `ReleaseLock` (`executionArn = :arn`) prevents
+deleting the wrong lock, but not the duplicate run.
+
+The state machine's overall Execution Timeout is deliberately absent from this hierarchy (see below).
+
 ### Recommended Settings
 
 | Layer | Setting | Description |
 |-------|---------|-------------|
-| Execution Timeout | Max job time + 5 minutes | Overall limit including retries |
-| Task Timeout | Max job time + 1 minute | Single execution limit |
+| Lock TTL (`withoutOverlapping($minutes)`) | Max job time + margin | **The only value the application sets**; everything below is derived from it |
+| Task State Timeout (`TimeoutSecondsPath`) | Derived: `expiresAt - dispatchedAt - buffer` | Per-job value, carried as `timeoutSeconds` in the execution input |
+| Execution Timeout (top level) | **Do not set** | Not catchable, so `ReleaseLock` would never be reached |
 | ECS Stop Timeout | 30 seconds | Graceful shutdown allowance |
-| Heartbeat | Every 5 minutes | Liveness check for long-running jobs |
 
-### Using Heartbeat
+```php
+$schedule->command('batch:heavy')->hourly()->withoutOverlapping(730); // 43,800 seconds
+```
 
-Use Heartbeat for long-running jobs:
+### Why No Execution Timeout
 
-- Periodically send `SendTaskHeartbeat` from within the ECS Task
-- Heartbeat stop = detected as anomaly
-- Auto-cancel on `HeartbeatTimeout` exceeded
+The state machine's overall `TimeoutSeconds` has no path variant (no equivalent of `TimeoutSecondsPath`), so only a
+static value can be placed there. Once only the Task side becomes dynamic, the value chosen by the application can
+invert the "top level > task" ordering.
+
+When inverted, the execution-level timeout fires first. That one is **not catchable**, so `ReleaseLock` is never
+reached and the lock stays until `expiresAt`.
+
+Leaving it unset does not make the runtime unbounded:
+
+1. Every Task state has a timeout and every failure path is caught, so the execution is already bounded by per-state
+   timeouts
+2. Per-state timeouts are catchable, so `Catch(States.ALL)` -> `MarkFailed` -> `ReleaseLock` reclaims the lock
+3. A final backstop exists: the Standard Workflow execution limit (1 year) and TTL reclamation via `expiresAt`
+
+An absent top-level timeout is indistinguishable from an oversight during review, so **state the reason in
+`Comment`**. Left unexplained it will be "restored" in good faith, silently reinstating the uncatchable lock-leak
+path.
+
+### Retries on Long-Running States
+
+Per-state timeouts apply **per attempt**, so `MaxAttempts: 3` stretches the worst case to 4 x the timeout value.
+`ECS.AmazonECSException` / `ECS.ServiceException` normally surface right after RunTask is submitted, and re-running a
+long `.sync` from scratch is rarely the intent. Keep `MaxAttempts` small on long-running states.
+
+### About Heartbeat
+
+ASL's `HeartbeatSeconds` / `HeartbeatSecondsPath` assume a **worker holding a task token** (an Activity, or the
+`.waitForTaskToken` pattern) that sends `SendTaskHeartbeat`. The `ecs:runTask.sync` pattern described in this document
+has no task token, so they do not apply.
+
+This is an entirely different mechanism from extending the DynamoDB lock's `expiresAt` during execution (a state
+machine that periodically issues `UpdateItem`). The naming is confusingly similar; do not conflate the two.
 
 ---
 

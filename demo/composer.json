@@ -27,11 +27,8 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "audit": {
-            "ignore": [
-                "PKSA-dxyf-6n16-t87m",
-                "PKSA-n3s6-289w-qtqb",
-                "PKSA-stsw-jsf7-f6vs"
-            ]
+            "block-insecure": false,
+            "abandoned": "ignore"
         }
     },
     "extra": {

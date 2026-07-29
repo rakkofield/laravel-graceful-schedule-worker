@@ -250,6 +250,7 @@ All settings in `config/graceful-scheduler.php`:
 | `withGracePeriod($minutes)` | Enable recovery and set the grace period. `null` for unlimited. |
 | `enableRecovery()` | Enable recovery (no grace period) |
 | `dispatchVia($type)` | Specify the Dispatcher type: `'local'` / `'stepfunctions'` |
+| `timeoutAfter($seconds)` | Declare how long the job may run. Step Functions dispatch only; must be shorter than the `withoutOverlapping()` lock lifetime |
 
 ### Compatibility Table
 

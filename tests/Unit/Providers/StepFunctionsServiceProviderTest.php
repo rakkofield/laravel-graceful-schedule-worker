@@ -8,6 +8,7 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNameGenerator;
@@ -15,9 +16,14 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\ExecutionNam
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\LockKeyGenerator;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilder;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuilderInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactoryInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTimeoutSettings;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 class StepFunctionsServiceProviderTest extends TestCase
 {
@@ -310,5 +316,188 @@ class StepFunctionsServiceProviderTest extends TestCase
         $resolved = $sfnClient->getCredentials()->wait();
         $this->assertSame('callable-key', $resolved->getAccessKeyId());
         $this->assertSame('callable-secret', $resolved->getSecretKey());
+    }
+
+    /**
+     * @testdox SFP.13 Timeout settings are read from config as a validated set
+     */
+    public function testTimeoutSettingsAreReadFromConfig(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_ttl', '7200');
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_release_buffer', '300');
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.min_task_timeout', '120');
+
+        $this->provider->register();
+
+        /** @var StepFunctionsTimeoutSettings $settings */
+        $settings = $this->app->make(StepFunctionsTimeoutSettings::class);
+        $this->assertSame(7200, $settings->getLockTtlSeconds());
+        $this->assertSame(300, $settings->getLockReleaseBufferSeconds());
+        $this->assertSame(120, $settings->getMinTaskTimeoutSeconds());
+    }
+
+    /**
+     * @testdox SFP.14 Timeout settings fall back to the documented defaults
+     */
+    public function testTimeoutSettingsFallBackToDefaults(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions', [
+            'state_machine_arn' => 'arn:aws:states:ap-northeast-1:123:stateMachine:Test',
+        ]);
+
+        $this->provider->register();
+
+        /** @var StepFunctionsTimeoutSettings $settings */
+        $settings = $this->app->make(StepFunctionsTimeoutSettings::class);
+        $this->assertSame(3600, $settings->getLockTtlSeconds());
+        $this->assertSame(60, $settings->getLockReleaseBufferSeconds());
+        $this->assertSame(60, $settings->getMinTaskTimeoutSeconds());
+    }
+
+    /**
+     * @testdox SFP.15 Timeout settings are a singleton shared by PayloadBuilder and input factory
+     */
+    public function testTimeoutSettingsAreSharedSingleton(): void
+    {
+        $this->provider->register();
+
+        $this->assertTrue($this->app->isShared(StepFunctionsTimeoutSettings::class));
+        $this->assertSame(
+            $this->app->make(StepFunctionsTimeoutSettings::class),
+            $this->app->make(StepFunctionsTimeoutSettings::class)
+        );
+    }
+
+    /**
+     * @testdox SFP.16 The configured lock_release_buffer reaches the dispatched input
+     */
+    public function testConfiguredLockReleaseBufferReachesDispatchedInput(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_release_buffer', 300);
+
+        $this->provider->register();
+
+        $input = $this->createInputThroughContainer();
+
+        $this->assertSame(3600 - 300, $input['timeoutSeconds']);
+    }
+
+    /**
+     * @testdox SFP.17 The configured lock_ttl reaches expiresAt and the derived timeout
+     */
+    public function testConfiguredLockTtlReachesExpiresAtAndTimeout(): void
+    {
+        // Guards the wiring itself, through the input factory that receives lock_ttl:
+        // lock_ttl and lock_release_buffer are two same-typed getters on one settings
+        // object, so swapping them at either call site has to fail here.
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_ttl', 7200);
+
+        $this->provider->register();
+
+        $dueAt = new \DateTimeImmutable('2024-01-15T10:30:00+09:00');
+        $input = $this->createInputThroughContainer($dueAt);
+
+        $this->assertSame($dueAt->getTimestamp() + 7200, $input['expiresAt']);
+        $this->assertSame(7200 - 60, $input['timeoutSeconds']);
+    }
+
+    /**
+     * @testdox SFP.18 Resolving the PayloadBuilder rejects an incoherent lock_ttl / buffer pair
+     */
+    public function testPayloadBuilderRejectsIncoherentTimeoutSettings(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_ttl', 30);
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_release_buffer', 600);
+
+        $this->provider->register();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('lock_ttl (30) must be greater than lock_release_buffer (600)');
+
+        $this->app->make(PayloadBuilderInterface::class);
+    }
+
+    /**
+     * @testdox SFP.19 Resolving the input factory rejects an incoherent lock_ttl / buffer pair
+     */
+    public function testInputFactoryRejectsIncoherentTimeoutSettings(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_ttl', 60);
+
+        $this->provider->register();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('lock_ttl (60) must be greater than lock_release_buffer (60)');
+
+        $this->app->make(StartExecutionInputFactoryInterface::class);
+    }
+
+    /**
+     * @testdox SFP.20 Resolving the dispatcher rejects a non-positive lock_ttl
+     */
+    public function testDispatcherRejectsNonPositiveLockTtl(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_ttl', 0);
+
+        $this->provider->register();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('lock_ttl must be at least 1 second, got 0');
+
+        $this->app->make(StepFunctionsDispatcher::class);
+    }
+
+    /**
+     * @testdox SFP.21 Resolving rejects a min_task_timeout larger than the configured budget
+     */
+    public function testRejectsMinTaskTimeoutLargerThanBudget(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.min_task_timeout', 3600);
+
+        $this->provider->register();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('min_task_timeout (3600) must not exceed');
+
+        $this->app->make(StepFunctionsTimeoutSettings::class);
+    }
+
+    /**
+     * @testdox SFP.22 A non-numeric seconds setting is rejected with the raw value quoted
+     */
+    public function testNonNumericSecondsSettingIsRejectedWithRawValue(): void
+    {
+        $this->app->make('config')->set('graceful-scheduler.stepfunctions.lock_release_buffer', '30m');
+
+        $this->provider->register();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("lock_release_buffer must be an integer number of seconds, got '30m'");
+
+        $this->app->make(StepFunctionsTimeoutSettings::class);
+    }
+
+    /**
+     * Produce a StartExecution input through the whole container-resolved graph and
+     * return its decoded payload, so the assertions cover the provider's wiring - which
+     * setting reaches which collaborator - rather than a hand-assembled object set.
+     *
+     * @param \DateTimeImmutable|null $dueAt
+     * @return array<string, mixed>
+     */
+    private function createInputThroughContainer(\DateTimeImmutable $dueAt = null): array
+    {
+        $dueAt = $dueAt ?? new \DateTimeImmutable('2024-01-15T10:30:00+09:00');
+
+        /** @var StartExecutionInputFactoryInterface $factory */
+        $factory = $this->app->make(StartExecutionInputFactoryInterface::class);
+
+        $mutex = new FakeEventMutex();
+        $clock = new FixedClock($dueAt);
+        $event = new ClockAwareEvent($mutex, 'php artisan report:daily', $clock, 'local', null, new TimezoneResolver());
+
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($factory->create($event, $dueAt, $dueAt)->getInput(), true);
+        return $decoded;
     }
 }

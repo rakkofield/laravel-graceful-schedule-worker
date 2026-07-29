@@ -250,6 +250,7 @@ protected function gracefulSchedule(ClockAwareSchedule $schedule)
 | `withGracePeriod($minutes)` | リカバリを有効化し、猶予期間を設定。`null` で無制限。 |
 | `enableRecovery()` | リカバリを有効化（猶予期間なし） |
 | `dispatchVia($type)` | Dispatcher タイプを指定: `'local'` / `'stepfunctions'` |
+| `timeoutAfter($seconds)` | ジョブの持ち時間を宣言。Step Functions ディスパッチ専用で、`withoutOverlapping()` のロック寿命より短くする必要がある |
 
 ### 互換性テーブル
 

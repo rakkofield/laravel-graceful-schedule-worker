@@ -350,18 +350,22 @@ State Machine への入力として必要な情報：
 ```json
 {
   "command": ["reports:generate"],
-  "arguments": ["--date=2024-01-01"],
-  "dueAt": "2024-01-01T03:00:00Z",
   "mutexName": "schedule-reports:generate",
-  "isRecovery": false
+  "dueAt": "2024-01-01T03:00:00Z",
+  "lockKey": "schedule-reports-generate-1704067200",
+  "expiresAt": 1704070800,
+  "dispatchedAt": 1704067205,
+  "timeoutSeconds": 3535
 }
 ```
 
 - `command`: 実行する artisan コマンド
-- `arguments`: コマンド引数
-- `dueAt`: 本来の due 時刻（冪等性チェックに使用可能）
 - `mutexName`: Laravel のイベント識別子
-- `isRecovery`: リカバリ実行かどうか
+- `dueAt`: 本来の due 時刻（冪等性チェックに使用可能）
+- `lockKey`: DynamoDB のロックキー（mutexName と dueAt から生成）
+- `expiresAt`: ロックの失効時刻（Unix timestamp。`dueAt + lockTtlSeconds`）
+- `dispatchedAt`: 実際のディスパッチ時刻（Unix timestamp。`dispatchEvent` 実行時に Dispatcher が採取）。`AcquireLock` が `:now` として既存ロックの `expiresAt` と比較し、失効済みロックの上書きを判定する
+- `timeoutSeconds`: Task のタイムアウト秒数。残りロック寿命から `stepfunctions.lock_release_buffer`（既定 60）を引いて導出する。残りが `stepfunctions.min_task_timeout`（既定 60）を下回る場合（リカバリ起動や、`withoutOverlapping` の窓がバッファと同程度のとき）はイベントが宣言した寿命にフォールバックし、その値は `expiresAt` を越えうる。イベントに `timeoutAfter($seconds)` があればそちらを優先する（残りロック寿命で打ち切る）。常に出力されるため、`Task` ステートは `TimeoutSecondsPath: "$.timeoutSeconds"` で参照できる。[DYNAMIC_TASK_TIMEOUT.ja.md](./DYNAMIC_TASK_TIMEOUT.ja.md) を参照
 
 ---
 
@@ -489,12 +493,15 @@ Step Functions の失敗は以下の方法で検知：
 
 ## タイムアウト設計
 
+> **Note**: ジョブごとにタイムアウトを変える仕組みの設計背景は
+> [DYNAMIC_TASK_TIMEOUT.ja.md](./DYNAMIC_TASK_TIMEOUT.ja.md) を参照
+
 ### タイムアウトの階層
 
 ```
-Step Functions Execution Timeout
+DynamoDB ロック TTL (expiresAt)
     │
-    └─ Task State Timeout
+    └─ Task State Timeout (TimeoutSecondsPath)
            │
            └─ ECS Task Stop Timeout
                   │
@@ -503,22 +510,56 @@ Step Functions Execution Timeout
 
 各層のタイムアウトは外側 > 内側 の関係にします。
 
+最外周がロック TTL である点が重要です。ECS タスクがロック TTL を超えて走ると、
+再ディスパッチがロックを奪取して**同じジョブの ECS タスクが二重起動します**。
+`ReleaseLock` の所有権ガード（`executionArn = :arn`）はロックの誤削除を防ぎますが、二重起動そのものは防ぎません。
+
+ステートマシン全体の Execution Timeout がこの階層に含まれていないのは意図的です（後述）。
+
 ### 推奨設定
 
 | 層 | 設定値 | 説明 |
 |---|-------|------|
-| Execution Timeout | ジョブ最大時間 + 5分 | リトライを含む全体の上限 |
-| Task Timeout | ジョブ最大時間 + 1分 | 単一実行の上限 |
+| ロック TTL（`withoutOverlapping($minutes)`） | ジョブ最大時間 + 余裕 | **アプリが設定する唯一の値**。以下はここから導出される |
+| Task State Timeout（`TimeoutSecondsPath`） | 導出値 `expiresAt - dispatchedAt - buffer` | ジョブごとの値。実行入力の `timeoutSeconds` で渡す |
+| Execution Timeout（トップレベル） | **設定しない** | 捕捉できず `ReleaseLock` に到達しないため |
 | ECS Stop Timeout | 30秒 | graceful shutdown の猶予 |
-| Heartbeat | 5分ごと | 長時間ジョブの生存確認 |
 
-### Heartbeat の活用
+```php
+$schedule->command('batch:heavy')->hourly()->withoutOverlapping(730); // 43800秒
+```
 
-長時間実行ジョブでは Heartbeat を使用：
+### Execution Timeout を設定しない理由
 
-- ECS Task 内から定期的に `SendTaskHeartbeat` を送信
-- Heartbeat 停止 = 異常として検知
-- `HeartbeatTimeout` 超過で自動キャンセル
+ステートマシン全体の `TimeoutSeconds` にはパス版（`TimeoutSecondsPath` に相当するもの）が存在せず、静的な値しか置けません。
+Task 側だけが動的になると、アプリが指定した値によって「トップレベル > Task」の大小関係が反転しえます。
+
+反転すると実行レベルのタイムアウトが先に発火しますが、これは **`Catch` で捕捉できない**ため
+`ReleaseLock` に到達せず、ロックが `expiresAt` まで残ります。
+
+設定しなくても実行時間は野放しになりません。
+
+1. 全 Task ステートにタイムアウトがあり、失敗経路も `Catch` されているため、実行全体は state 単位のタイムアウトで縛られている
+2. state 単位のタイムアウトは捕捉できるため、`Catch(States.ALL)` → `MarkFailed` → `ReleaseLock` でロックが回収される
+3. 最終防波堤として Standard ワークフローの実行時間上限（1年）と、`expiresAt` による TTL 回収がある
+
+トップレベルにタイムアウトが無い状態はレビュー時に設定漏れと区別が付かないため、
+**`Comment` に理由を明記してください**。放置すると善意で復元され、捕捉不可能なロック漏れ経路が黙って復活します。
+
+### 長時間ステートのリトライ
+
+state 単位のタイムアウトは**試行ごと**に適用されるため、`MaxAttempts: 3` が効くと最悪 4 × タイムアウト値まで実行が伸びます。
+`ECS.AmazonECSException` / `ECS.ServiceException` は RunTask 送信直後に発生するのが通常であり、
+長時間走る `.sync` を丸ごとやり直す動作は通常意図したものではありません。長時間ステートでは `MaxAttempts` を絞ってください。
+
+### Heartbeat について
+
+ASL の `HeartbeatSeconds` / `HeartbeatSecondsPath` は、**タスクトークンを保持するワーカー**
+（Activity、または `.waitForTaskToken` パターン）が `SendTaskHeartbeat` を送ることを前提とした仕組みです。
+本ドキュメントで扱う `ecs:runTask.sync` パターンにはタスクトークンが無いため、適用できません。
+
+DynamoDB ロックの `expiresAt` を実行中に延長する仕組み（ステートマシン側で `UpdateItem` を定期実行する構成）とは
+まったくの別物です。名称が紛らわしいので混同しないでください。
 
 ---
 

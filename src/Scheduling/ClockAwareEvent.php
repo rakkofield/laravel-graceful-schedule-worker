@@ -38,6 +38,9 @@ class ClockAwareEvent extends Event
     /** @var string[]|null */
     protected $rawCommand = null;
 
+    /** @var int|null */
+    protected $taskTimeoutSeconds = null;
+
     /** @var ClockAwareTimeFilter */
     private $timeFilter;
 
@@ -120,6 +123,90 @@ class ClockAwareEvent extends Event
         $this->recoverable = true;
         $this->gracePeriod = null;
         return $this;
+    }
+
+    /**
+     * Declare how long this job may run, in seconds.
+     *
+     * Only the Step Functions dispatcher consumes it: the value is carried in the
+     * payload as `timeoutSeconds` and applies once the state machine reads it through
+     * `TimeoutSecondsPath`. Local dispatch ignores it.
+     *
+     * The declared value can only *narrow* the window the lock protects, never widen it,
+     * because a task outliving its lock lets the next occurrence start a duplicate. A
+     * value that does not fit inside the withoutOverlapping() window is a contradiction
+     * and is rejected here rather than silently truncated at dispatch time.
+     *
+     * @param int $seconds
+     * @return $this
+     * @throws InvalidArgumentException If not positive, or wider than the lock lifetime
+     */
+    public function timeoutAfter($seconds)
+    {
+        $seconds = (int) $seconds;
+        if ($seconds < 1) {
+            throw new InvalidArgumentException(sprintf(
+                'timeoutAfter() expects at least 1 second, got %d.',
+                $seconds
+            ));
+        }
+
+        $this->assertTimeoutFitsLockLifetime($seconds, $this->withoutOverlapping ? $this->expiresAt : null);
+        $this->taskTimeoutSeconds = $seconds;
+
+        return $this;
+    }
+
+    /**
+     * Overridden only to catch a timeoutAfter() / withoutOverlapping() contradiction
+     * regardless of the order the two are chained in.
+     *
+     * @param int $expiresAt Lock lifetime in minutes
+     * @return $this
+     * @throws InvalidArgumentException If narrower than an already declared timeoutAfter()
+     */
+    public function withoutOverlapping($expiresAt = 1440)
+    {
+        $this->assertTimeoutFitsLockLifetime($this->taskTimeoutSeconds, $expiresAt);
+
+        return parent::withoutOverlapping($expiresAt);
+    }
+
+    /**
+     * Seconds declared via timeoutAfter(), or null when the value should be derived.
+     *
+     * @return int|null
+     */
+    public function getTaskTimeoutSeconds(): ?int
+    {
+        return $this->taskTimeoutSeconds;
+    }
+
+    /**
+     * @param int|null $timeoutSeconds
+     * @param int|null $lockLifetimeMinutes
+     * @return void
+     * @throws InvalidArgumentException
+     */
+    private function assertTimeoutFitsLockLifetime(?int $timeoutSeconds, $lockLifetimeMinutes): void
+    {
+        if ($timeoutSeconds === null || $lockLifetimeMinutes === null) {
+            return;
+        }
+
+        $lockLifetimeSeconds = ((int) $lockLifetimeMinutes) * 60;
+        if ($timeoutSeconds < $lockLifetimeSeconds) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'timeoutAfter(%d) must be shorter than the withoutOverlapping(%d) lock lifetime (%d seconds); '
+            . 'a task outliving its lock lets the next occurrence start a duplicate. '
+            . 'Widen withoutOverlapping() instead.',
+            $timeoutSeconds,
+            (int) $lockLifetimeMinutes,
+            $lockLifetimeSeconds
+        ));
     }
 
     /**

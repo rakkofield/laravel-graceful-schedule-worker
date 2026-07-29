@@ -28,7 +28,7 @@
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
 | Scheduling/ClockAwareScheduleTest | `CS` | 13 |
-| Scheduling/ClockAwareEventTest | `CE` | 36 |
+| Scheduling/ClockAwareEventTest | `CE` | 46 |
 | Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareTimeFilterTest | `TF` | 13 |
 | Scheduling/TimezoneResolverTest | `TR` | 6 |
@@ -54,8 +54,9 @@
 | Dispatcher/StepFunctions/ExecutionNameGeneratorTest | `ENG` | 9 |
 | Dispatcher/StepFunctions/MutexNameSanitizerTest | `MNS` | 19 |
 | Dispatcher/StepFunctions/LockKeyGeneratorTest | `LKG` | 9 |
-| Dispatcher/StepFunctions/PayloadTest | `PY` | 5 |
-| Dispatcher/StepFunctions/PayloadBuilderTest | `PB` | 9 |
+| Dispatcher/StepFunctions/PayloadTest | `PY` | 7 |
+| Dispatcher/StepFunctions/PayloadBuilderTest | `PB` | 26 |
+| Dispatcher/StepFunctions/StepFunctionsTimeoutSettingsTest | `STS` | 27 |
 | Dispatcher/StepFunctions/StartExecutionInputFactoryTest | `SEIF` | 4 |
 | Dispatcher/StepFunctions/StartExecutionInputTest | `SEI` | 4 |
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
@@ -63,7 +64,7 @@
 | Providers/DispatcherServiceRegistrarTest | `DSR` | 5 |
 | Providers/OrchestratorServiceRegistrarTest | `OSR` | 5 |
 | Providers/TrackerServiceRegistrarTest | `TSR` | 5 |
-| Providers/StepFunctionsServiceProviderTest | `SFP` | 11 |
+| Providers/StepFunctionsServiceProviderTest | `SFP` | 22 |
 | Providers/GracefulScheduleWorkerProviderTest | `GP` | 20 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 28 |
 | Tracker/CacheExecutionTrackerTest | `CT` | 22 |
@@ -76,10 +77,10 @@
 | Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 5 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
 | Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 7 |
-| Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 3 |
+| Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 10 |
 | Dispatcher/TrackingDispatcherRedisIntegrationTest | `TDI` | 6 |
 | Tracker/CacheExecutionTrackerRedisTest | `CTI` | 7 |
-| Providers/ProviderBootIntegrationTest | `GPI` | 7 |
+| Providers/ProviderBootIntegrationTest | `GPI` | 8 |
 | Providers/ProviderWiringIntegrationTest | `PWI` | 4 |
 
 ### E2E Tests

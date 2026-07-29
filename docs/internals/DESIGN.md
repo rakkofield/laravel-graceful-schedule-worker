@@ -1457,6 +1457,8 @@ return [
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
         ],
         'lock_ttl' => env('SCHEDULE_SF_LOCK_TTL', 3600),
+        'lock_release_buffer' => env('SCHEDULE_SF_LOCK_RELEASE_BUFFER', 60),  // Lock-release margin in seconds
+        'min_task_timeout' => env('SCHEDULE_SF_MIN_TASK_TIMEOUT', 60),  // Floor for the derived timeout
     ],
 
     /*

@@ -8,6 +8,7 @@ use Aws\Sfn\SfnClient;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\Result\StepFunctionsDispatchResultFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\AwsSfnClientAdapter;
@@ -20,6 +21,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\PayloadBuild
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactory;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StartExecutionInputFactoryInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsClientInterface;
+use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctions\StepFunctionsTimeoutSettings;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StepFunctionsDispatcher;
 
 /**
@@ -41,9 +43,66 @@ class StepFunctionsServiceProvider extends ServiceProvider
         $this->registerSanitizer();
         $this->registerNameGenerator();
         $this->registerLockKeyGenerator();
+        $this->registerTimeoutSettings();
         $this->registerPayloadBuilder();
         $this->registerInputFactory();
         $this->registerDispatcher();
+    }
+
+    /**
+     * Single validated source for the timeout-related settings. Both the PayloadBuilder
+     * and the input factory read them from here, so the values can never be validated in
+     * one place and used from another.
+     */
+    protected function registerTimeoutSettings(): void
+    {
+        $this->app->singleton(StepFunctionsTimeoutSettings::class, function (Container $app) {
+            /** @var ConfigRepository $config */
+            $config = $app->make('config');
+
+            return new StepFunctionsTimeoutSettings(
+                self::toSeconds('lock_ttl', $config->get(
+                    'graceful-scheduler.stepfunctions.lock_ttl',
+                    StepFunctionsTimeoutSettings::DEFAULT_LOCK_TTL
+                )),
+                self::toSeconds('lock_release_buffer', $config->get(
+                    'graceful-scheduler.stepfunctions.lock_release_buffer',
+                    StepFunctionsTimeoutSettings::DEFAULT_LOCK_RELEASE_BUFFER
+                )),
+                self::toSeconds('min_task_timeout', $config->get(
+                    'graceful-scheduler.stepfunctions.min_task_timeout',
+                    StepFunctionsTimeoutSettings::DEFAULT_MIN_TASK_TIMEOUT
+                ))
+            );
+        });
+    }
+
+    /**
+     * Coerce a second-valued stepfunctions setting to int.
+     *
+     * Config arrives via env(), so the value is a string. Casting straight to int would
+     * turn '30m' into 30 and 'abc' into 0, reporting a value the operator never wrote,
+     * so anything non-numeric is rejected with the raw value quoted.
+     *
+     * @param string $key
+     * @param mixed $value
+     * @return int
+     */
+    private static function toSeconds(string $key, $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (!is_string($value) || !preg_match('/\A-?\d+\z/', $value)) {
+            throw new InvalidArgumentException(sprintf(
+                'graceful-scheduler.stepfunctions.%s must be an integer number of seconds, got %s.',
+                $key,
+                is_scalar($value) ? var_export($value, true) : gettype($value)
+            ));
+        }
+
+        return (int) $value;
     }
 
     protected function registerClient(): void
@@ -117,27 +176,31 @@ class StepFunctionsServiceProvider extends ServiceProvider
         $this->app->singleton(PayloadBuilderInterface::class, function (Container $app) {
             /** @var LockKeyGenerator $lockKeyGenerator */
             $lockKeyGenerator = $app->make(LockKeyGenerator::class);
-            return new PayloadBuilder($lockKeyGenerator);
+
+            /** @var StepFunctionsTimeoutSettings $settings */
+            $settings = $app->make(StepFunctionsTimeoutSettings::class);
+
+            return new PayloadBuilder($lockKeyGenerator, $settings);
         });
     }
 
     protected function registerInputFactory(): void
     {
         $this->app->singleton(StartExecutionInputFactoryInterface::class, function (Container $app) {
-            /** @var ConfigRepository $config */
-            $config = $app->make('config');
-
             /** @var ExecutionNameGeneratorInterface $nameGenerator */
             $nameGenerator = $app->make(ExecutionNameGeneratorInterface::class);
 
             /** @var PayloadBuilderInterface $payloadBuilder */
             $payloadBuilder = $app->make(PayloadBuilderInterface::class);
 
-            /** @var int|string $lockTtl */
-            $lockTtl = $config->get('graceful-scheduler.stepfunctions.lock_ttl', 3600);
-            $lockTtl = (int) $lockTtl;
+            /** @var StepFunctionsTimeoutSettings $settings */
+            $settings = $app->make(StepFunctionsTimeoutSettings::class);
 
-            return new StartExecutionInputFactory($nameGenerator, $payloadBuilder, $lockTtl);
+            return new StartExecutionInputFactory(
+                $nameGenerator,
+                $payloadBuilder,
+                $settings->getLockTtlSeconds()
+            );
         });
     }
 

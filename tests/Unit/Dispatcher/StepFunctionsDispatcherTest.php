@@ -143,7 +143,7 @@ class StepFunctionsDispatcherTest extends TestCase
     }
 
     /**
-     * @testdox SFD.4 Input JSON contains command, mutexName, dueAt, lockKey, expiresAt, and dispatchedAt
+     * @testdox SFD.4 Input JSON contains command, mutexName, dueAt, lockKey, expiresAt, dispatchedAt, timeoutSeconds
      */
     public function testInputContainsRequiredFields(): void
     {
@@ -162,12 +162,14 @@ class StepFunctionsDispatcherTest extends TestCase
         $this->assertArrayHasKey('lockKey', $input);
         $this->assertArrayHasKey('expiresAt', $input);
         $this->assertArrayHasKey('dispatchedAt', $input);
+        $this->assertArrayHasKey('timeoutSeconds', $input);
         $this->assertSame(['php', 'artisan', 'report:daily'], $input['command']);
         $this->assertSame($event->mutexName(), $input['mutexName']);
         $this->assertSame('2024-01-15T10:30:00+09:00', $input['dueAt']);
         $this->assertIsString($input['lockKey']);
         $this->assertIsInt($input['expiresAt']);
         $this->assertIsInt($input['dispatchedAt']);
+        $this->assertIsInt($input['timeoutSeconds']);
     }
 
     /**
