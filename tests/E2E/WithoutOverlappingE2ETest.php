@@ -44,14 +44,11 @@ final class WithoutOverlappingE2ETest extends TestCase
             @unlink(self::logPath($name));
         }
 
-        // A mutex left by an earlier run (e.g. one where release was broken)
-        // would skip the tasks for up to 24 hours, so remove it first.
-        // Laravel 11+ file cache keeps locks in a separate directory
-        // (framework/cache/locks) that cache:clear does not touch.
-        foreach (['data', 'locks'] as $dir) {
-            $path = self::SKELETON_PATH . '/storage/framework/cache/' . $dir;
-            (new Process(['find', $path, '-type', 'f', '!', '-name', '.gitignore', '-delete']))->run();
-        }
+        // A mutex left in the file cache by an earlier run (e.g. one where
+        // release was broken) would skip the tasks for up to 24 hours, so
+        // remove the file cache entries first.
+        $path = self::SKELETON_PATH . '/storage/framework/cache';
+        (new Process(['find', $path, '-type', 'f', '!', '-name', '.gitignore', '-delete']))->run();
     }
 
     protected function tearDown(): void

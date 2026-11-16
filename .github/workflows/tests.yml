@@ -37,8 +37,10 @@ jobs:
             fail-fast: false
             matrix:
                 # Each Laravel version is tested on every PHP version it supports.
-                # "laravel" is the lower bound passed to composer as ^<laravel>;
-                # it is raised where the first releases do not run on that PHP.
+                # "laravel" is the lower bound passed to composer as ^<laravel>.
+                # With prefer-lowest, composer picks the lowest release that allows
+                # the job's PHP; the bound is raised only where that release still
+                # does not run on it (e.g. Laravel 8 on PHP 8.1).
                 target:
                     - { php: '7.2', laravel: '6.18.7' }
                     - { php: '7.3', laravel: '6.18.7' }
