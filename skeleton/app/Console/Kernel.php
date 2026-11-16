@@ -45,6 +45,16 @@ class Kernel extends ConsoleKernel
             ->after(function () {
                 Log::info('hello finished.');
             });
+
+        // Used by WithoutOverlappingE2ETest (E2E.15) only.
+        if (env('E2E_OVERLAP')) {
+            // sh -c keeps the write inside the task: the scheduler appends its own
+            // output redirection (> /dev/null) to the command line.
+            $schedule->exec('sh -c ' . escapeshellarg('echo bg >> ' . storage_path('logs/e2e_overlap_bg.log')))
+                ->everyMinute()->runInBackground()->withoutOverlapping();
+            $schedule->exec('sh -c ' . escapeshellarg('echo fg >> ' . storage_path('logs/e2e_overlap_fg.log')))
+                ->everyMinute()->withoutOverlapping();
+        }
     }
 
     /**
