@@ -43,17 +43,18 @@ jobs:
                 # With prefer-lowest, composer picks the lowest release that allows
                 # the job's PHP; the bound is raised only where that release still
                 # does not run on it (e.g. Laravel 8 on PHP 8.1).
+                # "redis: true" also runs the Redis E2E test (prefer-stable only).
                 target:
                     - { php: '7.2', laravel: '6.18.7', phpunit: '8.5.40' }
-                    - { php: '8.0', laravel: '6.18.7' }
+                    - { php: '8.0', laravel: '6.18.7', redis: true }
                     - { php: '7.2', laravel: '7.6.0', phpunit: '8.5.40' }
-                    - { php: '8.0', laravel: '7.6.0' }
+                    - { php: '8.0', laravel: '7.6.0', redis: true }
                     - { php: '7.3', laravel: '8.0' }
-                    - { php: '8.1', laravel: '8.65.0' }
+                    - { php: '8.1', laravel: '8.65.0', redis: true }
                     - { php: '8.0', laravel: '9.0' }
-                    - { php: '8.2', laravel: '9.45.0' }
+                    - { php: '8.2', laravel: '9.45.0', redis: true }
                     - { php: '8.1', laravel: '10.0' }
-                    - { php: '8.3', laravel: '10.0' }
+                    - { php: '8.3', laravel: '10.0', redis: true }
                 stability: [prefer-lowest, prefer-stable]
         name: PHP ${{ matrix.target.php }} - Laravel ${{ matrix.target.laravel }} - PHPUnit ${{ matrix.target.phpunit || '9.6.21' }} - ${{ matrix.stability }}
         steps:
@@ -96,3 +97,5 @@ jobs:
 
             - name: Execute tests
               run: vendor/bin/phpunit
+              env:
+                  E2E_REDIS: ${{ matrix.target.redis && matrix.stability == 'prefer-stable' && '1' || '' }}
