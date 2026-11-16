@@ -1129,37 +1129,47 @@ StepFunctionsDispatcher 用の結果クラスです。新規開始時は `Starte
 ### LocalDispatcher
 
 **責務**:
+- `withoutOverlapping()` のロックを取得（ほかの実行が持っていればスキップ）
 - `beforeCallbacks` を親プロセスで同期実行
-- `buildCommand()` を使用して完全なコマンドを構築（出力リダイレクト、schedule:finish を含む）
-- 構築されたコマンドをバックグラウンドプロセスとして起動（`Process::start()`）
+- コマンドを子プロセスとして実行（`runInBackground()` なら非同期、それ以外は同期）
+- プロセス終了時に after コールバック（`after()` / `onSuccess()` / `onFailure()`）を実行し、ロックを解除
 - プロセスのライフサイクル管理（起動、監視、グレースフルシャットダウン）
 - メモリリーク防止のための完了プロセスのクリーンアップ
 
 **動作フロー**:
 ```
 1. LocalDispatcher.dispatchEvent()
+   +-- mutex->create()                <- withoutOverlapping() のみ。取得できなければスキップ
    +-- callBeforeCallbacks()          <- 親プロセスで同期実行
-   +-- buildCommand()                 <- schedule:finish を含むコマンド構築
-   +-- Process::start()               <- バックグラウンド実行
+   +-- runInBackground() の場合:
+   |     buildProcessCommand()        <- "exec command > output 2>&1"（schedule:finish は付けない）
+   |     Process::start()             <- 非同期。RunningProcessManager に登録
+   +-- それ以外:
+         buildCommand()
+         Process::run()               <- 同期
+         callAfterCallbacksWithExitCode()
 
-2. シェルで実行
-   +-- original_command > output      <- 出力がファイルにリダイレクト
-   +-- schedule:finish "mutex" "$?"   <- 終了コードを渡す
+2. RunningProcessManager.cleanup()（毎 tick、バックグラウンドのプロセス）
+   +-- 終了したプロセスごとに:
+         callAfterCallbacksWithExitCode() <- after コールバック + ロック解除
 
-3. schedule:finish（別プロセス）
-   +-- callAfterCallbacksWithExitCode() <- onSuccess/onFailure/after を実行
+3. RunningProcessManager.stopAll()（ワーカー停止時）
+   +-- SIGTERM -> 待機 -> SIGKILL
+   +-- mutex->forget()                <- after コールバックは実行しない
 ```
+
+`ClockAwareEvent::callAfterCallbacksWithExitCode()` は、対応するすべての Laravel の版で after コールバックの実行とロックの解除を行う。Laravel 9 以降はロックを `Event::run()` / `finish()` の中でしか解除せず、ワーカーはどちらも呼ばないため、このメソッドで `removeMutex()` を呼ぶ。
 
 **サポートする Laravel Event 機能**:
 - `before()` / `beforeCallbacks` - 親プロセスで同期実行
-- `after()` / `then()` / `afterCallbacks` - schedule:finish 経由で実行
-- `onSuccess()` / `onFailure()` - schedule:finish 経由で実行
-- `sendOutputTo()` / `appendOutputTo()` - buildCommand() に含まれる
+- `after()` / `then()` / `afterCallbacks` - 子プロセスの終了後に親プロセスで実行
+- `onSuccess()` / `onFailure()` - 子プロセスの終了コードを使って親プロセスで実行
+- `sendOutputTo()` / `appendOutputTo()` - 構築するコマンドに含まれる
 - `pingBefore()` / `thenPing()` - コールバックとして動作
 
 **重要なポイント**:
 - `Process::start()` による非同期実行で並行処理を実現
-- `runInBackground` を一時的に true にして buildCommand() を呼び出し、元に戻す
+- `exec` でシェルをコマンドに置き換えるため、SIGTERM がコマンドのプロセスに直接届く
 - Dispatcher パターンにより実行方法を抽象化
 
 ### StepFunctionsDispatcher

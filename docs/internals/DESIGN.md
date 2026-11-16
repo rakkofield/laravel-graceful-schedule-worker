@@ -1129,37 +1129,47 @@ This section lists the tests for TDD (Test-Driven Development). Each test corres
 ### LocalDispatcher
 
 **Responsibilities**:
+- Acquire the `withoutOverlapping()` mutex (skip the event if another run holds it)
 - Execute `beforeCallbacks` synchronously in the parent process
-- Build complete command using `buildCommand()` (including output redirection, schedule:finish)
-- Start built command as background process (`Process::start()`)
+- Run the command as a child process (`runInBackground()`: asynchronously, otherwise synchronously)
+- Execute after callbacks (`after()` / `onSuccess()` / `onFailure()`) and release the mutex when the process exits
 - Process lifecycle management (start, monitor, graceful shutdown)
 - Clean up completed processes to prevent memory leaks
 
 **Operation flow**:
 ```
 1. LocalDispatcher.dispatchEvent()
+   +-- mutex->create()                <- withoutOverlapping() only; skipped if held
    +-- callBeforeCallbacks()          <- Synchronous in parent process
-   +-- buildCommand()                 <- Command construction including schedule:finish
-   +-- Process::start()               <- Background execution
+   +-- runInBackground():
+   |     buildProcessCommand()        <- "exec command > output 2>&1" (no schedule:finish)
+   |     Process::start()             <- Asynchronous; registered in RunningProcessManager
+   +-- otherwise:
+         buildCommand()
+         Process::run()               <- Synchronous
+         callAfterCallbacksWithExitCode()
 
-2. Executed in shell
-   +-- original_command > output      <- Output redirected to file
-   +-- schedule:finish "mutex" "$?"   <- Passes exit code
+2. RunningProcessManager.cleanup() (every tick, background processes)
+   +-- for each exited process:
+         callAfterCallbacksWithExitCode() <- after callbacks + mutex release
 
-3. schedule:finish (separate process)
-   +-- callAfterCallbacksWithExitCode() <- Executes onSuccess/onFailure/after
+3. RunningProcessManager.stopAll() (worker shutdown)
+   +-- SIGTERM -> wait -> SIGKILL
+   +-- mutex->forget()                <- after callbacks are NOT executed
 ```
+
+`ClockAwareEvent::callAfterCallbacksWithExitCode()` runs the after callbacks and releases the mutex on every supported Laravel version. Laravel 9+ releases the mutex only in `Event::run()` / `finish()`, which the worker does not call, so the method calls `removeMutex()` itself.
 
 **Supported Laravel Event features**:
 - `before()` / `beforeCallbacks` - Synchronous execution in parent process
-- `after()` / `then()` / `afterCallbacks` - Executed via schedule:finish
-- `onSuccess()` / `onFailure()` - Executed via schedule:finish
-- `sendOutputTo()` / `appendOutputTo()` - Included in buildCommand()
+- `after()` / `then()` / `afterCallbacks` - Executed in the parent process after the child exits
+- `onSuccess()` / `onFailure()` - Executed in the parent process with the child's exit code
+- `sendOutputTo()` / `appendOutputTo()` - Included in the built command
 - `pingBefore()` / `thenPing()` - Operates as callbacks
 
 **Key points**:
 - Asynchronous execution via `Process::start()` for concurrent processing
-- Temporarily sets `runInBackground` to true, calls buildCommand(), then restores
+- `exec` replaces the shell with the command, so SIGTERM reaches the command process directly
 - Dispatcher pattern abstracts execution method
 
 ### StepFunctionsDispatcher
