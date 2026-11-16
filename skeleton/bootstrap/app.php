@@ -36,7 +36,7 @@ $app->singleton(
     App\Console\Kernel::class
 );
 
-$handler = $app::VERSION < 7.0 ? App\Exceptions\Handler::class : App\Exceptions\Laravel7Handler::class;
+$handler = version_compare($app::VERSION, '7.0.0', '<') ? App\Exceptions\Handler::class : App\Exceptions\Laravel7Handler::class;
 
 $app->singleton(
     Illuminate\Contracts\Debug\ExceptionHandler::class,

@@ -519,4 +519,35 @@ class FakeApplication extends Container implements Application
     {
         $this->version = $version;
     }
+
+    /**
+     * Application contract (Laravel 10+).
+     *
+     * @return bool
+     */
+    public function hasDebugModeEnabled()
+    {
+        return false;
+    }
+
+    /**
+     * Application contract (Laravel 9+).
+     *
+     * @return null
+     */
+    public function maintenanceMode()
+    {
+        return null;
+    }
+
+    /**
+     * Application contract (Laravel 9+).
+     *
+     * @param callable|string $callback
+     * @return $this
+     */
+    public function terminating($callback)
+    {
+        return $this;
+    }
 }

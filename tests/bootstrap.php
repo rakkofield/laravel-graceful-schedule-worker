@@ -26,8 +26,13 @@ if ($isLaravel7OrLater) {
         \RakkoInc\LaravelGracefulScheduleWorker\Console\SpyExceptionHandlerLaravel7::class,
         \RakkoInc\LaravelGracefulScheduleWorker\Console\SpyExceptionHandler::class
     );
+    // Symfony Process 6+ declares signal(): static
+    $signalReturnsStatic = (new \ReflectionMethod(\Symfony\Component\Process\Process::class, 'signal'))
+        ->hasReturnType();
     class_alias(
-        \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcessLaravel7::class,
+        $signalReturnsStatic
+            ? \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcessSymfony6::class
+            : \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcessLaravel7::class,
         \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcess::class
     );
 } else {
@@ -40,6 +45,17 @@ if ($isLaravel7OrLater) {
         \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcess::class
     );
 }
+
+/*
+ * psr/simple-cache 3 (PHP 8+) declares return types on CacheInterface,
+ * which an untyped Repository fake cannot satisfy.
+ */
+class_alias(
+    (new \ReflectionMethod(\Psr\SimpleCache\CacheInterface::class, 'get'))->hasReturnType()
+        ? \RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStorePsr3::class
+        : \RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStoreLegacy::class,
+    \RakkoInc\LaravelGracefulScheduleWorker\Tracker\FakeCacheStore::class
+);
 
 /*
  * Enable moto's actual state machine execution mode so integration & E2E tests

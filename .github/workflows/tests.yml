@@ -50,6 +50,10 @@ jobs:
                     - { php: '8.0', laravel: '7.6.0' }
                     - { php: '7.3', laravel: '8.0' }
                     - { php: '8.1', laravel: '8.65.0' }
+                    - { php: '8.0', laravel: '9.0' }
+                    - { php: '8.2', laravel: '9.45.0' }
+                    - { php: '8.1', laravel: '10.0' }
+                    - { php: '8.3', laravel: '10.0' }
                 stability: [prefer-lowest, prefer-stable]
         name: PHP ${{ matrix.target.php }} - Laravel ${{ matrix.target.laravel }} - PHPUnit ${{ matrix.target.phpunit || '9.6.21' }} - ${{ matrix.stability }}
         steps:
