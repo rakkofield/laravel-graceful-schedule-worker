@@ -161,15 +161,20 @@ class ClockAwareEvent extends Event
      * Overridden only to catch a timeoutAfter() / withoutOverlapping() contradiction
      * regardless of the order the two are chained in.
      *
+     * The signature follows Laravel 13.2+, which added $releaseOnTerminationSignals.
+     * Earlier Laravel versions do not declare it and ignore the extra argument.
+     *
      * @param int $expiresAt Lock lifetime in minutes
+     * @param bool $releaseOnTerminationSignals Laravel 13.2+ only
      * @return $this
      * @throws InvalidArgumentException If narrower than an already declared timeoutAfter()
      */
-    public function withoutOverlapping($expiresAt = 1440)
+    public function withoutOverlapping($expiresAt = 1440, $releaseOnTerminationSignals = true)
     {
         $this->assertTimeoutFitsLockLifetime($this->taskTimeoutSeconds, $expiresAt);
 
-        return parent::withoutOverlapping($expiresAt);
+        // @phpstan-ignore arguments.count (analysed against Laravel 7, which takes only $expiresAt)
+        return parent::withoutOverlapping($expiresAt, $releaseOnTerminationSignals);
     }
 
     /**

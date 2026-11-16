@@ -470,7 +470,7 @@ public function resolveDispatcher(ClockAwareEvent $event): ScheduleDispatcher
 
 ### Laravel Version Constraints
 
-- **Supported versions**: Laravel 6.x - 12.x
+- **Supported versions**: Laravel 6.x - 13.x
 - **PHP version**: 7.2.5 or later
 
 ### Closure Job Limitations

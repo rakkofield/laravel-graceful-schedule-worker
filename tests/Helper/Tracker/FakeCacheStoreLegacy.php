@@ -313,4 +313,16 @@ class FakeCacheStoreLegacy implements Repository
     {
         $this->store = [];
     }
+
+    /**
+     * Repository contract (Laravel 13+).
+     *
+     * @param string $key
+     * @param mixed $ttl
+     * @return bool
+     */
+    public function touch($key, $ttl)
+    {
+        return false;
+    }
 }
