@@ -51,7 +51,7 @@ class Kernel extends ConsoleKernel
             });
 
         // Used by WithoutOverlappingE2ETest (E2E.15) only.
-        if (env('E2E_OVERLAP')) {
+        if (config('e2e.overlap')) {
             // sh -c keeps the write inside the task: the scheduler appends its own
             // output redirection (> /dev/null) to the command line.
             $schedule->exec('sh -c ' . escapeshellarg('echo bg >> ' . storage_path('logs/e2e_overlap_bg.log')))
