@@ -1,6 +1,6 @@
 # rakko-inc/laravel-graceful-schedule-worker
 
-A graceful schedule worker for Laravel 6 - 10 with missed-task recovery and optional AWS Step Functions integration.
+A graceful schedule worker for Laravel 6 - 12 with missed-task recovery and optional AWS Step Functions integration.
 
 ## Overview
 
@@ -42,7 +42,7 @@ php artisan schedule:graceful-work
 | Requirement | Version |
 |---|---|
 | PHP | ^7.2.5 \|\| ~8.0 |
-| Laravel | 6.x - 10.x |
+| Laravel | 6.x - 12.x |
 | ext-pcntl | required |
 | aws/aws-sdk-php | ^3.20.1 (optional, for Step Functions) |
 | Redis / Memcached | optional, for execution tracking |
@@ -100,6 +100,25 @@ class Kernel extends ConsoleKernel
      }
  }
 ```
+
+On Laravel 11 and later, an application created from the new skeleton has no
+`app/Console/Kernel.php`. Create the kernel above, and register it in `bootstrap/app.php`
+so that artisan uses it:
+
+```php
+$app = Application::configure(basePath: dirname(__DIR__))
+    // ...
+    ->create();
+
+$app->singleton(
+    Illuminate\Contracts\Console\Kernel::class,
+    App\Console\Kernel::class
+);
+
+return $app;
+```
+
+An application upgraded from Laravel 10 or earlier keeps its kernel and needs no change.
 
 ### 4. Run the worker
 

@@ -49,6 +49,35 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
     {
         parent::defineConsoleSchedule();
 
+        $this->registerClockAwareSchedule();
+    }
+
+    /**
+     * Laravel 11+ no longer calls defineConsoleSchedule(), so the singleton is
+     * also registered when the kernel is bootstrapped. Kernel::bootstrap()
+     * exists in every supported Laravel version.
+     *
+     * @return void
+     */
+    public function bootstrap()
+    {
+        parent::bootstrap();
+
+        $this->registerClockAwareSchedule();
+    }
+
+    /**
+     * Register ClockAwareSchedule::class once. A second registration is skipped,
+     * because re-binding a singleton would drop an already resolved instance.
+     *
+     * @return void
+     */
+    protected function registerClockAwareSchedule(): void
+    {
+        if ($this->app->bound(ClockAwareSchedule::class)) {
+            return;
+        }
+
         $this->app->singleton(ClockAwareSchedule::class, function ($app) {
             /** @var ClockInterface $clock */
             $clock = $app->make(ClockInterface::class);

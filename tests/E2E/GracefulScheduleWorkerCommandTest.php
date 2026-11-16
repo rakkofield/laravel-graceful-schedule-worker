@@ -22,7 +22,6 @@ use Symfony\Component\Process\Process;
  */
 final class GracefulScheduleWorkerCommandTest extends TestCase
 {
-    private const SKELETON_PATH = __DIR__ . '/../../skeleton';
     private const MAX_WAIT_SECONDS = 10;
     private const POLL_INTERVAL_MICROSECONDS = 100000; // 100ms
 
@@ -60,7 +59,7 @@ final class GracefulScheduleWorkerCommandTest extends TestCase
     public function testGracefulShutdownStopsGracefullyOnSigterm(): void
     {
         $phpBinary = (new PhpExecutableFinder())->find(false);
-        $process = new Process([$phpBinary, 'artisan', 'schedule:graceful-work'], self::SKELETON_PATH);
+        $process = new Process([$phpBinary, 'artisan', 'schedule:graceful-work'], SkeletonPath::get());
 
         $process->start();
 

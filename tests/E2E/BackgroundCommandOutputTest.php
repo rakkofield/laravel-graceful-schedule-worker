@@ -23,7 +23,6 @@ use Symfony\Component\Process\Process;
  */
 final class BackgroundCommandOutputTest extends TestCase
 {
-    private const SKELETON_PATH = __DIR__ . '/../../skeleton';
     private const OUTPUT_DIR = __DIR__ . '/../tmp';
 
     protected function tearDown(): void
@@ -53,7 +52,7 @@ final class BackgroundCommandOutputTest extends TestCase
 
         // Act: build process command and execute in skeleton directory
         $command = $event->buildProcessCommand();
-        $process = Process::fromShellCommandline($command, self::SKELETON_PATH);
+        $process = Process::fromShellCommandline($command, SkeletonPath::get());
         $process->setTimeout(10);
         $process->run();
 
@@ -83,7 +82,7 @@ final class BackgroundCommandOutputTest extends TestCase
         $event->sendOutputTo($outputFile);
 
         $command = $event->buildProcessCommand();
-        $process = Process::fromShellCommandline($command, self::SKELETON_PATH);
+        $process = Process::fromShellCommandline($command, SkeletonPath::get());
         $process->setTimeout(10);
         $process->start();
 

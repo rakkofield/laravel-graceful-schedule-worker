@@ -28,7 +28,6 @@ use Symfony\Component\Process\Process;
  */
 final class WithoutOverlappingE2ETest extends TestCase
 {
-    private const SKELETON_PATH = __DIR__ . '/../../skeleton';
     private const MAX_WAIT_SECONDS = 200;
     private const POLL_INTERVAL_MICROSECONDS = 500000; // 500ms
 
@@ -37,7 +36,7 @@ final class WithoutOverlappingE2ETest extends TestCase
 
     private static function logPath(string $name): string
     {
-        return self::SKELETON_PATH . '/storage/logs/' . $name;
+        return SkeletonPath::get() . '/storage/logs/' . $name;
     }
 
     protected function setUp(): void
@@ -50,7 +49,7 @@ final class WithoutOverlappingE2ETest extends TestCase
         // A mutex left in the file cache by an earlier run (e.g. one where
         // release was broken) would skip the tasks for up to 24 hours, so
         // remove the file cache entries first.
-        $path = self::SKELETON_PATH . '/storage/framework/cache';
+        $path = SkeletonPath::get() . '/storage/framework/cache';
         (new Process(['find', $path, '-type', 'f', '!', '-name', '.gitignore', '-delete']))->run();
     }
 
@@ -84,7 +83,7 @@ final class WithoutOverlappingE2ETest extends TestCase
         $phpBinary = (new PhpExecutableFinder())->find(false);
         $this->worker = new Process(
             [$phpBinary, 'artisan', 'schedule:graceful-work'],
-            self::SKELETON_PATH,
+            SkeletonPath::get(),
             ['E2E_OVERLAP' => '1'] + $env
         );
         $this->worker->setTimeout(null);
@@ -131,7 +130,7 @@ final class WithoutOverlappingE2ETest extends TestCase
     private static function fileCacheEntries(): array
     {
         $process = new Process(
-            ['find', self::SKELETON_PATH . '/storage/framework/cache', '-type', 'f', '!', '-name', '.gitignore']
+            ['find', SkeletonPath::get() . '/storage/framework/cache', '-type', 'f', '!', '-name', '.gitignore']
         );
         $process->run();
 
