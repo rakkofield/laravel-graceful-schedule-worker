@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Console\Commands\Hello;
+use App\Console\Commands\ListSchedules;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Log;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\UsesClockAwareSchedule;
@@ -23,6 +24,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         Hello::class,
+        ListSchedules::class,
     ];
 
     /**

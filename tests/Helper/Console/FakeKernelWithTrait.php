@@ -24,6 +24,9 @@ class FakeKernelWithTrait extends StubConsoleKernel
     /** @var ClockAwareSchedule|null Schedule received in gracefulSchedule() */
     public $receivedSchedule;
 
+    /** @var callable|null Called with the schedule in gracefulSchedule(), to define tasks */
+    public $defineTasks;
+
     /** @var \DateTimeZone|string|null Return value for scheduleTimezone() */
     private $timezone;
 
@@ -53,6 +56,10 @@ class FakeKernelWithTrait extends StubConsoleKernel
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
         $this->receivedSchedule = $schedule;
+
+        if ($this->defineTasks !== null) {
+            ($this->defineTasks)($schedule);
+        }
     }
 
     /**

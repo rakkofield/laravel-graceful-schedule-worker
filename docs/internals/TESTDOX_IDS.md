@@ -27,7 +27,7 @@
 | Clock/SystemClockTest | `SC` | 2 |
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
-| Scheduling/ClockAwareScheduleTest | `CS` | 27 |
+| Scheduling/ClockAwareScheduleTest | `CS` | 29 |
 | Scheduling/ClockAwareEventTest | `CE` | 46 |
 | Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareTimeFilterTest | `TF` | 13 |
@@ -37,7 +37,7 @@
 | Console/ExceptionReporterTest | `ER` | 4 |
 | Console/LegacyExceptionReporterTest | `LER` | 4 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
-| Console/UsesClockAwareScheduleTest | `UCS` | 11 |
+| Console/UsesClockAwareScheduleTest | `UCS` | 12 |
 | Dispatcher/LocalDispatcherTest | `LD` | 41 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 14 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 20 |
@@ -95,6 +95,7 @@
 | StepFunctionsExecutionE2ETest | `E2E` | 4 |
 | StepFunctionsLambdaTaskE2ETest | `E2E` | 1 |
 | WithoutOverlappingE2ETest | `E2E` | 2 |
+| WithScheduleE2ETest | `E2E` | 1 |
 
 ## TI Prefix Number Ranges
 
@@ -117,3 +118,4 @@ The `E2E` prefix is shared across all end-to-end test files. Number ranges keep 
 | StepFunctionsExecutionE2ETest | E2E.10 - E2E.12, E2E.14 |
 | StepFunctionsLambdaTaskE2ETest | E2E.13 |
 | WithoutOverlappingE2ETest | E2E.15 - E2E.16 |
+| WithScheduleE2ETest | E2E.17 |

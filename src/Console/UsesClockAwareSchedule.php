@@ -94,6 +94,7 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
             );
             $schedule->useCache($this->scheduleCache());
             $this->gracefulSchedule($schedule);
+            $schedule->stopAcceptingEvents();
 
             return $schedule;
         });

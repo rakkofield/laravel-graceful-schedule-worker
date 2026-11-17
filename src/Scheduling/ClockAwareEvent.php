@@ -165,7 +165,8 @@ class ClockAwareEvent extends Event
      * Earlier Laravel versions do not declare it and ignore the extra argument.
      *
      * @param int $expiresAt Lock lifetime in minutes
-     * @param bool $releaseOnTerminationSignals Laravel 13.2+ only
+     * @param bool $releaseOnTerminationSignals Laravel 13.2+ only. No effect in the worker:
+     *     Laravel reads it only in Event::run(), which the worker does not call.
      * @return $this
      * @throws InvalidArgumentException If narrower than an already declared timeoutAfter()
      */

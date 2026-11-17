@@ -120,13 +120,14 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testClockAwareScheduleUsesInjectedClock(): void
     {
         $kernel = new FakeKernelWithTrait();
+        $kernel->defineTasks = function (ClockAwareSchedule $schedule) {
+            $schedule->exec('echo every-minute')->everyMinute();
+            $schedule->exec('echo daily-three')->dailyAt('03:00');
+        };
         $kernel->defineConsoleSchedule();
 
         /** @var ClockAwareSchedule $schedule */
         $schedule = $this->container->make(ClockAwareSchedule::class);
-
-        $schedule->exec('echo every-minute')->everyMinute();
-        $schedule->exec('echo daily-three')->dailyAt('03:00');
 
         $frozenTime = new \DateTimeImmutable('2024-01-15 03:00:00');
         $dueEvents = [];
@@ -243,5 +244,26 @@ class UsesClockAwareScheduleTest extends TestCase
         $event = $kernel->gracefulScheduleEvents[0];
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
         $this->assertSame('stepfunctions', $event->getDispatcherType());
+    }
+
+    /**
+     * @testdox UCS.12 Tasks added by an afterResolving(Schedule::class) callback are not in ClockAwareSchedule
+     */
+    public function testTasksAddedByAfterResolvingCallbackAreIgnored(): void
+    {
+        // Laravel 13 withSchedule() registers its callback this way. The container
+        // also runs it for ClockAwareSchedule, a subclass of Schedule.
+        $this->container->afterResolving(Schedule::class, function (Schedule $schedule) {
+            $schedule->exec('echo with-schedule-task')->everyMinute();
+        });
+
+        $kernel = new FakeKernelWithGradualMigration();
+        $kernel->defineConsoleSchedule();
+
+        /** @var ClockAwareSchedule $gracefulSchedule */
+        $gracefulSchedule = $this->container->make(ClockAwareSchedule::class);
+
+        $this->assertCount(1, $gracefulSchedule->events());
+        $this->assertSame($kernel->gracefulScheduleEvents, $gracefulSchedule->events());
     }
 }
