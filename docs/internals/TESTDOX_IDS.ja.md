@@ -27,7 +27,7 @@
 | Clock/SystemClockTest | `SC` | 2 |
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
-| Scheduling/ClockAwareScheduleTest | `CS` | 13 |
+| Scheduling/ClockAwareScheduleTest | `CS` | 29 |
 | Scheduling/ClockAwareEventTest | `CE` | 46 |
 | Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareTimeFilterTest | `TF` | 13 |
@@ -37,7 +37,7 @@
 | Console/ExceptionReporterTest | `ER` | 4 |
 | Console/LegacyExceptionReporterTest | `LER` | 4 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
-| Console/UsesClockAwareScheduleTest | `UCS` | 11 |
+| Console/UsesClockAwareScheduleTest | `UCS` | 12 |
 | Dispatcher/LocalDispatcherTest | `LD` | 41 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 14 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 20 |
@@ -90,6 +90,7 @@
 | GracefulScheduleWorkerCommandTest | `E2E` | 1 |
 | BackgroundCommandOutputTest | `E2E` | 2 |
 | WithoutOverlappingE2ETest | `E2E` | 2 |
+| WithScheduleE2ETest | `E2E` | 1 |
 
 ## TI プレフィックスの番号範囲
 
