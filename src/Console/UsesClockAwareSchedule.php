@@ -43,6 +43,10 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
      * parent::defineConsoleSchedule() registers Schedule::class (plain Schedule + schedule()).
      * This method additionally registers ClockAwareSchedule::class for graceful events only.
      *
+     * Laravel 10 and earlier only. The Laravel 11+ kernel has no defineConsoleSchedule(),
+     * so this method is not called there and fails if called; bootstrap() registers
+     * ClockAwareSchedule::class instead.
+     *
      * @return void
      */
     protected function defineConsoleSchedule()
