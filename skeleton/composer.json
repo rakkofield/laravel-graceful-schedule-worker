@@ -9,8 +9,8 @@
     "license": "MIT",
     "require": {
         "php": "^7.2.5|^8.0",
-        "laravel/framework": "^6.18.7 || ^7.6.0 || ^8.0 || ^9.0 || ^10.0 || ^11.0 || ^12.0",
-        "laravel/tinker": "^2.5",
+        "laravel/framework": "^6.18.7 || ^7.6.0 || ^8.0 || ^9.0 || ^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "laravel/tinker": "^2.5 || ^3.0",
         "rakko-inc/laravel-graceful-schedule-worker": "1.x-dev"
     },
     "config": {
