@@ -10,8 +10,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         //
     })->create();
 
-// Use the application console kernel (app/Console/Kernel.php), as an application
-// upgraded from Laravel 10 or earlier does. withSingletons() is too late for this,
+// Register the console kernel added in app/Console/Kernel.php, as README describes
+// for Laravel 11+. withSingletons() is too late for this,
 // because the console kernel is resolved before service providers are registered.
 $app->singleton(
     Illuminate\Contracts\Console\Kernel::class,

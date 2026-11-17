@@ -9,8 +9,8 @@ use RakkoInc\LaravelGracefulScheduleWorker\Console\UsesClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 
 /**
- * Laravel 11+ application that keeps app/Console/Kernel.php, as an application
- * upgraded from Laravel 10 or earlier does. Same schedule as skeleton/.
+ * Console kernel added to an application created from the Laravel 11+ skeleton,
+ * which has no app/Console/Kernel.php (see README). Same schedule as skeleton/.
  */
 class Kernel extends ConsoleKernel
 {
