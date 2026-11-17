@@ -118,7 +118,14 @@ $app->singleton(
 return $app;
 ```
 
+Define the tasks in `gracefulSchedule()`. Tasks defined in `routes/console.php` or with
+`withSchedule()` are run by `schedule:run`, but not by the worker.
+
 An application upgraded from Laravel 10 or earlier keeps its kernel and needs no change.
+
+On Laravel 11 and later, the trait registers `ClockAwareSchedule` in the kernel's `bootstrap()`.
+If your kernel defines its own `bootstrap()`, call `parent::bootstrap()` and then
+`$this->registerClockAwareSchedule()` in it.
 
 ### 4. Run the worker
 

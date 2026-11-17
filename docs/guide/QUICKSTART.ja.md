@@ -93,7 +93,7 @@ class Kernel extends ConsoleKernel
 2. `schedule()` を `gracefulSchedule()` にリネーム（中身はほぼそのまま）
 3. `runInBackground()` を追加（推奨）
 
-> **Laravel 11 以降:** Laravel 11 以降のスケルトンから作ったアプリケーションには `app/Console/Kernel.php` がありません。上記のとおり作成し、`bootstrap/app.php` で登録してください（[README](../../README.md#3-update-your-kernel) を参照）。
+> **Laravel 11 以降:** Laravel 11 以降のスケルトンから作ったアプリケーションには `app/Console/Kernel.php` がありません。上記のとおり作成し、`bootstrap/app.php` で登録してください（[README](../../README.md#3-update-your-kernel) を参照）。タスクは `gracefulSchedule()` に定義してください。`routes/console.php` や `withSchedule()` に定義したタスクは、ワーカーでは実行されません。Kernel で `bootstrap()` を定義する場合は、その中で `parent::bootstrap()` の後に `$this->registerClockAwareSchedule()` を呼んでください。
 
 > **ヒント:** タスク数が多い場合は、`schedule()` をそのまま残してタスクを段階的に `gracefulSchedule()` に移動することもできます。詳しくは [MIGRATION.md](./MIGRATION.md#移行方法の選択) を参照してください。
 
