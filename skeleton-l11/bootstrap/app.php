@@ -6,13 +6,18 @@ use Illuminate\Foundation\Configuration\Exceptions;
 
 // routes/console.php is loaded by App\Console\Kernel::commands(). withRouting()
 // is not used: Laravel 11.0 fails when it is given only commands.
-$app = Application::configure(basePath: dirname(__DIR__))
-    // Used by WithScheduleE2ETest (E2E.17) only.
-    ->withSchedule(function (Schedule $schedule): void {
+$builder = Application::configure(basePath: dirname(__DIR__));
+
+// Used by WithScheduleE2ETest (E2E.17) only. withSchedule() exists since Laravel 11.1.
+if (method_exists($builder, 'withSchedule')) {
+    $builder->withSchedule(function (Schedule $schedule): void {
         if (config('e2e.with_schedule')) {
             $schedule->exec('echo with-schedule-task')->everyMinute();
         }
-    })
+    });
+}
+
+$app = $builder
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
