@@ -45,6 +45,10 @@ class Kernel extends ConsoleKernel
             ->after(function () {
                 Log::info('hello finished.');
             });
+
+        // Used by WithoutOverlappingE2ETest (E2E.15).
+        $schedule->command('e2e:record overlap_bg')->everyMinute()->runInBackground()->withoutOverlapping();
+        $schedule->command('e2e:record overlap_fg')->everyMinute()->withoutOverlapping();
     }
 
     /**

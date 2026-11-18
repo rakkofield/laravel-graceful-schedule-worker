@@ -1,6 +1,6 @@
 # rakko-inc/laravel-graceful-schedule-worker
 
-A graceful schedule worker for Laravel 6 & 7 with missed-task recovery and optional AWS Step Functions integration.
+A graceful schedule worker for Laravel 6 - 8 with missed-task recovery and optional AWS Step Functions integration.
 
 ## Overview
 
@@ -42,7 +42,7 @@ php artisan schedule:graceful-work
 | Requirement | Version |
 |---|---|
 | PHP | ^7.2.5 \|\| ~8.0 |
-| Laravel | 6.x / 7.x |
+| Laravel | 6.x / 7.x / 8.x |
 | ext-pcntl | required |
 | aws/aws-sdk-php | ^3.20.1 (optional, for Step Functions) |
 | Redis / Memcached | optional, for execution tracking |

@@ -1,0 +1,118 @@
+<?php
+
+declare(strict_types=1);
+
+namespace RakkoInc\LaravelGracefulScheduleWorker\E2E;
+
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\PhpExecutableFinder;
+use Symfony\Component\Process\Process;
+
+/**
+ * E2E tests that a withoutOverlapping() task runs again on the next minute.
+ *
+ * The worker must release the overlap mutex after each run. If it does not,
+ * the task runs once and is then skipped until the mutex expires (24 hours
+ * by default).
+ *
+ * The skeleton's tasks run the e2e:record command, which writes a line to
+ * storage/logs/laravel.log. The test counts those lines.
+ * The test needs two minute boundaries. It waits up to three, so that one
+ * missed minute (e.g. a loaded CI runner) does not fail it, and takes up to
+ * about 200 seconds.
+ *
+ * @group e2e
+ * @group slow
+ */
+final class WithoutOverlappingE2ETest extends TestCase
+{
+    private const SKELETON_PATH = __DIR__ . '/../../skeleton';
+    private const LOG_PATH = self::SKELETON_PATH . '/storage/logs/laravel.log';
+    private const MAX_WAIT_SECONDS = 200;
+    private const POLL_INTERVAL_MICROSECONDS = 500000; // 500ms
+
+    /** @var Process|null */
+    private $worker;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        @unlink(self::LOG_PATH);
+
+        // A mutex left in the file cache by an earlier run (e.g. one where
+        // release was broken) would skip the tasks for up to 24 hours, so
+        // remove the file cache entries first.
+        $path = self::SKELETON_PATH . '/storage/framework/cache';
+        (new Process(['find', $path, '-type', 'f', '!', '-name', '.gitignore', '-delete']))->run();
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->worker !== null && $this->worker->isRunning()) {
+            $this->worker->signal(SIGTERM);
+            $this->worker->wait();
+        }
+        parent::tearDown();
+    }
+
+    private function runCount(string $name): int
+    {
+        if (!file_exists(self::LOG_PATH)) {
+            return 0;
+        }
+
+        return substr_count((string) file_get_contents(self::LOG_PATH), 'e2e:record ' . $name . ' ');
+    }
+
+    /**
+     * Start the worker and wait until both overlap tasks have run twice or the time runs out.
+     *
+     * @return array{bg: int, fg: int}
+     */
+    private function runWorkerOverTwoMinutes(): array
+    {
+        $phpBinary = (new PhpExecutableFinder())->find(false);
+        $this->worker = new Process(
+            [$phpBinary, 'artisan', 'schedule:graceful-work'],
+            self::SKELETON_PATH
+        );
+        $this->worker->setTimeout(null);
+        $this->worker->start();
+
+        $startTime = time();
+        while (time() - $startTime < self::MAX_WAIT_SECONDS) {
+            if ($this->runCount('overlap_bg') >= 2 && $this->runCount('overlap_fg') >= 2) {
+                break;
+            }
+            if (!$this->worker->isRunning()) {
+                $this->fail("Worker exited early.\n" . $this->worker->getOutput() . $this->worker->getErrorOutput());
+            }
+            usleep(self::POLL_INTERVAL_MICROSECONDS);
+        }
+
+        $this->worker->signal(SIGTERM);
+        $this->worker->wait();
+
+        return [
+            'bg' => $this->runCount('overlap_bg'),
+            'fg' => $this->runCount('overlap_fg'),
+        ];
+    }
+
+    /**
+     * Both cases are checked in one worker run to keep the wait short.
+     *
+     * @testdox E2E.15 withoutOverlapping() tasks run again on the next minute (background and foreground)
+     */
+    public function testWithoutOverlappingTasksRunOnConsecutiveMinutes(): void
+    {
+        $counts = $this->runWorkerOverTwoMinutes();
+
+        $this->assertGreaterThanOrEqual(
+            2,
+            $counts['bg'],
+            'background (runInBackground) task did not run on the next minute'
+        );
+        $this->assertGreaterThanOrEqual(2, $counts['fg'], 'foreground task did not run on the next minute');
+    }
+}

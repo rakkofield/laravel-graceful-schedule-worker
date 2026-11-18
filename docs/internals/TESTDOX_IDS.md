@@ -94,6 +94,7 @@
 | BackgroundCommandOutputTest | `E2E` | 2 |
 | StepFunctionsExecutionE2ETest | `E2E` | 4 |
 | StepFunctionsLambdaTaskE2ETest | `E2E` | 1 |
+| WithoutOverlappingE2ETest | `E2E` | 1 |
 
 ## TI Prefix Number Ranges
 
@@ -115,3 +116,4 @@ The `E2E` prefix is shared across all end-to-end test files. Number ranges keep 
 | BackgroundCommandOutputTest | E2E.2 - E2E.3 |
 | StepFunctionsExecutionE2ETest | E2E.10 - E2E.12, E2E.14 |
 | StepFunctionsLambdaTaskE2ETest | E2E.13 |
+| WithoutOverlappingE2ETest | E2E.15 |
