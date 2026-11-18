@@ -15,7 +15,8 @@ use Symfony\Component\Process\Process;
  * the task runs once and is then skipped until the mutex expires (24 hours
  * by default).
  *
- * The skeleton registers the tasks only when E2E_OVERLAP is set.
+ * The skeleton's tasks run the e2e:record command, which writes a line to
+ * storage/logs/laravel.log. The test counts those lines.
  * E2E.15 uses the skeleton's default file cache for the mutex, E2E.16 uses
  * Redis. E2E.16 runs only when E2E_REDIS is set (REDIS_HOST / REDIS_PORT
  * select the server), because each test takes up to about 200 seconds.
@@ -34,17 +35,15 @@ final class WithoutOverlappingE2ETest extends TestCase
     /** @var Process|null */
     private $worker;
 
-    private static function logPath(string $name): string
+    private static function logPath(): string
     {
-        return SkeletonPath::get() . '/storage/logs/' . $name;
+        return SkeletonPath::get() . '/storage/logs/laravel.log';
     }
 
     protected function setUp(): void
     {
         parent::setUp();
-        foreach (['e2e_overlap_bg.log', 'e2e_overlap_fg.log'] as $name) {
-            @unlink(self::logPath($name));
-        }
+        @unlink(self::logPath());
 
         // A mutex left in the file cache by an earlier run (e.g. one where
         // release was broken) would skip the tasks for up to 24 hours, so
@@ -64,12 +63,11 @@ final class WithoutOverlappingE2ETest extends TestCase
 
     private function runCount(string $name): int
     {
-        $path = self::logPath($name);
-        if (!file_exists($path)) {
+        if (!file_exists(self::logPath())) {
             return 0;
         }
 
-        return count(array_filter(explode("\n", (string) file_get_contents($path))));
+        return substr_count((string) file_get_contents(self::logPath()), 'e2e:record ' . $name . ' ');
     }
 
     /**
@@ -84,14 +82,14 @@ final class WithoutOverlappingE2ETest extends TestCase
         $this->worker = new Process(
             [$phpBinary, 'artisan', 'schedule:graceful-work'],
             SkeletonPath::get(),
-            ['E2E_OVERLAP' => '1'] + $env
+            $env
         );
         $this->worker->setTimeout(null);
         $this->worker->start();
 
         $startTime = time();
         while (time() - $startTime < self::MAX_WAIT_SECONDS) {
-            if ($this->runCount('e2e_overlap_bg.log') >= 2 && $this->runCount('e2e_overlap_fg.log') >= 2) {
+            if ($this->runCount('overlap_bg') >= 2 && $this->runCount('overlap_fg') >= 2) {
                 break;
             }
             if (!$this->worker->isRunning()) {
@@ -104,8 +102,8 @@ final class WithoutOverlappingE2ETest extends TestCase
         $this->worker->wait();
 
         return [
-            'bg' => $this->runCount('e2e_overlap_bg.log'),
-            'fg' => $this->runCount('e2e_overlap_fg.log'),
+            'bg' => $this->runCount('overlap_bg'),
+            'fg' => $this->runCount('overlap_fg'),
         ];
     }
 

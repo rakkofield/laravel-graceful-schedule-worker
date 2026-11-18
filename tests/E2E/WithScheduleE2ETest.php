@@ -40,11 +40,7 @@ final class WithScheduleE2ETest extends TestCase
         }
 
         $phpBinary = (new PhpExecutableFinder())->find(false);
-        $process = new Process(
-            [$phpBinary, 'artisan', 'e2e:list-schedules'],
-            SkeletonPath::get(),
-            ['E2E_WITH_SCHEDULE' => '1']
-        );
+        $process = new Process([$phpBinary, 'artisan', 'e2e:list-schedules'], SkeletonPath::get());
         $process->mustRun();
         $output = $process->getOutput();
 
