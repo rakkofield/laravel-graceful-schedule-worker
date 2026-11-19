@@ -270,8 +270,9 @@ class ClockAwareEvent extends Event
         if ($this->rawCommand !== null) {
             return $this->rawCommand;
         }
-        $tokens = self::splitCommandString($this->command);
-        return $tokens === [] ? [$this->command] : $tokens;
+        $command = (string) $this->command;
+        $tokens = self::splitCommandString($command);
+        return $tokens === [] ? [$command] : $tokens;
     }
 
     /**
@@ -345,11 +346,10 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Call after callbacks with exit code (backward-compatible).
+     * Call after callbacks with exit code.
      *
-     * Event::callAfterCallbacksWithExitCode() exists only in some Laravel 6/7
-     * releases and in 8.x (e.g. 6.20, 7.30, 8.83; not 6.18.7, 7.6.0 or 9+).
-     * Versions without it fall back to calling the after callbacks directly.
+     * Laravel 9+ has no Event::callAfterCallbacksWithExitCode(), so this sets
+     * the exit code, calls the after callbacks and releases the mutex.
      *
      * @param Container $container
      * @param int $exitCode
@@ -357,16 +357,6 @@ class ClockAwareEvent extends Event
      */
     public function callAfterCallbacksWithExitCode(Container $container, $exitCode)
     {
-        // @phpstan-ignore function.alreadyNarrowedType
-        if (method_exists(Event::class, 'callAfterCallbacksWithExitCode')) {
-            // The parent releases the withoutOverlapping() mutex, either by
-            // removeMutex() inside this method (later 8.x) or by the after
-            // callback that withoutOverlapping() registers (earlier versions).
-            parent::callAfterCallbacksWithExitCode($container, $exitCode);
-            return;
-        }
-
-        // Versions without the method: set exitCode and call afterCallbacks
         $this->exitCode = (int) $exitCode;
 
         try {
@@ -374,12 +364,8 @@ class ClockAwareEvent extends Event
         } finally {
             // Laravel 9+ releases the mutex only in Event::run()/finish() via
             // removeMutex(). The worker calls neither, so release it here, as
-            // finish() does. Versions without removeMutex() release it in the
-            // after callback that withoutOverlapping() registers.
-            if (method_exists(Event::class, 'removeMutex')) {
-                // @phpstan-ignore method.notFound (analysed against Laravel 7, which has no removeMutex())
-                $this->removeMutex();
-            }
+            // finish() does.
+            $this->removeMutex();
         }
     }
 

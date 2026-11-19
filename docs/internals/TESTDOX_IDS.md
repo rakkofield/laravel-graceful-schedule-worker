@@ -35,7 +35,6 @@
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
 | Console/ExceptionReporterTest | `ER` | 4 |
-| Console/LegacyExceptionReporterTest | `LER` | 4 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
 | Console/UsesClockAwareScheduleTest | `UCS` | 12 |
 | Dispatcher/LocalDispatcherTest | `LD` | 41 |
@@ -65,10 +64,10 @@
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
 | Logging/PrefixedLoggerTest | `PL` | 4 |
 | Providers/DispatcherServiceRegistrarTest | `DSR` | 5 |
-| Providers/OrchestratorServiceRegistrarTest | `OSR` | 5 |
+| Providers/OrchestratorServiceRegistrarTest | `OSR` | 4 |
 | Providers/TrackerServiceRegistrarTest | `TSR` | 5 |
 | Providers/StepFunctionsServiceProviderTest | `SFP` | 22 |
-| Providers/GracefulScheduleWorkerProviderTest | `GP` | 20 |
+| Providers/GracefulScheduleWorkerProviderTest | `GP` | 19 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 28 |
 | Tracker/CacheExecutionTrackerTest | `CT` | 22 |
 | Tracker/NullExecutionTrackerTest | `NT` | 4 |

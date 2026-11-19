@@ -12,7 +12,6 @@ use Symfony\Component\Process\Process;
  * E2E tests for GracefulScheduleWorkCommand using the skeleton application.
  *
  * These tests launch actual processes using the skeleton application.
- * They require PHP 8.4 or lower due to skeleton's Laravel 7.x dependency.
  *
  * LocalDispatcher uses buildCommand() for foreground and buildProcessCommand() for background.
  * beforeCallbacks are called synchronously in the parent process before dispatch.

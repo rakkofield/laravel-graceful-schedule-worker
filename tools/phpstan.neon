@@ -2,6 +2,6 @@ parameters:
     level: max
     paths:
         - ../src
-    phpVersion: 70205
+    phpVersion: 80100
     bootstrapFiles:
         - ../vendor/autoload.php

@@ -77,7 +77,7 @@ When a task is completed, run the following without waiting for confirmation:
 
 ## PHP Version
 
-- Minimum requirement: PHP 7.2.5
+- Minimum requirement: PHP 8.1
 - `ext-pcntl` required (for signal handling)
 - Nullable types (`?string`) are available since PHP 7.1
 
