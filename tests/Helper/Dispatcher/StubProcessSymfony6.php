@@ -7,9 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use Symfony\Component\Process\Process;
 
 /**
- * StubProcess for Laravel 6 (Symfony 4) — no return type hints on signal/stop.
+ * StubProcess for Symfony Process 6+ (Laravel 9+) — signal() returns static.
  */
-class StubProcessLaravel6 extends Process
+class StubProcessSymfony6 extends Process
 {
     use StubProcessBehavior;
 
@@ -24,20 +24,21 @@ class StubProcessLaravel6 extends Process
 
     /**
      * @param int $signal
-     * @return $this
+     * @return static
      */
-    public function signal($signal)
+    public function signal(int $signal): static
     {
         $this->doSignal($signal);
+
         return $this;
     }
 
     /**
-     * @param int $timeout
+     * @param float $timeout
      * @param int|null $signal
      * @return int|null
      */
-    public function stop($timeout = 10, $signal = null)
+    public function stop(float $timeout = 10, ?int $signal = null): ?int
     {
         return $this->doStop();
     }

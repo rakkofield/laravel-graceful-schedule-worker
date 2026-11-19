@@ -10,7 +10,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\Sleeper;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporter;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporterInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Console\LegacyExceptionReporter;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Logging\PrefixedLogger;
 use RakkoInc\LaravelGracefulScheduleWorker\Orchestrator\DefaultScheduleOrchestrator;
@@ -25,17 +24,12 @@ class OrchestratorServiceRegistrar
     /** @var Container */
     private $container;
 
-    /** @var string */
-    private $appVersion;
-
     /**
      * @param Container $container
-     * @param string $appVersion
      */
-    public function __construct(Container $container, string $appVersion)
+    public function __construct(Container $container)
     {
         $this->container = $container;
-        $this->appVersion = $appVersion;
     }
 
     /**
@@ -66,21 +60,14 @@ class OrchestratorServiceRegistrar
         });
     }
 
-    /**
-     * Laravel 6: ExceptionHandler::report(Exception), Laravel 7+: report(Throwable)
-     */
     private function registerExceptionReporter(): void
     {
-        $appVersion = $this->appVersion;
-        $this->container->singleton(ExceptionReporterInterface::class, function (Container $app) use ($appVersion) {
+        $this->container->singleton(ExceptionReporterInterface::class, function (Container $app) {
             /** @var ExceptionHandler $handler */
             $handler = $app->make(ExceptionHandler::class);
             /** @var PrefixedLogger $logger */
             $logger = $app->make('graceful-scheduler.logger');
 
-            if (version_compare($appVersion, '7.0.0', '<')) {
-                return new LegacyExceptionReporter($handler, $logger);
-            }
             return new ExceptionReporter($handler, $logger);
         });
     }

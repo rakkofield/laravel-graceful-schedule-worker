@@ -13,7 +13,7 @@ use Illuminate\Contracts\Cache\Store;
 /**
  * Fake implementation of Illuminate\Contracts\Cache\Repository
  */
-class FakeCacheStore implements Repository
+class FakeCacheStorePsr3 implements Repository
 {
     /**
      * @var array<string, mixed>
@@ -37,7 +37,7 @@ class FakeCacheStore implements Repository
      * @param string $key
      * @return bool
      */
-    public function has($key)
+    public function has(string $key): bool
     {
         return array_key_exists($key, $this->store);
     }
@@ -56,7 +56,7 @@ class FakeCacheStore implements Repository
      * @param mixed $default
      * @return mixed
      */
-    public function get($key, $default = null)
+    public function get(string $key, mixed $default = null): mixed
     {
         if (array_key_exists($key, $this->store)) {
             return $this->store[$key];
@@ -216,7 +216,7 @@ class FakeCacheStore implements Repository
      * @param string $key
      * @return bool
      */
-    public function delete($key)
+    public function delete(string $key): bool
     {
         return $this->forget($key);
     }
@@ -225,7 +225,7 @@ class FakeCacheStore implements Repository
      * @param iterable<string> $keys
      * @return bool
      */
-    public function deleteMultiple($keys)
+    public function deleteMultiple(iterable $keys): bool
     {
         foreach ($keys as $key) {
             $this->forget($key);
@@ -236,7 +236,7 @@ class FakeCacheStore implements Repository
     /**
      * @return bool
      */
-    public function clear()
+    public function clear(): bool
     {
         $this->store = [];
         return true;
@@ -263,7 +263,7 @@ class FakeCacheStore implements Repository
      * @param mixed $default
      * @return iterable<string, mixed>
      */
-    public function getMultiple($keys, $default = null)
+    public function getMultiple(iterable $keys, mixed $default = null): iterable
     {
         $result = [];
         foreach ($keys as $key) {
@@ -277,7 +277,7 @@ class FakeCacheStore implements Repository
      * @param DateTimeInterface|DateInterval|int|null $ttl
      * @return bool
      */
-    public function setMultiple($values, $ttl = null)
+    public function setMultiple(iterable $values, null|int|\DateInterval $ttl = null): bool
     {
         foreach ($values as $key => $value) {
             $this->put($key, $value, $ttl);
@@ -291,7 +291,7 @@ class FakeCacheStore implements Repository
      * @param DateTimeInterface|DateInterval|int|null $ttl
      * @return bool
      */
-    public function set($key, $value, $ttl = null)
+    public function set(string $key, mixed $value, null|int|\DateInterval $ttl = null): bool
     {
         return $this->put($key, $value, $ttl);
     }
