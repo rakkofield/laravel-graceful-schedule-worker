@@ -11,9 +11,9 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 /**
  * Trait for Kernel that registers ClockAwareSchedule as a separate singleton.
  *
- * Overrides defineConsoleSchedule() to register two separate singletons:
- * - Schedule::class — plain Schedule populated via schedule() (delegated to parent)
- * - ClockAwareSchedule::class — ClockAwareSchedule populated via gracefulSchedule()
+ * Registers ClockAwareSchedule::class, populated via gracefulSchedule(), when the
+ * kernel is bootstrapped. Schedule::class stays the plain Schedule that Laravel
+ * populates via schedule().
  *
  * This separation ensures schedule:run only processes native events,
  * and schedule:graceful-work only processes ClockAwareEvents.
@@ -38,28 +38,7 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
     }
 
     /**
-     * Register Schedule::class and ClockAwareSchedule::class as separate singletons.
-     *
-     * parent::defineConsoleSchedule() registers Schedule::class (plain Schedule + schedule()).
-     * This method additionally registers ClockAwareSchedule::class for graceful events only.
-     *
-     * Laravel 10 and earlier only. The Laravel 11+ kernel has no defineConsoleSchedule(),
-     * so this method is not called there and fails if called; bootstrap() registers
-     * ClockAwareSchedule::class instead.
-     *
-     * @return void
-     */
-    protected function defineConsoleSchedule()
-    {
-        parent::defineConsoleSchedule();
-
-        $this->registerClockAwareSchedule();
-    }
-
-    /**
-     * Laravel 11+ no longer calls defineConsoleSchedule(), so the singleton is
-     * also registered when the kernel is bootstrapped. Kernel::bootstrap()
-     * exists in every supported Laravel version.
+     * Register ClockAwareSchedule::class after the kernel is bootstrapped.
      *
      * @return void
      */
@@ -71,8 +50,8 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
     }
 
     /**
-     * Register ClockAwareSchedule::class once. A second registration is skipped,
-     * because re-binding a singleton would drop an already resolved instance.
+     * Register ClockAwareSchedule::class once. bootstrap() runs for every artisan
+     * call, and re-binding a singleton would drop an already resolved instance.
      *
      * @return void
      */
@@ -94,6 +73,7 @@ trait UsesClockAwareSchedule // @phpstan-ignore trait.unused
             );
             $schedule->useCache($this->scheduleCache());
             $this->gracefulSchedule($schedule);
+            $schedule->stopAcceptingEvents();
 
             return $schedule;
         });

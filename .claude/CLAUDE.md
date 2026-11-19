@@ -58,12 +58,12 @@ composer skeleton:update
 
 ```bash
 composer tools:install  # First time only
-composer phpstan        # Static analysis (requires PHP 8.1+)
+composer phpstan        # Static analysis (requires PHP 8.2+)
 composer phpcs          # Coding standards check
 composer phpcbf         # Auto-fix
 
 # To specify a PHP interpreter
-PHP_SA_BINARY=/path/to/php8.1 composer phpstan
+PHP_SA_BINARY=/path/to/php8.2 composer phpstan
 ```
 
 ### On Task Completion
@@ -77,7 +77,7 @@ When a task is completed, run the following without waiting for confirmation:
 
 ## PHP Version
 
-- Minimum requirement: PHP 8.1
+- Minimum requirement: PHP 8.2
 - `ext-pcntl` required (for signal handling)
 - Nullable types (`?string`) are available since PHP 7.1
 

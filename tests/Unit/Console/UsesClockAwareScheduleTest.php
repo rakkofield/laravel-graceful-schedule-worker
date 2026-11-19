@@ -55,12 +55,12 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox UCS.1 defineConsoleSchedule registers plain Schedule as Schedule::class singleton
+     * @testdox UCS.1 Schedule::class stays a plain Schedule
      */
-    public function testDefineConsoleScheduleRegistersPlainSchedule(): void
+    public function testScheduleStaysPlainSchedule(): void
     {
         $kernel = new FakeKernelWithTrait();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         $schedule = $this->container->make(Schedule::class);
 
@@ -74,7 +74,7 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testGracefulScheduleReceivesClockAwareSchedule(): void
     {
         $kernel = new FakeKernelWithTrait();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         $schedule = $this->container->make(ClockAwareSchedule::class);
 
@@ -87,7 +87,7 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testScheduleTimezoneIsPassedToClockAwareSchedule(): void
     {
         $kernel = new FakeKernelWithTrait('Asia/Tokyo');
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         /** @var ClockAwareSchedule $schedule */
         $schedule = $this->container->make(ClockAwareSchedule::class);
@@ -103,7 +103,7 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testBothSingletonsAreResolvedOnlyOnce(): void
     {
         $kernel = new FakeKernelWithTrait();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         $schedule1 = $this->container->make(Schedule::class);
         $schedule2 = $this->container->make(Schedule::class);
@@ -120,13 +120,14 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testClockAwareScheduleUsesInjectedClock(): void
     {
         $kernel = new FakeKernelWithTrait();
-        $kernel->defineConsoleSchedule();
+        $kernel->defineTasks = function (ClockAwareSchedule $schedule) {
+            $schedule->exec('echo every-minute')->everyMinute();
+            $schedule->exec('echo daily-three')->dailyAt('03:00');
+        };
+        $kernel->bootstrap();
 
         /** @var ClockAwareSchedule $schedule */
         $schedule = $this->container->make(ClockAwareSchedule::class);
-
-        $schedule->exec('echo every-minute')->everyMinute();
-        $schedule->exec('echo daily-three')->dailyAt('03:00');
 
         $frozenTime = new \DateTimeImmutable('2024-01-15 03:00:00');
         $dueEvents = [];
@@ -145,7 +146,7 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testScheduleAndClockAwareScheduleAreSeparateInstances(): void
     {
         $kernel = new FakeKernelWithTrait();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         $viaSchedule = $this->container->make(Schedule::class);
         $viaClockAware = $this->container->make(ClockAwareSchedule::class);
@@ -159,7 +160,7 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testScheduleEventsAreNativeEventType(): void
     {
         $kernel = new FakeKernelWithGradualMigration();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         $this->container->make(Schedule::class);
 
@@ -174,7 +175,7 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testGracefulScheduleEventsAreClockAwareEventType(): void
     {
         $kernel = new FakeKernelWithGradualMigration();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         $this->container->make(ClockAwareSchedule::class);
 
@@ -188,7 +189,7 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testEventsAreSeparatedIntoDifferentScheduleInstances(): void
     {
         $kernel = new FakeKernelWithGradualMigration();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         /** @var Schedule $nativeSchedule */
         $nativeSchedule = $this->container->make(Schedule::class);
@@ -212,7 +213,7 @@ class UsesClockAwareScheduleTest extends TestCase
     public function testDefaultGracefulScheduleIsEmpty(): void
     {
         $kernel = new FakeKernelWithTrait();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         /** @var ClockAwareSchedule $schedule */
         $schedule = $this->container->make(ClockAwareSchedule::class);
@@ -233,7 +234,7 @@ class UsesClockAwareScheduleTest extends TestCase
         });
 
         $kernel = new FakeKernelWithGradualMigration();
-        $kernel->defineConsoleSchedule();
+        $kernel->bootstrap();
 
         // Resolve the ClockAwareSchedule singleton to trigger schedule registration
         $this->container->make(ClockAwareSchedule::class);
@@ -243,5 +244,26 @@ class UsesClockAwareScheduleTest extends TestCase
         $event = $kernel->gracefulScheduleEvents[0];
         $this->assertInstanceOf(ClockAwareEvent::class, $event);
         $this->assertSame('stepfunctions', $event->getDispatcherType());
+    }
+
+    /**
+     * @testdox UCS.12 Tasks added by an afterResolving(Schedule::class) callback are not in ClockAwareSchedule
+     */
+    public function testTasksAddedByAfterResolvingCallbackAreIgnored(): void
+    {
+        // Laravel 13 withSchedule() registers its callback this way. The container
+        // also runs it for ClockAwareSchedule, a subclass of Schedule.
+        $this->container->afterResolving(Schedule::class, function (Schedule $schedule) {
+            $schedule->exec('echo with-schedule-task')->everyMinute();
+        });
+
+        $kernel = new FakeKernelWithGradualMigration();
+        $kernel->bootstrap();
+
+        /** @var ClockAwareSchedule $gracefulSchedule */
+        $gracefulSchedule = $this->container->make(ClockAwareSchedule::class);
+
+        $this->assertCount(1, $gracefulSchedule->events());
+        $this->assertSame($kernel->gracefulScheduleEvents, $gracefulSchedule->events());
     }
 }

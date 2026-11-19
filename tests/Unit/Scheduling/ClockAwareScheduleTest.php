@@ -11,6 +11,7 @@ use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FreezableClock;
+use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 
 class ClockAwareScheduleTest extends TestCase
 {
@@ -368,5 +369,43 @@ class ClockAwareScheduleTest extends TestCase
         $event = $schedule->command(StubCommand::class, ['--force', '--count' => 3]);
 
         $this->assertSame(['stub:command', '--force', '--count=3'], $event->getRawCommand());
+    }
+
+    /**
+     * @testdox CS.28 events() leaves out the events added after stopAcceptingEvents()
+     */
+    public function testEventsLeavesOutEventsAddedAfterStopAcceptingEvents(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $schedule->exec('echo graceful')->everyMinute();
+        $schedule->stopAcceptingEvents();
+        $schedule->exec('echo added-later')->everyMinute();
+        $schedule->call(function () {
+        })->everyMinute();
+
+        $events = $schedule->events();
+
+        $this->assertCount(1, $events);
+        $this->assertStringContainsString('graceful', $events[0]->command);
+    }
+
+    /**
+     * @testdox CS.29 dueEvents() leaves out the events added after stopAcceptingEvents()
+     */
+    public function testDueEventsLeavesOutEventsAddedAfterStopAcceptingEvents(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2024-01-01 12:00:00'));
+        $schedule = new ClockAwareSchedule($clock, 'local', null, new TimezoneResolver());
+
+        $schedule->exec('echo graceful')->everyMinute();
+        $schedule->stopAcceptingEvents();
+        $schedule->exec('echo added-later')->everyMinute();
+
+        $dueEvents = array_values($schedule->dueEvents(new FakeApplication())->all());
+
+        $this->assertCount(1, $dueEvents);
+        $this->assertStringContainsString('graceful', $dueEvents[0]->command);
     }
 }

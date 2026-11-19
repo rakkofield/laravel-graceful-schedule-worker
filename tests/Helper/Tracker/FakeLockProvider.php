@@ -187,4 +187,16 @@ class FakeLockProvider implements LockProvider, Store
         $this->store = [];
         $this->locks = [];
     }
+
+    /**
+     * Store contract (Laravel 13+).
+     *
+     * @param string $key
+     * @param int $seconds
+     * @return bool
+     */
+    public function touch($key, $seconds)
+    {
+        return false;
+    }
 }

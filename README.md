@@ -1,6 +1,6 @@
 # rakko-inc/laravel-graceful-schedule-worker
 
-A graceful schedule worker for Laravel 10 - 12 with missed-task recovery and optional AWS Step Functions integration.
+A graceful schedule worker for Laravel 12 - 13 with missed-task recovery and optional AWS Step Functions integration.
 
 ## Overview
 
@@ -41,8 +41,8 @@ php artisan schedule:graceful-work
 
 | Requirement | Version |
 |---|---|
-| PHP | ^8.1 |
-| Laravel | 10.x - 12.x |
+| PHP | ^8.2 |
+| Laravel | 12.x - 13.x |
 | ext-pcntl | required |
 | aws/aws-sdk-php | ^3.20.1 (optional, for Step Functions) |
 | Redis / Memcached | optional, for execution tracking |
@@ -123,7 +123,7 @@ Define the tasks in `gracefulSchedule()`. Tasks defined in `routes/console.php` 
 
 An application upgraded from Laravel 10 or earlier keeps its kernel and needs no change.
 
-On Laravel 11 and later, the trait registers `ClockAwareSchedule` in the kernel's `bootstrap()`.
+The trait registers `ClockAwareSchedule` in the kernel's `bootstrap()`.
 If your kernel defines its own `bootstrap()`, call `parent::bootstrap()` and then
 `$this->registerClockAwareSchedule()` in it.
 
