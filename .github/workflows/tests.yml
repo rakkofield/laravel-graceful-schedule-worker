@@ -37,8 +37,7 @@ jobs:
             fail-fast: false
             matrix:
                 # Each Laravel version is tested on the lowest and highest PHP version it
-                # supports. "phpunit" defaults to 9.6; PHP 7.2 uses 8.5, because
-                # PHPUnit 9.6 requires PHP 7.3+.
+                # supports.
                 # "laravel" is the lower bound passed to composer as ^<laravel>.
                 # With prefer-lowest, composer picks the lowest release that allows
                 # the job's PHP; the bound is raised only where that release still
@@ -49,10 +48,6 @@ jobs:
                 # skeleton also runs on Laravel 11+, because an application upgraded
                 # from Laravel 10 or earlier keeps that structure.
                 target:
-                    - { php: '7.2', laravel: '6.18.7', phpunit: '8.5.40' }
-                    - { php: '8.0', laravel: '6.18.7', redis: true }
-                    - { php: '7.2', laravel: '7.6.0', phpunit: '8.5.40' }
-                    - { php: '8.0', laravel: '7.6.0', redis: true }
                     - { php: '7.3', laravel: '8.0' }
                     - { php: '8.1', laravel: '8.65.0', redis: true }
                     - { php: '8.0', laravel: '9.0' }
@@ -66,7 +61,7 @@ jobs:
                     - { php: '8.5', laravel: '12.0', skeleton: skeleton-l11, redis: true }
                     - { php: '8.4', laravel: '12.0' }
                 stability: [prefer-lowest, prefer-stable]
-        name: PHP ${{ matrix.target.php }} - Laravel ${{ matrix.target.laravel }} - PHPUnit ${{ matrix.target.phpunit || '9.6.21' }} - ${{ matrix.stability }}
+        name: PHP ${{ matrix.target.php }} - Laravel ${{ matrix.target.laravel }} - ${{ matrix.stability }}
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -88,11 +83,11 @@ jobs:
               uses: actions/cache@v4
               with:
                   path: ${{ steps.composer-cache.outputs.dir }}
-                  key: ${{ runner.os }}-${{ matrix.target.php }}-${{ matrix.target.laravel }}-${{ matrix.target.phpunit || '9.6.21' }}-${{ matrix.stability }}-composer-${{ hashFiles('**/composer.lock') }}
-                  restore-keys: ${{ runner.os }}-${{ matrix.target.php }}-${{ matrix.target.laravel }}-${{ matrix.target.phpunit || '9.6.21' }}-${{ matrix.stability }}-composer-
+                  key: ${{ runner.os }}-${{ matrix.target.php }}-${{ matrix.target.laravel }}-${{ matrix.stability }}-composer-${{ hashFiles('**/composer.lock') }}
+                  restore-keys: ${{ runner.os }}-${{ matrix.target.php }}-${{ matrix.target.laravel }}-${{ matrix.stability }}-composer-
 
-            - name: Set laravel/framework and phpunit/phpunit version constraints
-              run: composer require --dev laravel/framework:^${{ matrix.target.laravel }} phpunit/phpunit:^${{ matrix.target.phpunit || '9.6.21' }} --no-interaction --no-update
+            - name: Set laravel/framework version constraint
+              run: composer require --dev laravel/framework:^${{ matrix.target.laravel }} --no-interaction --no-update
 
             - name: Install dependencies for test
               run: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress

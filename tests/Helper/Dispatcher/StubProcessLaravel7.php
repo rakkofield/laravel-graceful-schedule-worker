@@ -7,7 +7,7 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use Symfony\Component\Process\Process;
 
 /**
- * StubProcess for Laravel 7+ (Symfony 5) — typed signal/stop signatures.
+ * StubProcess for Laravel 8 (Symfony 5) — typed signal/stop signatures.
  */
 class StubProcessLaravel7 extends Process
 {

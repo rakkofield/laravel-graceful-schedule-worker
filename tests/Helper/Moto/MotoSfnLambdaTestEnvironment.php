@@ -51,7 +51,7 @@ final class MotoSfnLambdaTestEnvironment extends MotoSfnTestEnvironment
 
     /**
      * Native return type matches the parent so the override is signature-
-     * compatible on PHP 7.2/7.3 (covariant return types only landed in
+     * compatible on PHP 7.3 (covariant return types only landed in
      * PHP 7.4). The PHPDoc narrows the type for static analysis.
      *
      * @return self|null

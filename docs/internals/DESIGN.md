@@ -1277,8 +1277,7 @@ src/
 +-- Console/
 |   +-- GracefulScheduleWorkCommand.php  # Artisan command (uses Orchestrator)
 |   +-- ExceptionReporterInterface.php   # Exception reporter interface
-|   +-- ExceptionReporter.php            # Exception reporter (Laravel 7+)
-|   +-- LegacyExceptionReporter.php      # Exception reporter (Laravel 5/6)
+|   +-- ExceptionReporter.php            # Exception reporter
 |   +-- UsesClockAwareSchedule.php       # Trait for Kernel to use ClockAwareSchedule
 +-- Dispatcher/
 |   +-- ScheduleDispatcherInterface.php       # Dispatcher interface
@@ -1379,7 +1378,6 @@ tests/
     +-- Console/
     |   +-- GracefulScheduleWorkCommandTest.php
     |   +-- ExceptionReporterTest.php
-    |   +-- LegacyExceptionReporterTest.php
     |   +-- UsesClockAwareScheduleTest.php
     +-- Dispatcher/
     |   +-- LocalDispatcherTest.php
@@ -1650,11 +1648,11 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 |----------|-----------|-------------------|
 | Unit/Clock | 13 | SystemClock, Sleeper, FreezableClock |
 | Unit/Scheduling | 111 | ClockAwareEvent, ClockAwareSchedule, ClockAwareTimeFilter, ProcessCommandBuilder, TimezoneResolver, Compatibility |
-| Unit/Console | 24 | GracefulScheduleWorkCommand, ExceptionReporter, LegacyExceptionReporter, UsesClockAwareSchedule |
+| Unit/Console | 20 | GracefulScheduleWorkCommand, ExceptionReporter, UsesClockAwareSchedule |
 | Unit/Dispatcher | 247 | LocalDispatcher, CompositeDispatcher, TrackingDispatcher, StepFunctionsDispatcher, RunningProcessManager, each DispatchResult, StepFunctions sub-classes |
 | Unit/Orchestrator | 28 | DefaultScheduleOrchestrator |
 | Unit/Tracker | 26 | CacheExecutionTracker, NullExecutionTracker |
-| Unit/Providers | 46 | GracefulScheduleWorkerProvider, DispatcherServiceRegistrar, OrchestratorServiceRegistrar, TrackerServiceRegistrar, StepFunctionsServiceProvider |
+| Unit/Providers | 44 | GracefulScheduleWorkerProvider, DispatcherServiceRegistrar, OrchestratorServiceRegistrar, TrackerServiceRegistrar, StepFunctionsServiceProvider |
 | Unit/Logging | 4 | PrefixedLogger |
 | Integration | 45 | Redis integration, moto integration, DI wiring, flow integration, filters pass, schedule compatibility |
 | E2E | 3 | SIGTERM graceful shutdown, background command output |

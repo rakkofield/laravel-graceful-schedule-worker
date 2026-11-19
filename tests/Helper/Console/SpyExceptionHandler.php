@@ -9,11 +9,42 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
 /**
- * SpyExceptionHandler for Laravel 7+ (Symfony 5) — Throwable type hints.
+ * ExceptionHandler spy that records the reported exceptions.
  */
-class SpyExceptionHandlerLaravel7 implements ExceptionHandler
+class SpyExceptionHandler implements ExceptionHandler
 {
-    use SpyExceptionHandlerBehavior;
+    /** @var Throwable[] */
+    private $reported = [];
+
+    /** @var Throwable|null */
+    private $throwOnReport;
+
+    /**
+     * Configure report() to throw an exception.
+     *
+     * @param Throwable $exception
+     * @return void
+     */
+    public function willThrowOnReport(Throwable $exception): void
+    {
+        $this->throwOnReport = $exception;
+    }
+
+    /**
+     * @return Throwable[]
+     */
+    public function getReported(): array
+    {
+        return $this->reported;
+    }
+
+    /**
+     * @return int
+     */
+    public function getReportedCount(): int
+    {
+        return count($this->reported);
+    }
 
     /**
      * {@inheritdoc}
@@ -22,7 +53,11 @@ class SpyExceptionHandlerLaravel7 implements ExceptionHandler
      */
     public function report(Throwable $e)
     {
-        $this->doReport($e);
+        $this->reported[] = $e;
+
+        if ($this->throwOnReport !== null) {
+            throw $this->throwOnReport;
+        }
     }
 
     /**
