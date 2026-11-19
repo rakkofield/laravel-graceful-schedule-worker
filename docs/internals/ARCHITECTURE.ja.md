@@ -470,8 +470,8 @@ public function resolveDispatcher(ClockAwareEvent $event): ScheduleDispatcher
 
 ### Laravel バージョンの制約
 
-- **対応バージョン**: Laravel 6.x 〜 10.x
-- **PHP バージョン**: 7.2.5 以上
+- **対応バージョン**: Laravel 8.x 〜 10.x
+- **PHP バージョン**: 7.3 以上
 
 ### Closure ジョブの制限
 
@@ -566,8 +566,8 @@ ECS Task 3 (Scheduler) ──┘
 
 ### Laravel
 
-- [Laravel Task Scheduling](https://laravel.com/docs/7.x/scheduling) - Laravel のスケジューリング機能
-- [Laravel Database Transactions](https://laravel.com/docs/7.x/database#database-transactions) - トランザクション処理
+- [Laravel Task Scheduling](https://laravel.com/docs/8.x/scheduling) - Laravel のスケジューリング機能
+- [Laravel Database Transactions](https://laravel.com/docs/8.x/database#database-transactions) - トランザクション処理
 
 ### AWS
 

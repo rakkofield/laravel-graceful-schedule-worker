@@ -1277,8 +1277,7 @@ src/
 +-- Console/
 |   +-- GracefulScheduleWorkCommand.php  # Artisan コマンド（Orchestrator を使用）
 |   +-- ExceptionReporterInterface.php   # 例外レポーターインターフェース
-|   +-- ExceptionReporter.php            # 例外レポーター（Laravel 7+）
-|   +-- LegacyExceptionReporter.php      # 例外レポーター（Laravel 5/6）
+|   +-- ExceptionReporter.php            # 例外レポーター
 |   +-- UsesClockAwareSchedule.php       # Kernel で ClockAwareSchedule を使用する trait
 +-- Dispatcher/
 |   +-- ScheduleDispatcherInterface.php       # Dispatcher インターフェース
@@ -1379,7 +1378,6 @@ tests/
     +-- Console/
     |   +-- GracefulScheduleWorkCommandTest.php
     |   +-- ExceptionReporterTest.php
-    |   +-- LegacyExceptionReporterTest.php
     |   +-- UsesClockAwareScheduleTest.php
     +-- Dispatcher/
     |   +-- LocalDispatcherTest.php
@@ -1650,11 +1648,11 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 |---------|---------|---------|
 | Unit/Clock | 13 | SystemClock、Sleeper、FreezableClock |
 | Unit/Scheduling | 111 | ClockAwareEvent、ClockAwareSchedule、ClockAwareTimeFilter、ProcessCommandBuilder、TimezoneResolver、Compatibility |
-| Unit/Console | 24 | GracefulScheduleWorkCommand、ExceptionReporter、LegacyExceptionReporter、UsesClockAwareSchedule |
+| Unit/Console | 20 | GracefulScheduleWorkCommand、ExceptionReporter、UsesClockAwareSchedule |
 | Unit/Dispatcher | 247 | LocalDispatcher、CompositeDispatcher、TrackingDispatcher、StepFunctionsDispatcher、RunningProcessManager、各 DispatchResult、StepFunctions サブクラス |
 | Unit/Orchestrator | 28 | DefaultScheduleOrchestrator |
 | Unit/Tracker | 26 | CacheExecutionTracker、NullExecutionTracker |
-| Unit/Providers | 46 | GracefulScheduleWorkerProvider、DispatcherServiceRegistrar、OrchestratorServiceRegistrar、TrackerServiceRegistrar、StepFunctionsServiceProvider |
+| Unit/Providers | 44 | GracefulScheduleWorkerProvider、DispatcherServiceRegistrar、OrchestratorServiceRegistrar、TrackerServiceRegistrar、StepFunctionsServiceProvider |
 | Unit/Logging | 4 | PrefixedLogger |
 | Integration | 45 | Redis 統合、moto 統合、DI 結線、フロー統合、フィルターパス、Schedule 互換 |
 | E2E | 3 | SIGTERM graceful shutdown、バックグラウンドコマンド出力 |

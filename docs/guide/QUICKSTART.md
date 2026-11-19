@@ -6,13 +6,13 @@ This guide provides step-by-step instructions for setting up `laravel-graceful-s
 
 ### Target Audience
 
-- Developers running scheduled tasks on Laravel 6.x - 10.x
+- Developers running scheduled tasks on Laravel 8.x - 10.x
 - Those who want to run the scheduler in container environments such as ECS / Kubernetes
 
 ### Prerequisites
 
-- PHP ^7.2.5 || ~8.0
-- Laravel 6.x - 10.x
+- PHP ^7.3 || ~8.0
+- Laravel 8.x - 10.x
 - ext-pcntl (required for signal handling)
 
 ---

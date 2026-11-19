@@ -14,7 +14,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporter;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporterInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Console\LegacyExceptionReporter;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\SpyExceptionHandler;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\LocalDispatcher;
 use RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\ScheduleDispatcherInterface;
@@ -494,11 +493,10 @@ class GracefulScheduleWorkerProviderTest extends TestCase
     }
 
     /**
-     * @testdox GP.16 Registers ExceptionReporterInterface as ExceptionReporter for Laravel 7+
+     * @testdox GP.16 Registers ExceptionReporterInterface as ExceptionReporter
      */
     public function testRegistersExceptionReporterInterface(): void
     {
-        $this->app->setVersion('7.0.0');
         $this->app->singleton(ExceptionHandler::class, function () {
             return new SpyExceptionHandler();
         });
@@ -510,22 +508,6 @@ class GracefulScheduleWorkerProviderTest extends TestCase
 
         $reporter = $this->app->make(ExceptionReporterInterface::class);
         $this->assertInstanceOf(ExceptionReporter::class, $reporter);
-    }
-
-    /**
-     * @testdox GP.17 Registers LegacyExceptionReporter for Laravel 6
-     */
-    public function testRegistersLegacyExceptionReporterForLaravel6(): void
-    {
-        $this->app->setVersion('6.20.44');
-        $this->app->singleton(ExceptionHandler::class, function () {
-            return new SpyExceptionHandler();
-        });
-
-        $this->provider->register();
-
-        $reporter = $this->app->make(ExceptionReporterInterface::class);
-        $this->assertInstanceOf(LegacyExceptionReporter::class, $reporter);
     }
 
     /**
