@@ -1,6 +1,6 @@
 # rakko-inc/laravel-graceful-schedule-worker
 
-A graceful schedule worker for Laravel 8 - 10 with missed-task recovery and optional AWS Step Functions integration.
+A graceful schedule worker for Laravel 10 - 12 with missed-task recovery and optional AWS Step Functions integration.
 
 ## Overview
 
@@ -41,8 +41,8 @@ php artisan schedule:graceful-work
 
 | Requirement | Version |
 |---|---|
-| PHP | ^7.3 \|\| ~8.0 |
-| Laravel | 8.x - 10.x |
+| PHP | ^8.1 |
+| Laravel | 10.x - 12.x |
 | ext-pcntl | required |
 | aws/aws-sdk-php | ^3.20.1 (optional, for Step Functions) |
 | Redis / Memcached | optional, for execution tracking |
@@ -100,6 +100,32 @@ class Kernel extends ConsoleKernel
      }
  }
 ```
+
+On Laravel 11 and later, an application created from the new skeleton has no
+`app/Console/Kernel.php`. Create the kernel above, and register it in `bootstrap/app.php`
+so that artisan uses it:
+
+```php
+$app = Application::configure(basePath: dirname(__DIR__))
+    // ...
+    ->create();
+
+$app->singleton(
+    Illuminate\Contracts\Console\Kernel::class,
+    App\Console\Kernel::class
+);
+
+return $app;
+```
+
+Define the tasks in `gracefulSchedule()`. Tasks defined in `routes/console.php` or with
+`withSchedule()` are run by `schedule:run`, but not by the worker.
+
+An application upgraded from Laravel 10 or earlier keeps its kernel and needs no change.
+
+On Laravel 11 and later, the trait registers `ClockAwareSchedule` in the kernel's `bootstrap()`.
+If your kernel defines its own `bootstrap()`, call `parent::bootstrap()` and then
+`$this->registerClockAwareSchedule()` in it.
 
 ### 4. Run the worker
 
