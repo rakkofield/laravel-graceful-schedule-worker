@@ -174,7 +174,7 @@ class ClockAwareEvent extends Event
     {
         $this->assertTimeoutFitsLockLifetime($this->taskTimeoutSeconds, $expiresAt);
 
-        // @phpstan-ignore arguments.count (analysed against Laravel 7, which takes only $expiresAt)
+        // @phpstan-ignore arguments.count (analysed against Laravel 12, which takes only $expiresAt)
         return parent::withoutOverlapping($expiresAt, $releaseOnTerminationSignals);
     }
 

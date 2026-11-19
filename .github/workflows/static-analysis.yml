@@ -18,7 +18,7 @@ jobs:
             - name: Setup PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: 8.1
+                  php-version: 8.2
                   extensions: dom, curl, libxml, mbstring, zip
                   tools: composer:v2
                   coverage: none
@@ -47,7 +47,7 @@ jobs:
             - name: Setup PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: 8.1
+                  php-version: 8.2
                   extensions: dom, curl, libxml, mbstring, zip
                   tools: composer:v2
                   coverage: none
@@ -70,14 +70,14 @@ jobs:
               uses: actions/cache@v4
               with:
                   path: ${{ steps.composer-cache.outputs.dir }}
-                  key: ${{ runner.os }}-8.1-composer-${{ hashFiles('composer.lock') }}
-                  restore-keys: ${{ runner.os }}-8.1-composer-
+                  key: ${{ runner.os }}-8.2-composer-${{ hashFiles('composer.lock') }}
+                  restore-keys: ${{ runner.os }}-8.2-composer-
 
             # The package supports several Laravel versions, and phpstan can only
             # analyse against one. Pin it so the result does not change with the
-            # newest Laravel that PHP 8.1 can install.
+            # newest Laravel that PHP 8.2 can install.
             - name: Set laravel/framework version for analysis
-              run: composer require --dev laravel/framework:^10.0 --no-interaction --no-update
+              run: composer require --dev laravel/framework:^12.0 --no-interaction --no-update
 
             - name: Install dependencies
               run: composer install --prefer-dist --no-interaction

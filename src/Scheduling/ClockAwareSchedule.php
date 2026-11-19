@@ -147,7 +147,7 @@ class ClockAwareSchedule extends Schedule
      * withSchedule() in bootstrap/app.php registers its callback with
      * afterResolving(Schedule::class), and the container also runs it for this
      * subclass. Without this, the tasks defined there would also be run by the
-     * worker. They are left to schedule:run, as on Laravel 6 - 12.
+     * worker. They are left to schedule:run, as on Laravel 12.
      *
      * @return void
      */

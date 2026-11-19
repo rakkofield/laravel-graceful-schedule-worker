@@ -8,8 +8,8 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.1",
-        "laravel/framework": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "php": "^8.2",
+        "laravel/framework": "^12.0 || ^13.0",
         "laravel/tinker": "^2.5 || ^3.0",
         "rakko-inc/laravel-graceful-schedule-worker": "1.x-dev"
     },

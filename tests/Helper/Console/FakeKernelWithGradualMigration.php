@@ -14,13 +14,11 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
  * Registers native Events via schedule() and ClockAwareEvents via gracefulSchedule()
  * on separate Schedule instances.
  *
- * Extends StubConsoleKernel so that parent::defineConsoleSchedule() works.
+ * Extends StubConsoleKernel so that parent::bootstrap() works.
  */
 class FakeKernelWithGradualMigration extends StubConsoleKernel
 {
-    use UsesClockAwareSchedule {
-        defineConsoleSchedule as public;
-    }
+    use UsesClockAwareSchedule;
 
     /** @var Container Stub for ConsoleKernel::$app */
     public $app;

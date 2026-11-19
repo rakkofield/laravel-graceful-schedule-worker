@@ -33,12 +33,6 @@ final class WithScheduleE2ETest extends TestCase
             $this->markTestSkipped('withSchedule() is set up only in the Laravel 11+ skeleton (skeleton-l11).');
         }
 
-        $builder = SkeletonPath::get()
-            . '/vendor/laravel/framework/src/Illuminate/Foundation/Configuration/ApplicationBuilder.php';
-        if (strpos((string) file_get_contents($builder), 'function withSchedule(') === false) {
-            $this->markTestSkipped('withSchedule() exists since Laravel 11.1.');
-        }
-
         $phpBinary = (new PhpExecutableFinder())->find(false);
         $process = new Process([$phpBinary, 'artisan', 'e2e:list-schedules'], SkeletonPath::get());
         $process->mustRun();

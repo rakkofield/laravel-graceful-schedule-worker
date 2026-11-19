@@ -690,7 +690,7 @@ Organizing the responsibilities and contained objects of each layer.
 
 **Key points**:
 
-1. **Type safety**: The `UsesClockAwareSchedule` trait auto-overrides `defineConsoleSchedule()` to register `ClockAwareSchedule`. The `gracefulSchedule(ClockAwareSchedule $schedule)` method provides full type hints for IDE completion and static analysis
+1. **Type safety**: The `UsesClockAwareSchedule` trait overrides the kernel's `bootstrap()` to register `ClockAwareSchedule`. The `gracefulSchedule(ClockAwareSchedule $schedule)` method provides full type hints for IDE completion and static analysis
 2. **Testability**: `ClockInterface` enables fixing time, allowing deterministic tests
 3. **Extensibility**: The Dispatcher pattern makes it easy to add new execution methods (e.g., Kubernetes Job)
 4. **Reliability**: ExecutionTracker provides at-least-once semantics, preventing missed executions
@@ -1098,7 +1098,7 @@ This section lists the tests for TDD (Test-Driven Development). Each test corres
 
 **Key points**:
 - Users use the `UsesClockAwareSchedule` trait in `Kernel.php` and implement `gracefulSchedule(ClockAwareSchedule $schedule)`
-- The trait overrides `defineConsoleSchedule()` to auto-register `ClockAwareSchedule` as the `Schedule` singleton
+- The trait overrides the kernel's `bootstrap()` to register `ClockAwareSchedule::class` as a singleton, separate from `Schedule::class`
 - Maintains full type hints for IDE completion and static analysis tool support
 - Enables gradual migration while preserving backward compatibility
 
@@ -1697,7 +1697,7 @@ and in `ClockAwareEvent`, these reference system time without using `ClockInterf
 
 ### Basic Usage
 
-Using the `UsesClockAwareSchedule` trait eliminates the `defineConsoleSchedule()` boilerplate.
+Using the `UsesClockAwareSchedule` trait, you do not register `ClockAwareSchedule` yourself.
 Simply implementing `gracefulSchedule(ClockAwareSchedule $schedule)` provides fully type-hinted schedule definitions.
 
 ```php
