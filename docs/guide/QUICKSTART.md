@@ -93,7 +93,7 @@ There are only 3 changes:
 2. Rename `schedule()` to `gracefulSchedule()` (contents remain mostly the same)
 3. Add `runInBackground()` (recommended)
 
-> **Laravel 11+:** An application created from the Laravel 11+ skeleton has no `app/Console/Kernel.php`. Create it as above and register it in `bootstrap/app.php` (see [README](../../README.md#3-update-your-kernel)). Define the tasks in `gracefulSchedule()`: tasks defined in `routes/console.php` or with `withSchedule()` are not run by the worker. If your kernel defines its own `bootstrap()`, call `parent::bootstrap()` and then `$this->registerClockAwareSchedule()` in it.
+> **Laravel 11+:** An application created from the Laravel 11+ skeleton has no `app/Console/Kernel.php`. Create it as above and register it in `bootstrap/app.php` (see [README](../../README.md#3-update-your-kernel)). Load the commands in `app/Console/Commands` and `routes/console.php` in the kernel's `commands()`, because Laravel does not discover them for your own kernel. Define the tasks in `gracefulSchedule()`: tasks defined in `routes/console.php` or with `withSchedule()` are not run by the worker. If your kernel defines its own `bootstrap()`, call `parent::bootstrap()` and then `$this->registerClockAwareSchedule()` in it.
 
 > **Hint:** If you have many tasks, you can keep `schedule()` as-is and gradually move tasks to `gracefulSchedule()`. See [MIGRATION.md](./MIGRATION.md#choosing-a-migration-method) for details.
 

@@ -28,7 +28,7 @@
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
 | Scheduling/ClockAwareScheduleTest | `CS` | 29 |
-| Scheduling/ClockAwareEventTest | `CE` | 46 |
+| Scheduling/ClockAwareEventTest | `CE` | 48 |
 | Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareTimeFilterTest | `TF` | 13 |
 | Scheduling/TimezoneResolverTest | `TR` | 6 |

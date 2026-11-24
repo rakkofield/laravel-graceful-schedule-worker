@@ -1158,7 +1158,7 @@ StepFunctionsDispatcher 用の結果クラスです。新規開始時は `Starte
    +-- mutex->forget()                <- after コールバックは実行しない
 ```
 
-`ClockAwareEvent::callAfterCallbacksWithExitCode()` は、対応するすべての Laravel の版で after コールバックの実行とロックの解除を行う。Laravel 9 以降はロックを `Event::run()` / `finish()` の中でしか解除せず、ワーカーはどちらも呼ばないため、このメソッドで `removeMutex()` を呼ぶ。
+`ClockAwareEvent::callAfterCallbacksWithExitCode()` は、対応するすべての Laravel の版で after コールバックの実行とロックの解除を行う。Laravel 9 以降はロックを `Event::run()` / `finish()` の中でしか解除せず、ワーカーはどちらもスケジューラ経由では呼ばないため、このメソッドが `Event::finish()` を呼ぶ。
 
 **サポートする Laravel Event 機能**:
 - `before()` / `beforeCallbacks` - 親プロセスで同期実行
@@ -1647,7 +1647,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 | カテゴリ | テスト数 | 検証対象 |
 |---------|---------|---------|
 | Unit/Clock | 13 | SystemClock、Sleeper、FreezableClock |
-| Unit/Scheduling | 111 | ClockAwareEvent、ClockAwareSchedule、ClockAwareTimeFilter、ProcessCommandBuilder、TimezoneResolver、Compatibility |
+| Unit/Scheduling | 113 | ClockAwareEvent、ClockAwareSchedule、ClockAwareTimeFilter、ProcessCommandBuilder、TimezoneResolver、Compatibility |
 | Unit/Console | 20 | GracefulScheduleWorkCommand、ExceptionReporter、UsesClockAwareSchedule |
 | Unit/Dispatcher | 247 | LocalDispatcher、CompositeDispatcher、TrackingDispatcher、StepFunctionsDispatcher、RunningProcessManager、各 DispatchResult、StepFunctions サブクラス |
 | Unit/Orchestrator | 28 | DefaultScheduleOrchestrator |
@@ -1656,7 +1656,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 | Unit/Logging | 4 | PrefixedLogger |
 | Integration | 45 | Redis 統合、moto 統合、DI 結線、フロー統合、フィルターパス、Schedule 互換 |
 | E2E | 3 | SIGTERM graceful shutdown、バックグラウンドコマンド出力 |
-| **合計** | **547** | |
+| **合計** | **549** | |
 
 ### 統合テスト環境
 
