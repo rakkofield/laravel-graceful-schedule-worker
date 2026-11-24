@@ -342,8 +342,9 @@ class ClockAwareEvent extends Event
     /**
      * Call after callbacks with exit code.
      *
-     * Laravel 9+ has no Event::callAfterCallbacksWithExitCode(), so this sets
-     * the exit code, calls the after callbacks and releases the mutex.
+     * Laravel 9+ has no Event::callAfterCallbacksWithExitCode(), so this calls
+     * Event::finish(), which sets the exit code, calls the after callbacks and
+     * releases the withoutOverlapping() mutex.
      *
      * @param Container $container
      * @param int $exitCode
@@ -351,16 +352,7 @@ class ClockAwareEvent extends Event
      */
     public function callAfterCallbacksWithExitCode(Container $container, $exitCode)
     {
-        $this->exitCode = (int) $exitCode;
-
-        try {
-            parent::callAfterCallbacks($container);
-        } finally {
-            // Laravel 9+ releases the mutex only in Event::run()/finish() via
-            // removeMutex(). The worker calls neither, so release it here, as
-            // finish() does.
-            $this->removeMutex();
-        }
+        parent::finish($container, $exitCode);
     }
 
     /**

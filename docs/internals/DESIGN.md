@@ -1158,7 +1158,7 @@ This section lists the tests for TDD (Test-Driven Development). Each test corres
    +-- mutex->forget()                <- after callbacks are NOT executed
 ```
 
-`ClockAwareEvent::callAfterCallbacksWithExitCode()` runs the after callbacks and releases the mutex on every supported Laravel version. Laravel 9+ releases the mutex only in `Event::run()` / `finish()`, which the worker does not call, so the method calls `removeMutex()` itself.
+`ClockAwareEvent::callAfterCallbacksWithExitCode()` runs the after callbacks and releases the mutex on every supported Laravel version. Laravel 9+ releases the mutex only in `Event::run()` / `finish()`, and the worker calls neither from the scheduler, so the method calls `Event::finish()` itself.
 
 **Supported Laravel Event features**:
 - `before()` / `beforeCallbacks` - Synchronous execution in parent process
@@ -1647,7 +1647,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 | Category | Test Count | Verification Target |
 |----------|-----------|-------------------|
 | Unit/Clock | 13 | SystemClock, Sleeper, FreezableClock |
-| Unit/Scheduling | 111 | ClockAwareEvent, ClockAwareSchedule, ClockAwareTimeFilter, ProcessCommandBuilder, TimezoneResolver, Compatibility |
+| Unit/Scheduling | 113 | ClockAwareEvent, ClockAwareSchedule, ClockAwareTimeFilter, ProcessCommandBuilder, TimezoneResolver, Compatibility |
 | Unit/Console | 20 | GracefulScheduleWorkCommand, ExceptionReporter, UsesClockAwareSchedule |
 | Unit/Dispatcher | 247 | LocalDispatcher, CompositeDispatcher, TrackingDispatcher, StepFunctionsDispatcher, RunningProcessManager, each DispatchResult, StepFunctions sub-classes |
 | Unit/Orchestrator | 28 | DefaultScheduleOrchestrator |
@@ -1656,7 +1656,7 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 | Unit/Logging | 4 | PrefixedLogger |
 | Integration | 45 | Redis integration, moto integration, DI wiring, flow integration, filters pass, schedule compatibility |
 | E2E | 3 | SIGTERM graceful shutdown, background command output |
-| **Total** | **547** | |
+| **Total** | **549** | |
 
 ### Integration Test Environment
 
