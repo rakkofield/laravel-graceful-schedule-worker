@@ -12,7 +12,7 @@ $signalReturnsStatic = (new \ReflectionMethod(\Symfony\Component\Process\Process
 class_alias(
     $signalReturnsStatic
         ? \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcessSymfony6::class
-        : \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcessLaravel7::class,
+        : \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcessSymfony5::class,
     \RakkoInc\LaravelGracefulScheduleWorker\Dispatcher\StubProcess::class
 );
 
