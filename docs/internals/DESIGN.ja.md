@@ -1158,7 +1158,7 @@ StepFunctionsDispatcher 用の結果クラスです。新規開始時は `Starte
    +-- mutex->forget()                <- after コールバックは実行しない
 ```
 
-`ClockAwareEvent::callAfterCallbacksWithExitCode()` は、対応するすべての Laravel の版で after コールバックの実行とロックの解除を行う。Laravel 9 以降はロックを `Event::run()` / `finish()` の中でしか解除せず、ワーカーはどちらも呼ばないため、このメソッドで `removeMutex()` を呼ぶ。
+`ClockAwareEvent::callAfterCallbacksWithExitCode()` は、対応するすべての Laravel の版で after コールバックの実行とロックの解除を行う。Laravel 9 以降はロックを `Event::run()` / `finish()` の中でしか解除せず、ワーカーはどちらもスケジューラ経由では呼ばないため、このメソッドが `Event::finish()` を呼ぶ。
 
 **サポートする Laravel Event 機能**:
 - `before()` / `beforeCallbacks` - 親プロセスで同期実行

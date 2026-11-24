@@ -1158,7 +1158,7 @@ This section lists the tests for TDD (Test-Driven Development). Each test corres
    +-- mutex->forget()                <- after callbacks are NOT executed
 ```
 
-`ClockAwareEvent::callAfterCallbacksWithExitCode()` runs the after callbacks and releases the mutex on every supported Laravel version. Laravel 9+ releases the mutex only in `Event::run()` / `finish()`, which the worker does not call, so the method calls `removeMutex()` itself.
+`ClockAwareEvent::callAfterCallbacksWithExitCode()` runs the after callbacks and releases the mutex on every supported Laravel version. Laravel 9+ releases the mutex only in `Event::run()` / `finish()`, and the worker calls neither from the scheduler, so the method calls `Event::finish()` itself.
 
 **Supported Laravel Event features**:
 - `before()` / `beforeCallbacks` - Synchronous execution in parent process
