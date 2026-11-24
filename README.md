@@ -118,6 +118,18 @@ $app->singleton(
 return $app;
 ```
 
+Laravel discovers the commands in `app/Console/Commands` and `routes/console.php` only for
+its own kernel class, not for a subclass. Load them in the kernel's `commands()`:
+
+```php
+protected function commands()
+{
+    $this->load(__DIR__.'/Commands');
+
+    require base_path('routes/console.php');
+}
+```
+
 Define the tasks in `gracefulSchedule()`. Tasks defined in `routes/console.php` or with
 `withSchedule()` are run by `schedule:run`, but not by the worker.
 
