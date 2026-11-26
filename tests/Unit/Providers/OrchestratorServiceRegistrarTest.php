@@ -14,7 +14,6 @@ use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\SystemClock;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporter;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\ExceptionReporterInterface;
-use RakkoInc\LaravelGracefulScheduleWorker\Console\LegacyExceptionReporter;
 use RakkoInc\LaravelGracefulScheduleWorker\Console\SpyExceptionHandler;
 use RakkoInc\LaravelGracefulScheduleWorker\FakeApplication;
 use RakkoInc\LaravelGracefulScheduleWorker\Logging\PrefixedLogger;
@@ -69,7 +68,7 @@ class OrchestratorServiceRegistrarTest extends TestCase
      */
     public function testRegistersOrchestratorAsSingleton(): void
     {
-        $registrar = new OrchestratorServiceRegistrar($this->app, '10.0.0');
+        $registrar = new OrchestratorServiceRegistrar($this->app);
         $registrar->register();
 
         $this->assertTrue($this->app->bound(ScheduleOrchestratorInterface::class));
@@ -84,7 +83,7 @@ class OrchestratorServiceRegistrarTest extends TestCase
      */
     public function testOrchestratorReturnsSameInstance(): void
     {
-        $registrar = new OrchestratorServiceRegistrar($this->app, '10.0.0');
+        $registrar = new OrchestratorServiceRegistrar($this->app);
         $registrar->register();
 
         $o1 = $this->app->make(ScheduleOrchestratorInterface::class);
@@ -94,35 +93,19 @@ class OrchestratorServiceRegistrarTest extends TestCase
     }
 
     /**
-     * @testdox OSR.3 Registers ExceptionReporter for Laravel 7+
+     * @testdox OSR.3 Registers ExceptionReporter
      */
-    public function testRegistersExceptionReporterForLaravel7Plus(): void
+    public function testRegistersExceptionReporter(): void
     {
         $this->app->singleton(ExceptionHandler::class, function () {
             return new SpyExceptionHandler();
         });
 
-        $registrar = new OrchestratorServiceRegistrar($this->app, '7.0.0');
+        $registrar = new OrchestratorServiceRegistrar($this->app);
         $registrar->register();
 
         $reporter = $this->app->make(ExceptionReporterInterface::class);
         $this->assertInstanceOf(ExceptionReporter::class, $reporter);
-    }
-
-    /**
-     * @testdox OSR.4 Registers LegacyExceptionReporter for Laravel 6
-     */
-    public function testRegistersLegacyExceptionReporterForLaravel6(): void
-    {
-        $this->app->singleton(ExceptionHandler::class, function () {
-            return new SpyExceptionHandler();
-        });
-
-        $registrar = new OrchestratorServiceRegistrar($this->app, '6.20.44');
-        $registrar->register();
-
-        $reporter = $this->app->make(ExceptionReporterInterface::class);
-        $this->assertInstanceOf(LegacyExceptionReporter::class, $reporter);
     }
 
     /**
@@ -134,7 +117,7 @@ class OrchestratorServiceRegistrarTest extends TestCase
             return new SpyExceptionHandler();
         });
 
-        $registrar = new OrchestratorServiceRegistrar($this->app, '10.0.0');
+        $registrar = new OrchestratorServiceRegistrar($this->app);
         $registrar->register();
 
         $this->assertTrue($this->app->isShared(ExceptionReporterInterface::class));

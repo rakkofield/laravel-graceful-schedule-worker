@@ -28,14 +28,13 @@
 | Clock/SleeperTest | `SL` | 4 |
 | Clock/FreezableClockTest | `FC` | 7 |
 | Scheduling/ClockAwareScheduleTest | `CS` | 27 |
-| Scheduling/ClockAwareEventTest | `CE` | 46 |
+| Scheduling/ClockAwareEventTest | `CE` | 48 |
 | Scheduling/ProcessCommandBuilderTest | `PCB` | 7 |
 | Scheduling/ClockAwareTimeFilterTest | `TF` | 13 |
 | Scheduling/TimezoneResolverTest | `TR` | 6 |
 | Scheduling/ClockAwareEventCompatibilityTest | `CEC` | 29 |
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
 | Console/ExceptionReporterTest | `ER` | 4 |
-| Console/LegacyExceptionReporterTest | `LER` | 4 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
 | Console/UsesClockAwareScheduleTest | `UCS` | 11 |
 | Dispatcher/LocalDispatcherTest | `LD` | 41 |
@@ -65,10 +64,10 @@
 | Dispatcher/StepFunctions/StartExecutionResultTest | `SER` | 3 |
 | Logging/PrefixedLoggerTest | `PL` | 4 |
 | Providers/DispatcherServiceRegistrarTest | `DSR` | 5 |
-| Providers/OrchestratorServiceRegistrarTest | `OSR` | 5 |
+| Providers/OrchestratorServiceRegistrarTest | `OSR` | 4 |
 | Providers/TrackerServiceRegistrarTest | `TSR` | 5 |
 | Providers/StepFunctionsServiceProviderTest | `SFP` | 22 |
-| Providers/GracefulScheduleWorkerProviderTest | `GP` | 20 |
+| Providers/GracefulScheduleWorkerProviderTest | `GP` | 19 |
 | Orchestrator/DefaultScheduleOrchestratorTest | `DO` | 28 |
 | Tracker/CacheExecutionTrackerTest | `CT` | 22 |
 | Tracker/NullExecutionTrackerTest | `NT` | 4 |
@@ -94,7 +93,7 @@
 | BackgroundCommandOutputTest | `E2E` | 2 |
 | StepFunctionsExecutionE2ETest | `E2E` | 4 |
 | StepFunctionsLambdaTaskE2ETest | `E2E` | 1 |
-| WithoutOverlappingE2ETest | `E2E` | 1 |
+| WithoutOverlappingE2ETest | `E2E` | 2 |
 
 ## TI Prefix Number Ranges
 
@@ -116,4 +115,4 @@ The `E2E` prefix is shared across all end-to-end test files. Number ranges keep 
 | BackgroundCommandOutputTest | E2E.2 - E2E.3 |
 | StepFunctionsExecutionE2ETest | E2E.10 - E2E.12, E2E.14 |
 | StepFunctionsLambdaTaskE2ETest | E2E.13 |
-| WithoutOverlappingE2ETest | E2E.15 |
+| WithoutOverlappingE2ETest | E2E.15 - E2E.16 |

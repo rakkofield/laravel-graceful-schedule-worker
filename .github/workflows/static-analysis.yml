@@ -73,6 +73,12 @@ jobs:
                   key: ${{ runner.os }}-8.1-composer-${{ hashFiles('composer.lock') }}
                   restore-keys: ${{ runner.os }}-8.1-composer-
 
+            # The package supports several Laravel versions, and phpstan can only
+            # analyse against one. Pin it so the result does not change with the
+            # newest Laravel that PHP 8.1 can install.
+            - name: Set laravel/framework version for analysis
+              run: composer require --dev laravel/framework:^8.0 --no-interaction --no-update
+
             - name: Install dependencies
               run: composer install --prefer-dist --no-interaction
 

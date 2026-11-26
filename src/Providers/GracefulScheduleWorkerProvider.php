@@ -24,16 +24,14 @@ class GracefulScheduleWorkerProvider extends ServiceProvider
         $this->registerClock();
         $this->registerLogger();
 
-        // Note: basePath()/version() are available for Foundation\Application
-        // When using Container only (e.g., tests), basePath is null, version defaults to '0.0.0'
+        // Note: basePath() is available for Foundation\Application
+        // When using Container only (e.g., tests), basePath is null
         // @phpstan-ignore function.alreadyNarrowedType (tests may use Container)
         $basePath = method_exists($this->app, 'basePath') ? $this->app->basePath() : null;
-        // @phpstan-ignore function.alreadyNarrowedType (tests may use Container)
-        $appVersion = method_exists($this->app, 'version') ? $this->app->version() : '0.0.0';
 
         (new DispatcherServiceRegistrar($this->app, $basePath))->register();
         (new TrackerServiceRegistrar($this->app))->register();
-        (new OrchestratorServiceRegistrar($this->app, $appVersion))->register();
+        (new OrchestratorServiceRegistrar($this->app))->register();
     }
 
     /**

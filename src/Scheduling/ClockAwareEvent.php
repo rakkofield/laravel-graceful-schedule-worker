@@ -341,8 +341,9 @@ class ClockAwareEvent extends Event
     /**
      * Call after callbacks with exit code (backward-compatible).
      *
-     * Provides compatibility with Laravel 6 which does not have
-     * callAfterCallbacksWithExitCode on the Event class.
+     * Laravel 8 has Event::callAfterCallbacksWithExitCode() and Laravel 9+ has
+     * Event::finish() in its place. Both set the exit code, call the after
+     * callbacks and release the withoutOverlapping() mutex.
      *
      * @param Container $container
      * @param int $exitCode
@@ -352,13 +353,15 @@ class ClockAwareEvent extends Event
     {
         // @phpstan-ignore function.alreadyNarrowedType
         if (method_exists(Event::class, 'callAfterCallbacksWithExitCode')) {
+            // The parent releases the withoutOverlapping() mutex, either by
+            // removeMutex() inside this method (later 8.x) or by the after
+            // callback that withoutOverlapping() registers (earlier 8.x).
             parent::callAfterCallbacksWithExitCode($container, $exitCode);
             return;
         }
 
-        // Laravel 6 fallback: set exitCode and call afterCallbacks
-        $this->exitCode = (int) $exitCode;
-        parent::callAfterCallbacks($container);
+        // @phpstan-ignore staticMethod.notFound (Laravel 9+)
+        parent::finish($container, $exitCode);
     }
 
     /**

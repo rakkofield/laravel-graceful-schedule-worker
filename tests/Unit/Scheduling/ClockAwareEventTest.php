@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use Illuminate\Container\Container;
 use PHPUnit\Framework\TestCase;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FixedClock;
+use RuntimeException;
 
 class ClockAwareEventTest extends TestCase
 {
@@ -892,6 +893,43 @@ class ClockAwareEventTest extends TestCase
 
         $this->assertSame(1800, $event->resolveLockTtlSeconds(3600));
         $this->assertSame(600, $event->getTaskTimeoutSeconds());
+    }
+
+    /**
+     * @testdox CE.44 callAfterCallbacksWithExitCode releases the withoutOverlapping mutex
+     */
+    public function testCallAfterCallbacksWithExitCodeReleasesMutex(): void
+    {
+        $event = $this->createEventForTimeout();
+        $event->withoutOverlapping();
+        $this->assertTrue($this->mutex->create($event));
+
+        $event->callAfterCallbacksWithExitCode(new Container(), 0);
+
+        $this->assertFalse($this->mutex->exists($event));
+        $this->assertSame(0, $event->exitCode);
+    }
+
+    /**
+     * @testdox CE.45 callAfterCallbacksWithExitCode releases the mutex even when an after callback throws
+     */
+    public function testCallAfterCallbacksWithExitCodeReleasesMutexWhenCallbackThrows(): void
+    {
+        $event = $this->createEventForTimeout();
+        $event->withoutOverlapping()->after(function () {
+            throw new RuntimeException('after callback failed');
+        });
+        $this->assertTrue($this->mutex->create($event));
+
+        try {
+            $event->callAfterCallbacksWithExitCode(new Container(), 1);
+            $this->fail('The exception from the after callback should propagate');
+        } catch (RuntimeException $e) {
+            $this->assertSame('after callback failed', $e->getMessage());
+        }
+
+        $this->assertFalse($this->mutex->exists($event));
+        $this->assertSame(1, $event->exitCode);
     }
 
     private function createEventForTimeout(): ClockAwareEvent

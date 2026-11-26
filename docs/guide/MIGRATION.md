@@ -339,4 +339,4 @@ It is not required, but **strongly recommended**. Without `runInBackground()`, t
 
 - The recovery feature operates with **at-least-once semantics**. Design recovery-target tasks to be idempotent.
 - `ext-pcntl` is required (used for signal handling).
-- PHP 7.2.5 or later is required.
+- PHP 7.3 or later is required.
