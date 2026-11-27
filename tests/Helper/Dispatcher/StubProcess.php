@@ -7,9 +7,9 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Dispatcher;
 use Symfony\Component\Process\Process;
 
 /**
- * StubProcess for Symfony Process 5 (Laravel 8) — typed signal/stop signatures.
+ * Process stub whose running state, signals and stop() are controlled by the test.
  */
-class StubProcessSymfony5 extends Process
+class StubProcess extends Process
 {
     use StubProcessBehavior;
 
@@ -24,11 +24,13 @@ class StubProcessSymfony5 extends Process
 
     /**
      * @param int $signal
-     * @return void
+     * @return static
      */
-    public function signal(int $signal): void
+    public function signal(int $signal): static
     {
         $this->doSignal($signal);
+
+        return $this;
     }
 
     /**
@@ -36,7 +38,7 @@ class StubProcessSymfony5 extends Process
      * @param int|null $signal
      * @return int|null
      */
-    public function stop(float $timeout = 10, int $signal = null): ?int
+    public function stop(float $timeout = 10, ?int $signal = null): ?int
     {
         return $this->doStop();
     }

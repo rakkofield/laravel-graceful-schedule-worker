@@ -6,13 +6,13 @@ This guide provides step-by-step instructions for setting up `laravel-graceful-s
 
 ### Target Audience
 
-- Developers running scheduled tasks on Laravel 8.x - 10.x
+- Developers running scheduled tasks on Laravel 10.x - 12.x
 - Those who want to run the scheduler in container environments such as ECS / Kubernetes
 
 ### Prerequisites
 
-- PHP ^7.3 || ~8.0
-- Laravel 8.x - 10.x
+- PHP ^8.1
+- Laravel 10.x - 12.x
 - ext-pcntl (required for signal handling)
 
 ---
@@ -92,6 +92,8 @@ There are only 3 changes:
 1. Add the `UsesClockAwareSchedule` trait
 2. Rename `schedule()` to `gracefulSchedule()` (contents remain mostly the same)
 3. Add `runInBackground()` (recommended)
+
+> **Laravel 11+:** An application created from the Laravel 11+ skeleton has no `app/Console/Kernel.php`. Create it as above and register it in `bootstrap/app.php` (see [README](../../README.md#3-update-your-kernel)). Load the commands in `app/Console/Commands` and `routes/console.php` in the kernel's `commands()`, because Laravel does not discover them for your own kernel. Define the tasks in `gracefulSchedule()`: tasks defined in `routes/console.php` or with `withSchedule()` are not run by the worker. If your kernel defines its own `bootstrap()`, call `parent::bootstrap()` and then `$this->registerClockAwareSchedule()` in it.
 
 > **Hint:** If you have many tasks, you can keep `schedule()` as-is and gradually move tasks to `gracefulSchedule()`. See [MIGRATION.md](./MIGRATION.md#choosing-a-migration-method) for details.
 

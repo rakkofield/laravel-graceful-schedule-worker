@@ -264,8 +264,9 @@ class ClockAwareEvent extends Event
         if ($this->rawCommand !== null) {
             return $this->rawCommand;
         }
-        $tokens = self::splitCommandString($this->command);
-        return $tokens === [] ? [$this->command] : $tokens;
+        $command = (string) $this->command;
+        $tokens = self::splitCommandString($command);
+        return $tokens === [] ? [$command] : $tokens;
     }
 
     /**
@@ -339,11 +340,11 @@ class ClockAwareEvent extends Event
     }
 
     /**
-     * Call after callbacks with exit code (backward-compatible).
+     * Call after callbacks with exit code.
      *
-     * Laravel 8 has Event::callAfterCallbacksWithExitCode() and Laravel 9+ has
-     * Event::finish() in its place. Both set the exit code, call the after
-     * callbacks and release the withoutOverlapping() mutex.
+     * Laravel 9+ has no Event::callAfterCallbacksWithExitCode(), so this calls
+     * Event::finish(), which sets the exit code, calls the after callbacks and
+     * releases the withoutOverlapping() mutex.
      *
      * @param Container $container
      * @param int $exitCode
@@ -351,16 +352,6 @@ class ClockAwareEvent extends Event
      */
     public function callAfterCallbacksWithExitCode(Container $container, $exitCode)
     {
-        // @phpstan-ignore function.alreadyNarrowedType
-        if (method_exists(Event::class, 'callAfterCallbacksWithExitCode')) {
-            // The parent releases the withoutOverlapping() mutex, either by
-            // removeMutex() inside this method (later 8.x) or by the after
-            // callback that withoutOverlapping() registers (earlier 8.x).
-            parent::callAfterCallbacksWithExitCode($container, $exitCode);
-            return;
-        }
-
-        // @phpstan-ignore staticMethod.notFound (Laravel 9+)
         parent::finish($container, $exitCode);
     }
 

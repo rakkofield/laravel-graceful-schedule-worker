@@ -148,4 +148,16 @@ class ScheduleRunCompatibilityIntegrationTest extends TestCase
         $this->assertCount(1, $events);
         $this->assertInstanceOf(ClockAwareEvent::class, $events[0]);
     }
+
+    /**
+     * @testdox TI.23 A second Kernel::bootstrap() keeps the already resolved ClockAwareSchedule instance
+     */
+    public function testSecondBootstrapKeepsResolvedClockAwareSchedule(): void
+    {
+        $first = $this->app->make(ClockAwareSchedule::class);
+
+        $this->app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+        $this->assertSame($first, $this->app->make(ClockAwareSchedule::class));
+    }
 }

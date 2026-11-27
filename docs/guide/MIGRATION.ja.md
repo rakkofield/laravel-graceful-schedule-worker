@@ -339,4 +339,4 @@ $schedule->command('users:prune-recent')->daily()
 
 - リカバリ機能は **At-least-once セマンティック** で動作します。リカバリ対象のタスクは冪等に設計してください。
 - `ext-pcntl` が必須です（シグナルハンドリングに使用）。
-- PHP 7.3 以上が必要です。
+- PHP 8.1 以上が必要です。

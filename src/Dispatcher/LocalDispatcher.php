@@ -155,7 +155,7 @@ class LocalDispatcher implements ScheduleDispatcherInterface
 
             return $this->resultFactory->failed(
                 $identifier,
-                $event->command,
+                (string) $event->command,
                 $e,
                 $dispatchedAt
             );

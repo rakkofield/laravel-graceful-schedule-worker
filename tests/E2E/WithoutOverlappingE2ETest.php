@@ -29,23 +29,26 @@ use Symfony\Component\Process\Process;
  */
 final class WithoutOverlappingE2ETest extends TestCase
 {
-    private const SKELETON_PATH = __DIR__ . '/../../skeleton';
-    private const LOG_PATH = self::SKELETON_PATH . '/storage/logs/laravel.log';
     private const MAX_WAIT_SECONDS = 200;
     private const POLL_INTERVAL_MICROSECONDS = 500000; // 500ms
 
     /** @var Process|null */
     private $worker;
 
+    private static function logPath(): string
+    {
+        return SkeletonPath::get() . '/storage/logs/laravel.log';
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
-        @unlink(self::LOG_PATH);
+        @unlink(self::logPath());
 
         // A mutex left in the file cache by an earlier run (e.g. one where
         // release was broken) would skip the tasks for up to 24 hours, so
         // remove the file cache entries first.
-        $path = self::SKELETON_PATH . '/storage/framework/cache';
+        $path = SkeletonPath::get() . '/storage/framework/cache';
         (new Process(['find', $path, '-type', 'f', '!', '-name', '.gitignore', '-delete']))->run();
     }
 
@@ -60,11 +63,11 @@ final class WithoutOverlappingE2ETest extends TestCase
 
     private function runCount(string $name): int
     {
-        if (!file_exists(self::LOG_PATH)) {
+        if (!file_exists(self::logPath())) {
             return 0;
         }
 
-        return substr_count((string) file_get_contents(self::LOG_PATH), 'e2e:record ' . $name . ' ');
+        return substr_count((string) file_get_contents(self::logPath()), 'e2e:record ' . $name . ' ');
     }
 
     /**
@@ -78,7 +81,7 @@ final class WithoutOverlappingE2ETest extends TestCase
         $phpBinary = (new PhpExecutableFinder())->find(false);
         $this->worker = new Process(
             [$phpBinary, 'artisan', 'schedule:graceful-work'],
-            self::SKELETON_PATH,
+            SkeletonPath::get(),
             $env
         );
         $this->worker->setTimeout(null);
@@ -125,7 +128,7 @@ final class WithoutOverlappingE2ETest extends TestCase
     private static function fileCacheEntries(): array
     {
         $process = new Process(
-            ['find', self::SKELETON_PATH . '/storage/framework/cache', '-type', 'f', '!', '-name', '.gitignore']
+            ['find', SkeletonPath::get() . '/storage/framework/cache', '-type', 'f', '!', '-name', '.gitignore']
         );
         $process->run();
 
@@ -154,7 +157,7 @@ final class WithoutOverlappingE2ETest extends TestCase
         }
 
         $counts = $this->runWorkerOverTwoMinutes([
-            // Laravel 8-10 read CACHE_DRIVER, Laravel 11+ CACHE_STORE
+            // Laravel 10 reads CACHE_DRIVER, Laravel 11+ CACHE_STORE
             'CACHE_DRIVER' => 'redis',
             'CACHE_STORE' => 'redis',
             // A fresh prefix keeps a mutex left in Redis by an earlier run from skipping the tasks
