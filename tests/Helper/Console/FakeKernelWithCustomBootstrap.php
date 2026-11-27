@@ -13,16 +13,13 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
  *
  * The kernel's bootstrap() replaces the one from UsesClockAwareSchedule.
  * It calls parent::bootstrap() and then registerClockAwareSchedule(), unless
- * $registerInBootstrap is false (a kernel written before the trait added bootstrap()).
+ * $registerInBootstrap is false.
  *
- * Extends StubConsoleKernel so that parent::bootstrap() and
- * parent::defineConsoleSchedule() work.
+ * Extends StubConsoleKernel so that parent::bootstrap() works.
  */
 class FakeKernelWithCustomBootstrap extends StubConsoleKernel
 {
-    use UsesClockAwareSchedule {
-        defineConsoleSchedule as public;
-    }
+    use UsesClockAwareSchedule;
 
     /** @var Container Stub for ConsoleKernel::$app */
     public $app;

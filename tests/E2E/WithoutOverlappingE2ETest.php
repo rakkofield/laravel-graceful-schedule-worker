@@ -157,7 +157,7 @@ final class WithoutOverlappingE2ETest extends TestCase
         }
 
         $counts = $this->runWorkerOverTwoMinutes([
-            // Laravel 10 reads CACHE_DRIVER, Laravel 11+ CACHE_STORE
+            // skeleton reads CACHE_DRIVER, skeleton-l11 CACHE_STORE
             'CACHE_DRIVER' => 'redis',
             'CACHE_STORE' => 'redis',
             // A fresh prefix keeps a mutex left in Redis by an earlier run from skipping the tasks

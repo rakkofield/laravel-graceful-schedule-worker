@@ -10,19 +10,20 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 /**
  * Fake Kernel for testing the UsesClockAwareSchedule trait
  *
- * Extends StubConsoleKernel so that parent::defineConsoleSchedule() works.
+ * Extends StubConsoleKernel so that parent::bootstrap() works.
  */
 class FakeKernelWithTrait extends StubConsoleKernel
 {
-    use UsesClockAwareSchedule {
-        defineConsoleSchedule as public;
-    }
+    use UsesClockAwareSchedule;
 
     /** @var Container Stub for ConsoleKernel::$app */
     public $app;
 
     /** @var ClockAwareSchedule|null Schedule received in gracefulSchedule() */
     public $receivedSchedule;
+
+    /** @var callable|null Called with the schedule in gracefulSchedule(), to define tasks */
+    public $defineTasks;
 
     /** @var \DateTimeZone|string|null Return value for scheduleTimezone() */
     private $timezone;
@@ -53,6 +54,10 @@ class FakeKernelWithTrait extends StubConsoleKernel
     protected function gracefulSchedule(ClockAwareSchedule $schedule)
     {
         $this->receivedSchedule = $schedule;
+
+        if ($this->defineTasks !== null) {
+            ($this->defineTasks)($schedule);
+        }
     }
 
     /**

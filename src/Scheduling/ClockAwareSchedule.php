@@ -6,8 +6,10 @@ namespace RakkoInc\LaravelGracefulScheduleWorker\Scheduling;
 
 use DateTimeImmutable;
 use Illuminate\Console\Application;
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
+use Illuminate\Support\Collection;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\ClockInterface;
 use RakkoInc\LaravelGracefulScheduleWorker\Clock\FreezableClock;
 
@@ -24,6 +26,9 @@ class ClockAwareSchedule extends Schedule
 
     /** @var TimezoneResolver */
     private $timezoneResolver;
+
+    /** @var int|null Number of events kept by stopAcceptingEvents(); null until it is called */
+    private $acceptedEventCount;
 
     /**
      * @param ClockInterface $clock
@@ -110,7 +115,45 @@ class ClockAwareSchedule extends Schedule
     {
         /** @var ClockAwareEvent[] $events */
         $events = parent::events();
+
+        if ($this->acceptedEventCount !== null) {
+            $events = array_slice($events, 0, $this->acceptedEventCount);
+        }
+
         return $events;
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * Overridden because the parent reads the events property directly in most
+     * Laravel versions (e.g. 13.0), which would include the events ignored by
+     * stopAcceptingEvents().
+     *
+     * @param \Illuminate\Contracts\Foundation\Application $app
+     * @return Collection<int, ClockAwareEvent>
+     */
+    public function dueEvents($app)
+    {
+        return (new Collection($this->events()))->filter(function (Event $event) use ($app) {
+            return $event->isDue($app);
+        });
+    }
+
+    /**
+     * Ignore the events added after this call.
+     *
+     * Called once gracefulSchedule() has defined the schedule. On Laravel 13,
+     * withSchedule() in bootstrap/app.php registers its callback with
+     * afterResolving(Schedule::class), and the container also runs it for this
+     * subclass. Without this, the tasks defined there would also be run by the
+     * worker. They are left to schedule:run, as on Laravel 12.
+     *
+     * @return void
+     */
+    public function stopAcceptingEvents(): void
+    {
+        $this->acceptedEventCount = count($this->events);
     }
 
     /**

@@ -690,7 +690,7 @@ sequenceDiagram
 
 **重要なポイント**:
 
-1. **型安全性**: `UsesClockAwareSchedule` trait が `defineConsoleSchedule()` を自動オーバーライドし `ClockAwareSchedule` を登録。`gracefulSchedule(ClockAwareSchedule $schedule)` メソッドにより完全な型ヒントで IDE 補完と静的解析が効く
+1. **型安全性**: `UsesClockAwareSchedule` trait がカーネルの `bootstrap()` をオーバーライドし `ClockAwareSchedule` を登録。`gracefulSchedule(ClockAwareSchedule $schedule)` メソッドにより完全な型ヒントで IDE 補完と静的解析が効く
 2. **テスタビリティ**: `ClockInterface` により時刻を固定でき、決定論的なテストが可能
 3. **拡張性**: Dispatcher パターンにより、新しい実行方法（例: Kubernetes Job）を簡単に追加可能
 4. **信頼性**: ExecutionTracker により At-least-once セマンティックを実現し、取りこぼしを防止
@@ -1098,7 +1098,7 @@ StepFunctionsDispatcher 用の結果クラスです。新規開始時は `Starte
 
 **重要なポイント**:
 - 利用側は `Kernel.php` で `UsesClockAwareSchedule` trait を使用し、`gracefulSchedule(ClockAwareSchedule $schedule)` を実装する
-- trait が `defineConsoleSchedule()` をオーバーライドし `ClockAwareSchedule` を `Schedule` シングルトンとして自動登録する
+- trait がカーネルの `bootstrap()` をオーバーライドし、`ClockAwareSchedule::class` を `Schedule::class` とは別のシングルトンとして登録する
 - 完全な型ヒントで IDE 補完と静的解析ツールのサポートを維持
 - 後方互換性を保ちながら段階的な移行が可能
 
@@ -1697,7 +1697,7 @@ Laravel の `ManagesFrequencies` トレイトには `Carbon::now()` を直接使
 
 ### 基本的な使い方
 
-`UsesClockAwareSchedule` trait を使うと、`defineConsoleSchedule()` のボイラープレートが不要になります。
+`UsesClockAwareSchedule` trait を使うと、`ClockAwareSchedule` を自分で登録する必要がありません。
 `gracefulSchedule(ClockAwareSchedule $schedule)` を実装するだけで完全な型ヒント付きスケジュール定義が可能です。
 
 ```php

@@ -10,11 +10,10 @@ use Illuminate\Container\Container;
 /**
  * Lightweight stub of ConsoleKernel for testing UsesClockAwareSchedule trait.
  *
- * Provides the same defineConsoleSchedule() as Laravel's ConsoleKernel
- * so that parent::defineConsoleSchedule() works in the trait, and an empty
- * bootstrap() so that parent::bootstrap() works.
+ * bootstrap() registers Schedule::class with resolveConsoleSchedule(), as
+ * FoundationServiceProvider does, so that tests only need to call bootstrap().
  *
- * Prerequisite: $this->app must be set before calling defineConsoleSchedule().
+ * Prerequisite: $this->app must be set before calling bootstrap().
  */
 class StubConsoleKernel
 {
@@ -24,22 +23,24 @@ class StubConsoleKernel
     /**
      * @return void
      */
-    protected function defineConsoleSchedule()
+    public function bootstrap()
     {
         $this->app->singleton(Schedule::class, function () {
-            $schedule = new Schedule($this->scheduleTimezone());
-            $schedule->useCache($this->scheduleCache());
-            $this->schedule($schedule);
-            return $schedule;
+            return $this->resolveConsoleSchedule();
         });
     }
 
     /**
-     * @return void
+     * Same as Laravel's ConsoleKernel::resolveConsoleSchedule().
+     *
+     * @return Schedule
      */
-    public function bootstrap()
+    public function resolveConsoleSchedule()
     {
-        //
+        $schedule = new Schedule($this->scheduleTimezone());
+        $schedule->useCache($this->scheduleCache());
+        $this->schedule($schedule);
+        return $schedule;
     }
 
     /**
