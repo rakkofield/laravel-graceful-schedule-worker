@@ -36,7 +36,7 @@
 | Scheduling/ClockAwareScheduleCompatibilityTest | `CSC` | 10 |
 | Console/ExceptionReporterTest | `ER` | 4 |
 | Console/GracefulScheduleWorkCommandTest | `GC` | 5 |
-| Console/UsesClockAwareScheduleTest | `UCS` | 11 |
+| Console/UsesClockAwareScheduleTest | `UCS` | 17 |
 | Dispatcher/LocalDispatcherTest | `LD` | 41 |
 | Dispatcher/CompositeDispatcherTest | `CD` | 14 |
 | Dispatcher/TrackingDispatcherTest | `TD` | 20 |
@@ -75,7 +75,7 @@
 |---|---|---|
 | Orchestrator/OrchestratorFlowIntegrationTest | `TI` | 5 |
 | Orchestrator/OrchestratorFiltersPassIntegrationTest | `TI` | 6 |
-| Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 7 |
+| Scheduling/ScheduleRunCompatibilityIntegrationTest | `TI` | 8 |
 | Dispatcher/StepFunctionsDispatcherIntegrationTest | `SFI` | 10 |
 | Dispatcher/TrackingDispatcherRedisIntegrationTest | `TDI` | 6 |
 | Tracker/CacheExecutionTrackerRedisTest | `CTI` | 7 |
@@ -98,4 +98,4 @@
 |---|---|
 | OrchestratorFlowIntegrationTest | TI.1〜TI.4, TI.20 |
 | OrchestratorFiltersPassIntegrationTest | TI.5〜TI.10 |
-| ScheduleRunCompatibilityIntegrationTest | TI.11〜TI.15, TI.21〜TI.22 |
+| ScheduleRunCompatibilityIntegrationTest | TI.11〜TI.15, TI.21〜TI.23 |
