@@ -1648,15 +1648,15 @@ REDIS_HOST=your-elasticache-endpoint.cache.amazonaws.com
 |----------|-----------|-------------------|
 | Unit/Clock | 13 | SystemClock, Sleeper, FreezableClock |
 | Unit/Scheduling | 113 | ClockAwareEvent, ClockAwareSchedule, ClockAwareTimeFilter, ProcessCommandBuilder, TimezoneResolver, Compatibility |
-| Unit/Console | 20 | GracefulScheduleWorkCommand, ExceptionReporter, UsesClockAwareSchedule |
+| Unit/Console | 26 | GracefulScheduleWorkCommand, ExceptionReporter, UsesClockAwareSchedule |
 | Unit/Dispatcher | 247 | LocalDispatcher, CompositeDispatcher, TrackingDispatcher, StepFunctionsDispatcher, RunningProcessManager, each DispatchResult, StepFunctions sub-classes |
 | Unit/Orchestrator | 28 | DefaultScheduleOrchestrator |
 | Unit/Tracker | 26 | CacheExecutionTracker, NullExecutionTracker |
 | Unit/Providers | 44 | GracefulScheduleWorkerProvider, DispatcherServiceRegistrar, OrchestratorServiceRegistrar, TrackerServiceRegistrar, StepFunctionsServiceProvider |
 | Unit/Logging | 4 | PrefixedLogger |
-| Integration | 45 | Redis integration, moto integration, DI wiring, flow integration, filters pass, schedule compatibility |
+| Integration | 46 | Redis integration, moto integration, DI wiring, flow integration, filters pass, schedule compatibility |
 | E2E | 3 | SIGTERM graceful shutdown, background command output |
-| **Total** | **549** | |
+| **Total** | **556** | |
 
 ### Integration Test Environment
 

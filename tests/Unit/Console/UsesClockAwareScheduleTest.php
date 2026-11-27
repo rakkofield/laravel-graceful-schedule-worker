@@ -16,6 +16,7 @@ use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareEvent;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\ClockAwareSchedule;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeEventMutex;
 use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\FakeSchedulingMutex;
+use RakkoInc\LaravelGracefulScheduleWorker\Scheduling\TimezoneResolver;
 
 class UsesClockAwareScheduleTest extends TestCase
 {
@@ -247,7 +248,88 @@ class UsesClockAwareScheduleTest extends TestCase
     }
 
     /**
-     * @testdox UCS.12 Tasks added by an afterResolving(Schedule::class) callback are not in ClockAwareSchedule
+     * @testdox UCS.12 bootstrap() alone registers ClockAwareSchedule with gracefulSchedule() events (Laravel 11+)
+     */
+    public function testBootstrapAloneRegistersClockAwareSchedule(): void
+    {
+        $kernel = new FakeKernelWithGradualMigration();
+        $kernel->bootstrap();
+
+        /** @var ClockAwareSchedule $schedule */
+        $schedule = $this->container->make(ClockAwareSchedule::class);
+
+        $this->assertInstanceOf(ClockAwareSchedule::class, $schedule);
+        $this->assertCount(1, $schedule->events());
+        $this->assertInstanceOf(ClockAwareEvent::class, $schedule->events()[0]);
+    }
+
+    /**
+     * @testdox UCS.13 A second bootstrap() keeps the already resolved ClockAwareSchedule instance
+     */
+    public function testSecondBootstrapKeepsResolvedInstance(): void
+    {
+        $kernel = new FakeKernelWithGradualMigration();
+
+        $kernel->bootstrap();
+        $first = $this->container->make(ClockAwareSchedule::class);
+
+        $kernel->bootstrap();
+        $second = $this->container->make(ClockAwareSchedule::class);
+
+        $this->assertSame($first, $second);
+        $this->assertCount(1, $kernel->gracefulScheduleEvents);
+    }
+
+    /**
+     * @testdox UCS.15 bootstrap() does not replace a ClockAwareSchedule::class binding made beforehand
+     */
+    public function testBootstrapDoesNotReplaceExistingBinding(): void
+    {
+        $existing = new ClockAwareSchedule(
+            $this->container->make(ClockInterface::class),
+            'local',
+            null,
+            new TimezoneResolver()
+        );
+        $this->container->instance(ClockAwareSchedule::class, $existing);
+
+        $kernel = new FakeKernelWithGradualMigration();
+        $kernel->bootstrap();
+
+        $this->assertSame($existing, $this->container->make(ClockAwareSchedule::class));
+        $this->assertCount(0, $kernel->gracefulScheduleEvents);
+    }
+
+    /**
+     * @testdox UCS.16 A kernel's own bootstrap() calling registerClockAwareSchedule() registers it (README)
+     */
+    public function testCustomBootstrapCallingRegisterRegistersClockAwareSchedule(): void
+    {
+        $kernel = new FakeKernelWithCustomBootstrap();
+        $kernel->bootstrap();
+
+        /** @var ClockAwareSchedule $schedule */
+        $schedule = $this->container->make(ClockAwareSchedule::class);
+
+        $this->assertTrue($kernel->customBootstrapped);
+        $this->assertCount(1, $schedule->events());
+        $this->assertInstanceOf(ClockAwareEvent::class, $schedule->events()[0]);
+    }
+
+    /**
+     * @testdox UCS.17 A kernel's own bootstrap() not calling registerClockAwareSchedule() leaves it unregistered
+     */
+    public function testCustomBootstrapNotCallingRegisterLeavesClockAwareScheduleUnbound(): void
+    {
+        $kernel = new FakeKernelWithCustomBootstrap(false);
+        $kernel->bootstrap();
+
+        $this->assertTrue($kernel->customBootstrapped);
+        $this->assertFalse($this->container->bound(ClockAwareSchedule::class));
+    }
+
+    /**
+     * @testdox UCS.18 Tasks added by an afterResolving(Schedule::class) callback are not in ClockAwareSchedule
      */
     public function testTasksAddedByAfterResolvingCallbackAreIgnored(): void
     {
